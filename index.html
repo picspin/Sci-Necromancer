@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Academic Submission Generator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              'brand-primary': '#007A7A',
+              'brand-secondary': '#004D4D',
+              'base-100': '#0F172A', // slate-900
+              'base-200': '#1E293B', // slate-800
+              'base-300': '#334155', // slate-700
+              'text-primary': '#F1F5F9', // slate-100
+              'text-secondary': '#94A3B8', // slate-400
+              'category-main': '#ffff00',
+              'category-sub': '#ffa500',
+              'category-secondary': '#ffc0cb',
+            },
+            keyframes: {
+              fadeIn: {
+                '0%': { opacity: '0', transform: 'translateY(10px)' },
+                '100%': { opacity: '1', transform: 'translateY(0)' },
+              },
+              modalShow: {
+                '0%': { opacity: '0', transform: 'scale(0.95)' },
+                '100%': { opacity: '1', transform: 'scale(1)' },
+              },
+            },
+            animation: {
+              'fade-in': 'fadeIn 0.5s ease-out forwards',
+              'modal-show': 'modalShow 0.3s ease-out forwards',
+            },
+          },
+        },
+      }
+    </script>
+    <style>
+      /* Custom scrollbar for a better look */
+      ::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+      }
+      ::-webkit-scrollbar-track {
+        background: #1e293b; /* base-200 */
+      }
+      ::-webkit-scrollbar-thumb {
+        background-color: #334155; /* base-300 */
+        border-radius: 4px;
+        border: 2px solid #1e293b; /* base-200 */
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background-color: #475569; /* slate-600 */
+      }
+      .prose {
+        color: #94A3B8; /* text-secondary */
+      }
+      .prose h1, .prose h2, .prose h3, .prose h4, .prose h5, .prose h6 {
+        color: #F1F5F9; /* text-primary */
+      }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.27.0",
+    "react-dom": "https://aistudiocdn.com/react-dom@^19.2.0"
+  }
+}
+</script>
+</head>
+  <body class="bg-base-100 text-text-primary">
+    <div id="root"></div>
+    <script type="module" src="/index.tsx"></script>
+  </body>
+</html>

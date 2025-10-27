@@ -1,0 +1,42 @@
+export type GenerationMode = 'standard' | 'creative';
+export type Conference = 'ISMRM' | 'RSNA' | 'JACC';
+export type AbstractType = 'Standard Abstract' | 'MRI in Clinical Practice Abstract' | 'ISMRT Abstract' | 'Registered Abstract';
+
+export interface AbstractData {
+  impact: string;
+  synopsis: string;
+  keywords: string[];
+}
+
+export interface ImageState {
+  file: File | null;
+  specs: string;
+  base64: string | null;
+}
+
+// New types for the workflow
+export interface AnalysisResult {
+  categories: Category[];
+  keywords: string[];
+}
+
+export interface Category {
+  name: string;
+  type: 'main' | 'sub' | 'secondary';
+  probability: number;
+}
+
+export interface AbstractTypeSuggestion {
+    type: AbstractType;
+    probability: number;
+}
+
+// New types for Model Manager Settings
+export type AIProvider = 'google' | 'openai';
+
+export interface Settings {
+    provider: AIProvider;
+    openAITextModel: string;
+    openAIVisionModel: string;
+    databaseUrl: string;
+}

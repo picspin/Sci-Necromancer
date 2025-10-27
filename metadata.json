@@ -1,0 +1,5 @@
+{
+  "name": "Sci-Necromancer",
+  "description": "An LLM-powered system to automate the creation, extraction, and rewriting of scientific abstracts and figures for academic conferences like ISMRM. It features standard modes for processing existing content and creative modes for generating new content from minimal prompts.",
+  "requestFramePermissions": []
+}
