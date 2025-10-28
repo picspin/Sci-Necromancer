@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Sci-Necromancer - Academic Submission Generator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              'brand-primary': '#007A7A',
+              'brand-secondary': '#004D4D',
+              'base-100': '#0F172A',
+              'base-200': '#1E293B',
+              'base-300': '#334155',
+              'text-primary': '#F1F5F9',
+              'text-secondary': '#94A3B8',
+              'category-main': '#ffff00',
+              'category-sub': '#ffa500',
+              'category-secondary': '#ffc0cb',
+            },
+          },
+        },
+      }
+    </script>
+    <style>
+      ::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+      }
+      ::-webkit-scrollbar-track {
+        background: #1e293b;
+      }
+      ::-webkit-scrollbar-thumb {
+        background-color: #334155;
+        border-radius: 4px;
+      }
+      
+      /* Screen reader only - visually hidden but accessible to screen readers */
+      .sr-only {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border-width: 0;
+      }
+      
+      .sr-only:focus,
+      .sr-only:active {
+        position: static;
+        width: auto;
+        height: auto;
+        overflow: visible;
+        clip: auto;
+        white-space: normal;
+      }
+      
+      /* Focus visible styles - 3px outline for keyboard navigation */
+      *:focus-visible {
+        outline: 3px solid #007A7A;
+        outline-offset: 2px;
+      }
+      
+      /* Custom focus ring utility */
+      .focus-ring-3 {
+        outline: 3px solid #007A7A;
+        outline-offset: 2px;
+      }
+      
+      /* High contrast mode support */
+      @media (prefers-contrast: high) {
+        :root {
+          --brand-primary: #00FFFF;
+          --text-primary: #FFFFFF;
+          --base-100: #000000;
+        }
+      }
+      
+      .high-contrast {
+        --brand-primary: #00FFFF !important;
+        --brand-secondary: #00CCCC !important;
+        --text-primary: #FFFFFF !important;
+        --text-secondary: #E0E0E0 !important;
+        --base-100: #000000 !important;
+        --base-200: #1A1A1A !important;
+        --base-300: #333333 !important;
+      }
+      
+      .high-contrast * {
+        border-color: #FFFFFF !important;
+      }
+      
+      .high-contrast button,
+      .high-contrast input,
+      .high-contrast select,
+      .high-contrast textarea {
+        border: 2px solid #FFFFFF !important;
+      }
+      
+      /* Font size adjustments */
+      .font-large {
+        font-size: 125%;
+      }
+      
+      .font-x-large {
+        font-size: 150%;
+      }
+      
+      /* Reduced motion support */
+      @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+          animation-duration: 0.01ms !important;
+          animation-iteration-count: 1 !important;
+          transition-duration: 0.01ms !important;
+        }
+      }
+      
+      .reduce-motion *,
+      .reduce-motion *::before,
+      .reduce-motion *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+      }
+      
+      /* Responsive design - Mobile first */
+      @media (max-width: 640px) {
+        body {
+          font-size: 14px;
+        }
+        
+        /* Ensure touch targets are at least 44x44px */
+        button,
+        a,
+        input[type="button"],
+        input[type="submit"] {
+          min-height: 44px;
+          min-width: 44px;
+        }
+      }
+      
+      @media (max-width: 768px) {
+        /* Stack layouts on mobile */
+        .grid-cols-2 {
+          grid-template-columns: 1fr !important;
+        }
+      }
+      
+      /* Support for 200% zoom */
+      @media (min-width: 1280px) {
+        .max-w-7xl {
+          max-width: 80rem;
+        }
+      }
+      
+      /* Ensure minimum touch target size */
+      button,
+      a,
+      input[type="button"],
+      input[type="submit"],
+      input[type="checkbox"],
+      input[type="radio"],
+      select {
+        min-height: 44px;
+        min-width: 44px;
+        padding: 0.5rem 1rem;
+      }
+      
+      /* Exception for icon-only buttons */
+      button.icon-only {
+        min-width: 44px;
+        padding: 0.5rem;
+      }
+    </style>
+  </head>
+  <body class="bg-base-100 text-text-primary">
+    <div id="root"></div>
+    <script type="module" src="/main.tsx"></script>
+  </body>
+</html>
