@@ -100,7 +100,7 @@ const DefaultErrorFallback: React.FC<DefaultErrorFallbackProps> = ({ error, retr
     setErrorId(id);
   }, [error]);
 
-  const getErrorIcon = (severity?: string) => {
+  const getErrorIcon = (severity: string) => {
     switch (severity) {
       case 'critical': return '🚨';
       case 'high': return '⚠️';
@@ -109,7 +109,7 @@ const DefaultErrorFallback: React.FC<DefaultErrorFallbackProps> = ({ error, retr
     }
   };
 
-  const getSeverityColor = (severity?: string) => {
+  const getSeverityColor = (severity: string) => {
     switch (severity) {
       case 'critical': return 'border-red-500 bg-red-50';
       case 'high': return 'border-orange-500 bg-orange-50';
