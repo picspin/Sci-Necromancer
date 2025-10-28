@@ -292,23 +292,10 @@ async function generateImageFromPrompt(prompt: string, apiKey: string, baseUrl: 
 
   if (!response.ok) {
     const errorText = await response.text();
-    console.error('Image generation API error:', {
-      status: response.status,
-      statusText: response.statusText,
-      error: errorText,
-      url,
-      model
-    });
     throw new Error(`Image generation API call failed: ${response.status} ${response.statusText}\n${errorText}`);
   }
 
   const data = await response.json();
-  console.log('Image generation response received:', {
-    hasData: !!data.data,
-    hasChoices: !!data.choices,
-    dataLength: data.data?.length,
-    choicesLength: data.choices?.length
-  });
   
   // Try to extract image data from different response formats
   let imageData = data.data?.[0]?.b64_json; // Standard OpenAI format
@@ -317,29 +304,20 @@ async function generateImageFromPrompt(prompt: string, apiKey: string, baseUrl: 
     // Try chat completion format
     const content = data.choices?.[0]?.message?.content;
     if (content) {
-      console.log('Trying to extract image from chat completion response...');
       // Look for base64 data in the response
       const base64Match = content.match(/data:image\/[^;]+;base64,([A-Za-z0-9+/=]+)/);
       if (base64Match) {
         imageData = base64Match[1];
-        console.log('Found base64 image in data URL format');
       } else if (content.match(/^[A-Za-z0-9+/=]+$/)) {
         // Assume the entire content is base64
         imageData = content;
-        console.log('Treating entire content as base64');
-      } else {
-        console.log('Content does not appear to be base64 image data:', content.substring(0, 100));
       }
     }
-  } else {
-    console.log('Found image data in standard OpenAI format');
   }
   
   if (!imageData) {
-    console.error('No image data found in response:', JSON.stringify(data, null, 2));
     throw new Error('No image data received from API. The model may not support image generation or returned an unexpected format.');
   }
 
-  console.log('Image generation successful, returning base64 data');
   return imageData;
 }

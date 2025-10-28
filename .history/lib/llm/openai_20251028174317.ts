@@ -162,19 +162,10 @@ export async function generateImage(
   const baseUrl = settings.openAIBaseUrl || 'https://api.openai.com/v1';
   const imageModel = settings.openAIImageModel || 'dall-e-3';
 
-  console.log('OpenAI Image Generation Settings:', {
-    baseUrl,
-    imageModel,
-    hasApiKey: !!apiKey,
-    mode: imageState.base64 && imageState.file ? 'editing' : 'creative'
-  });
-
   try {
     if (imageState.base64 && imageState.file) {
       // Image editing mode - use vision model for analysis then generate
       const analysisPrompt = `Analyze this image and create a detailed description for regenerating an improved version. Focus on: ${imageState.specs}. Provide a comprehensive prompt for image generation that maintains the scientific/medical context while implementing the requested improvements.`;
-      
-      console.log('Starting vision analysis...');
       
       // First, analyze the image using vision model
       const visionUrl = `${baseUrl.replace(/\/$/, '')}/chat/completions`;
@@ -205,9 +196,7 @@ export async function generateImage(
       });
 
       if (!visionResponse.ok) {
-        const errorText = await visionResponse.text();
-        console.error('Vision analysis failed:', errorText);
-        throw new Error(`Vision analysis failed: ${visionResponse.status} - ${errorText}`);
+        throw new Error(`Vision analysis failed: ${visionResponse.status}`);
       }
 
       const visionData = await visionResponse.json();
@@ -217,8 +206,6 @@ export async function generateImage(
         throw new Error('Failed to analyze the uploaded image');
       }
 
-      console.log('Vision analysis complete, generating image...');
-
       // Now generate new image based on analysis
       const generationPrompt = `${imageDescription}\n\nAdditional specifications: ${imageState.specs}\n\nCreate a professional, publication-quality scientific/medical image.`;
       
@@ -227,7 +214,6 @@ export async function generateImage(
       // Creative mode - generate from context and specs
       const prompt = `Generate a scientific or medical imaging figure based on this context: ${creativeContext}. Specifications: ${imageState.specs}. The image should be publication-quality, professional, and suitable for academic presentation.`;
       
-      console.log('Starting creative image generation...');
       return await generateImageFromPrompt(prompt, apiKey, baseUrl, imageModel);
     }
   } catch (error) {
@@ -238,108 +224,35 @@ export async function generateImage(
 
 // Helper function for image generation
 async function generateImageFromPrompt(prompt: string, apiKey: string, baseUrl: string, model: string): Promise<string> {
-  // Try standard OpenAI images/generations endpoint first
-  let url = `${baseUrl.replace(/\/$/, '')}/images/generations`;
+  const url = `${baseUrl.replace(/\/$/, '')}/images/generations`;
   
-  let requestBody: any = {
-    model: model,
-    prompt: prompt,
-    n: 1,
-    size: '1024x1024',
-    response_format: 'b64_json',
-    quality: 'hd'
-  };
-
-  let response = await fetch(url, {
+  const response = await fetch(url, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify(requestBody),
-  });
-
-  // If standard endpoint fails, try chat completions with image generation
-  if (!response.ok) {
-    console.log('Standard image endpoint failed, trying chat completions...');
-    url = `${baseUrl.replace(/\/$/, '')}/chat/completions`;
-    
-    requestBody = {
+    body: JSON.stringify({
       model: model,
-      messages: [
-        {
-          role: 'system',
-          content: 'You are an AI that generates images. Respond with a base64-encoded image.'
-        },
-        {
-          role: 'user',
-          content: prompt
-        }
-      ],
-      max_tokens: 4000,
-      temperature: 0.7
-    };
-
-    response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(requestBody),
-    });
-  }
+      prompt: prompt,
+      n: 1,
+      size: '1024x1024',
+      response_format: 'b64_json',
+      quality: 'hd'
+    }),
+  });
 
   if (!response.ok) {
     const errorText = await response.text();
-    console.error('Image generation API error:', {
-      status: response.status,
-      statusText: response.statusText,
-      error: errorText,
-      url,
-      model
-    });
     throw new Error(`Image generation API call failed: ${response.status} ${response.statusText}\n${errorText}`);
   }
 
   const data = await response.json();
-  console.log('Image generation response received:', {
-    hasData: !!data.data,
-    hasChoices: !!data.choices,
-    dataLength: data.data?.length,
-    choicesLength: data.choices?.length
-  });
-  
-  // Try to extract image data from different response formats
-  let imageData = data.data?.[0]?.b64_json; // Standard OpenAI format
+  const imageData = data.data?.[0]?.b64_json;
   
   if (!imageData) {
-    // Try chat completion format
-    const content = data.choices?.[0]?.message?.content;
-    if (content) {
-      console.log('Trying to extract image from chat completion response...');
-      // Look for base64 data in the response
-      const base64Match = content.match(/data:image\/[^;]+;base64,([A-Za-z0-9+/=]+)/);
-      if (base64Match) {
-        imageData = base64Match[1];
-        console.log('Found base64 image in data URL format');
-      } else if (content.match(/^[A-Za-z0-9+/=]+$/)) {
-        // Assume the entire content is base64
-        imageData = content;
-        console.log('Treating entire content as base64');
-      } else {
-        console.log('Content does not appear to be base64 image data:', content.substring(0, 100));
-      }
-    }
-  } else {
-    console.log('Found image data in standard OpenAI format');
-  }
-  
-  if (!imageData) {
-    console.error('No image data found in response:', JSON.stringify(data, null, 2));
-    throw new Error('No image data received from API. The model may not support image generation or returned an unexpected format.');
+    throw new Error('No image data received from API');
   }
 
-  console.log('Image generation successful, returning base64 data');
   return imageData;
 }
