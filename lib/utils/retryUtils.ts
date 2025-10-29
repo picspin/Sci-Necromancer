@@ -2,8 +2,8 @@ import { RetryConfig, AppError } from '../../types';
 
 export const DEFAULT_RETRY_CONFIG: RetryConfig = {
   maxAttempts: 3,
-  baseDelay: 1000, // 1 second
-  maxDelay: 10000, // 10 seconds
+  baseDelay: 1000,
+  maxDelay: 10000,
   backoffFactor: 2
 };
 
@@ -24,44 +24,53 @@ export async function withRetry<T>(
   context?: string
 ): Promise<T> {
   const finalConfig = { ...DEFAULT_RETRY_CONFIG, ...config };
-  let lastError: Error;
-  
+  let lastError: Error | null = null;
+
   for (let attempt = 1; attempt <= finalConfig.maxAttempts; attempt++) {
     try {
       return await operation();
     } catch (error) {
-      lastError = error as Error;
-      
-      // Check if error is retryable
-      if (error instanceof RetryableError && !error.retryable) {
-        throw error;
+      const err = error instanceof Error ? error : new Error(String(error));
+      lastError = err;
+
+      // 如果错误类型本身声明不允许重试，直接抛出
+      if (err instanceof RetryableError && !err.retryable) {
+        throw err;
       }
-      
-      // Don't retry on the last attempt
+
+      // 已到最后一次尝试就停止循环
       if (attempt === finalConfig.maxAttempts) {
         break;
       }
-      
-      // Calculate delay with exponential backoff
+
+      // 是否继续重试（你也可以加一个 shouldRetry(lastError) 判断）
       const delay = Math.min(
         finalConfig.baseDelay * Math.pow(finalConfig.backoffFactor, attempt - 1),
         finalConfig.maxDelay
       );
-      
-      // Add jitter to prevent thundering herd
       const jitteredDelay = delay + Math.random() * 1000;
-      
-      console.warn(`Retry attempt ${attempt}/${finalConfig.maxAttempts} for ${context || 'operation'} in ${Math.round(jitteredDelay)}ms`, {
-        error: error instanceof Error ? error.message : String(error),
-        attempt,
-        delay: Math.round(jitteredDelay)
-      });
-      
+
+      console.warn(
+        `Retry attempt ${attempt}/${finalConfig.maxAttempts} for ${context || 'operation'} in ${Math.round(jitteredDelay)}ms`,
+        {
+          error: err.message,
+          attempt,
+          delay: Math.round(jitteredDelay)
+        }
+      );
+
       await new Promise(resolve => setTimeout(resolve, jitteredDelay));
     }
   }
-  
-  // All retries failed, throw the last error
+
+  // 循环退出：所有尝试失败
+  if (!lastError) {
+    // 理论上不会发生（因为只有 catch 才会 break 到这里），但为类型与健壮性做保护
+    throw new Error(
+      `Operation failed after ${finalConfig.maxAttempts} attempts without capturing an Error (context=${context || 'operation'})`
+    );
+  }
+
   throw new RetryableError(
     `Operation failed after ${finalConfig.maxAttempts} attempts: ${lastError.message}`,
     lastError
@@ -70,10 +79,8 @@ export async function withRetry<T>(
 
 export function isNetworkError(error: any): boolean {
   if (!error) return false;
-  
-  const message = error.message?.toLowerCase() || '';
-  const code = error.code?.toLowerCase() || '';
-  
+  const message = (error.message || '').toLowerCase();
+  const code = (error.code || '').toLowerCase();
   return (
     message.includes('network') ||
     message.includes('fetch') ||
@@ -88,10 +95,8 @@ export function isNetworkError(error: any): boolean {
 
 export function isRateLimitError(error: any): boolean {
   if (!error) return false;
-  
-  const message = error.message?.toLowerCase() || '';
+  const message = (error.message || '').toLowerCase();
   const status = error.status || error.statusCode;
-  
   return (
     status === 429 ||
     message.includes('rate limit') ||
@@ -107,7 +112,7 @@ export function shouldRetry(error: any): boolean {
 export function createAppError(error: any, context: string): AppError {
   let code: AppError['code'] = 'UNKNOWN_ERROR';
   let severity: AppError['severity'] = 'medium';
-  
+
   if (isNetworkError(error)) {
     code = 'NETWORK_ERROR';
     severity = 'high';
@@ -121,7 +126,7 @@ export function createAppError(error: any, context: string): AppError {
     code = 'VALIDATION_ERROR';
     severity = 'low';
   }
-  
+
   return {
     code,
     message: error.message || 'An unexpected error occurred',
