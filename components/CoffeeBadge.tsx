@@ -29,13 +29,13 @@ const CoffeeBadge: React.FC = () => {
             animation: 'fadeIn 0.3s ease-in-out'
           }}
         >
-          <div className="bg-white p-3 rounded-lg shadow-2xl border-2 border-yellow-500">
+          <div className="bg-white p-4 rounded-lg shadow-2xl border-2 border-yellow-500">
             <img 
               src="/Weixin Image_830.jpg" 
               alt="WeChat QR Code for donation"
-              className="w-48 h-48 object-contain"
+              className="w-64 h-64 object-contain"
             />
-            <p className="text-center text-xs text-gray-600 mt-2">扫码打赏 / Scan to Donate</p>
+            <p className="text-center text-sm text-gray-700 mt-3 font-medium">扫码打赏 / Scan to Donate</p>
           </div>
           {/* Arrow pointer */}
           <div className="absolute -top-2 left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-8 border-r-8 border-b-8 border-transparent border-b-yellow-500"></div>
