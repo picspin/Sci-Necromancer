@@ -8,6 +8,7 @@ import ModelManager from './components/ModelManager';
 import NotificationDisplay from './components/NotificationDisplay';
 import { SvgIcon } from './components/SvgIcon';
 import LanguageSelector from './components/LanguageSelector';
+import CoffeeBadge from './components/CoffeeBadge';
 import { useTranslation } from 'react-i18next';
 import { getMemeTranslation } from './lib/i18n';
 
@@ -26,8 +27,10 @@ const App: React.FC = () => {
                             <div className="max-w-7xl mx-auto flex items-center justify-between">
                                 <div className="flex items-center gap-3">
                                     <SvgIcon type="logo" className="h-8 w-8 text-brand-primary" />
-                                    <h1 className="text-2xl font-bold text-brand-primary">
+                                    <h1 className="text-2xl font-bold text-brand-primary flex items-center gap-2">
                                         {getMemeTranslation('Sci-Evil', t) || t('header.title')}
+                                        <span className="text-2xl">🧙‍♂️</span>
+                                        <CoffeeBadge />
                                     </h1>
                                 </div>
                                 <div className="flex items-center gap-4">
