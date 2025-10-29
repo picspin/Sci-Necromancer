@@ -120,14 +120,14 @@ export abstract class BaseConferenceModule implements ConferenceModule {
   /**
    * Generate conference-specific abstract (override in subclasses)
    */
-  protected async generateConferenceSpecificAbstract(params: AbstractGenerationParams): Promise<AbstractData> {
+  protected async generateConferenceSpecificAbstract(_params: AbstractGenerationParams): Promise<AbstractData> {
     throw new Error('Conference-specific generation not implemented');
   }
 
   /**
    * Conference-specific validation (override in subclasses)
    */
-  protected validateConferenceSpecific(abstract: AbstractData): ValidationResult {
+  protected validateConferenceSpecific(_abstract: AbstractData): ValidationResult {
     return { isValid: true, errors: [], warnings: [] };
   }
 

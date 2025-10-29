@@ -21,7 +21,7 @@ const Tooltip: React.FC<TooltipProps> = ({
 }) => {
   const [isVisible, setIsVisible] = useState(false);
   const [tooltipId] = useState(() => generateId('tooltip'));
-  const timeoutRef = useRef<NodeJS.Timeout>();
+  const timeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
 
   const showTooltip = () => {
     timeoutRef.current = setTimeout(() => {
@@ -65,7 +65,7 @@ const Tooltip: React.FC<TooltipProps> = ({
     onFocus: showTooltip,
     onBlur: hideTooltip,
     'aria-describedby': tooltipId,
-  });
+  } as any);
 
   return (
     <div className="relative inline-block">

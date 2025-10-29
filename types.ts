@@ -193,14 +193,35 @@ export interface ValidationResult {
 }
 
 // Error types
+export type ErrorCode =
+  | 'UNKNOWN_ERROR'
+  | 'NETWORK_ERROR'
+  | 'API_ERROR'
+  | 'FILE_PROCESSING_ERROR'
+  | 'VALIDATION_ERROR';
+
+export type ErrorSeverity = 'low' | 'medium' | 'high' | 'critical';
+
 export interface AppError {
-  code: string;
+  code: ErrorCode | string;
   message: string;
   details?: any;
   recoverable: boolean;
   timestamp: Date;
-  severity?: 'low' | 'medium' | 'high' | 'critical';
+  severity?: ErrorSeverity;
   context?: string;
+}
+
+export const ErrorCodes: Record<ErrorCode, ErrorCode> = {
+  UNKNOWN_ERROR: 'UNKNOWN_ERROR',
+  NETWORK_ERROR: 'NETWORK_ERROR',
+  API_ERROR: 'API_ERROR',
+  FILE_PROCESSING_ERROR: 'FILE_PROCESSING_ERROR',
+  VALIDATION_ERROR: 'VALIDATION_ERROR'
+};
+
+export function isAppError(e: unknown): e is AppError {
+  return !!e && typeof e === 'object' && 'code' in (e as any) && 'message' in (e as any);
 }
 
 export interface ErrorBoundaryState {
@@ -209,33 +230,25 @@ export interface ErrorBoundaryState {
   errorInfo?: any;
 }
 
-// ===== Compatibility legacy error types (restored for older imports) =====
-
-// 错误代码枚举（与现有 errorLogger / createAppError 使用的 code 保持一致）
-export type ErrorCode =
-  | 'UNKNOWN_ERROR'
-  | 'NETWORK_ERROR'
-  | 'API_ERROR'
-  | 'FILE_PROCESSING_ERROR'
-  | 'VALIDATION_ERROR';
-
-// 错误严重程度
-export type ErrorSeverity = 'low' | 'medium' | 'high' | 'critical';
-
-// 重试配置（retryUtils 使用）
 export interface RetryConfig {
   maxAttempts: number;
   baseDelay: number;
   maxDelay: number;
   backoffFactor: number;
+  jitterMs?: number;
+  shouldRetry?: (error: unknown, attempt: number) => boolean;
 }
 
-// 错误恢复动作（ServiceErrorBoundary 等可能使用）
-export type ErrorRecoveryAction =
+export type ErrorRecoveryActionType =
   | 'RETRY'
   | 'SWITCH_PROVIDER'
   | 'FALLBACK_OFFLINE'
   | 'IGNORE'
   | 'REPORT';
 
-// 如果后续要逐步迁移到 AppError，可在 createError 之类函数里统一转换
+export interface ErrorRecoveryAction {
+  type: ErrorRecoveryActionType;
+  label: string;
+  action: () => void;
+  primary?: boolean;
+}

@@ -1,5 +1,5 @@
-import { parsePdf, PdfParseError } from './file-process/pdf';
-import { parseDocx, DocxParseError } from './file-process/docx';
+import { parsePdf } from './file-process/pdf';
+import { parseDocx } from './file-process/docx';
 
 export interface FileProcessor {
     supportedTypes: string[];

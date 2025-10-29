@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 import { AppError, ErrorCode, ErrorSeverity } from '../../types';
-import { createAndLogError, errorLogger } from '../utils/errorLogger';
+import { errorLogger } from '../utils/errorLogger';
 import { createAppError } from '../utils/retryUtils';
 
 export interface UseErrorHandlerReturn {

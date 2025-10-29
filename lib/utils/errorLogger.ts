@@ -72,12 +72,22 @@ class ErrorLogger {
   }
 
   logError(error: AppError): string {
+    // Normalize code to valid ErrorCode
+    const normalizedCode: ErrorCode = 
+      (error.code === 'UNKNOWN_ERROR' || 
+       error.code === 'NETWORK_ERROR' || 
+       error.code === 'API_ERROR' || 
+       error.code === 'FILE_PROCESSING_ERROR' || 
+       error.code === 'VALIDATION_ERROR') 
+        ? error.code 
+        : 'UNKNOWN_ERROR';
+    
     const logEntry: ErrorLogEntry = {
       id: this.generateLogId(),
       timestamp: error.timestamp,
-      code: error.code,
+      code: normalizedCode,
       message: this.sanitizeMessage(error.message),
-      severity: error.severity,
+      severity: error.severity || 'medium',
       context: this.sanitizeContext(error.context || 'Unknown'),
       userAgent: navigator.userAgent.substring(0, 200), // Limit length
       url: window.location.pathname, // Don't include query params

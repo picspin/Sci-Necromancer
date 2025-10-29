@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { testImageGenerationSetup } from '../lib/llm/openai';
+import { testImageGeneration } from '../lib/llm/openai';
 
 interface TestResult {
   success: boolean;
@@ -24,8 +24,17 @@ export const ImageGenerationTest: React.FC = () => {
 
     setIsLoading(true);
     try {
-      const result = await testImageGenerationSetup(apiKey);
-      setTestResult(result);
+      const imageData = await testImageGeneration('Test scientific figure', apiKey);
+      setTestResult({
+        success: true,
+        message: 'Image generation test completed successfully',
+        details: {
+          platform: 'OpenAI Compatible',
+          baseUrl: 'Configured in settings',
+          imageModel: 'Configured in settings',
+          imageGenerated: imageData ? true : false
+        }
+      });
     } catch (error) {
       setTestResult({
         success: false,

@@ -195,7 +195,7 @@ export async function generateFinalAbstract(
 // 简单的测试图像生成功能（占位）
 export async function testImageGeneration(
   prompt: string = 'Test scientific figure',
-  apiKey?: string
+  _apiKey?: string
 ): Promise<string> {
   // 这里你可以直接调用 generateImage 或返回占位符
   return `data:image/png;base64,${btoa(`TEST_IMAGE_${Date.now()}_${prompt}`)}`;

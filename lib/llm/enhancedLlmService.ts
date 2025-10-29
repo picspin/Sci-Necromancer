@@ -1,6 +1,6 @@
 import * as gemini from './gemini';
 import * as openai from './openai';
-import { AbstractData, ImageState, AnalysisResult, Category, AbstractType, AbstractTypeSuggestion, AIProvider, AppError, Conference } from '../../types';
+import { AbstractData, ImageState, AnalysisResult, Category, AbstractType, AbstractTypeSuggestion, AIProvider, Conference } from '../../types';
 import { withRetry, createAppError, shouldRetry, DEFAULT_RETRY_CONFIG } from '../utils/retryUtils';
 
 interface LLMService {
@@ -200,7 +200,7 @@ class EnhancedLLMService {
     return this.executeWithFallback(
       async (service, apiKey) => {
         // Load conference-specific guidelines
-        const guidelines = await this.loadConferenceGuidelines(conference, type);
+        await this.loadConferenceGuidelines(conference, type);
         
         // For now, use the existing generateFinalAbstract method
         // In a full implementation, this would use conference-specific prompts
@@ -214,7 +214,7 @@ class EnhancedLLMService {
     return this.executeWithFallback(
       async (service, apiKey) => {
         // Load conference-specific creative guidelines
-        const guidelines = await this.loadConferenceGuidelines(conference, 'RSNA Scientific Abstract');
+        await this.loadConferenceGuidelines(conference, 'RSNA Scientific Abstract');
         
         // For now, use the existing generateCreativeAbstract method
         return service.generateCreativeAbstract(coreIdea, apiKey);
@@ -303,7 +303,7 @@ class EnhancedLLMService {
     return result;
   }
 
-  private extractRSNACategories(categories: Category[], conferenceData: string): Category[] {
+  private extractRSNACategories(categories: Category[], _conferenceData: string): Category[] {
     // Map ISMRM categories to RSNA categories
     const rsnaMapping: { [key: string]: string } = {
       'Neuro': 'Neuroradiology',
@@ -321,7 +321,7 @@ class EnhancedLLMService {
     }));
   }
 
-  private extractRSNAKeywords(keywords: string[], conferenceData: string): string[] {
+  private extractRSNAKeywords(keywords: string[], _conferenceData: string): string[] {
     // Add RSNA-specific keywords and filter relevant ones
     const rsnaKeywords = [
       'Diagnostic Accuracy',
@@ -345,7 +345,7 @@ class EnhancedLLMService {
     return combinedKeywords.slice(0, 10); // Limit to 10 keywords
   }
 
-  private extractJACCCategories(categories: Category[], conferenceData: string): Category[] {
+  private extractJACCCategories(categories: Category[], _conferenceData: string): Category[] {
     // Map ISMRM categories to JACC categories
     const jaccMapping: { [key: string]: string } = {
       'Cardiovascular': 'Coronary Artery Disease',
@@ -362,7 +362,7 @@ class EnhancedLLMService {
     }));
   }
 
-  private extractJACCKeywords(keywords: string[], conferenceData: string): string[] {
+  private extractJACCKeywords(keywords: string[], _conferenceData: string): string[] {
     // Add JACC-specific cardiovascular keywords
     const jaccKeywords = [
       'Cardiovascular Outcomes',
