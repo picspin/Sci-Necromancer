@@ -136,9 +136,72 @@ export const generateImpactSynopsis = async (text: string, categories: Category[
     return await callGeminiAPI<{impact: string, synopsis: string}>(prompt, impactSynopsisSchema, apiKey);
 };
 
-export const generateFinalAbstract = async (text: string, type: AbstractType, categories: Category[], keywords: string[], impact: string, synopsis: string, apiKey?: string): Promise<AbstractData> => {
-    const prompt = await prompts.getFinalAbstractPrompt(text, type, categories, keywords, impact, synopsis);
-    return await callGeminiAPI<AbstractData>(prompt, finalAbstractSchema, apiKey);
+// export const generateFinalAbstract = async (text: string, type: AbstractType, categories: Category[], keywords: string[], impact: string, synopsis: string, apiKey?: string): Promise<AbstractData> => {
+//    const prompt = await prompts.getFinalAbstractPrompt(text, type, categories, keywords, impact, synopsis);
+//    return await callGeminiAPI<AbstractData>(prompt, finalAbstractSchema, apiKey);
+//};
+// 原函数改名
+export const generateFinalAbstractFull = async (
+  text: string,
+  type: AbstractType,
+  categories: Category[],
+  keywords: string[],
+  impact: string,
+  synopsis: string,
+  apiKey?: string
+): Promise<AbstractData> => {
+  const prompt = await prompts.getFinalAbstractPrompt(
+    text,
+    type,
+    categories,
+    keywords,
+    impact,
+    synopsis
+  );
+  return await callGeminiAPI<AbstractData>(prompt, finalAbstractSchema, apiKey);
+};
+
+// 重载包装
+export const generateFinalAbstract = async (
+  text: string,
+  type: AbstractType,
+  categories: Category[],
+  keywords: string[],
+  arg5?: string,
+  arg6?: string,
+  arg7?: string
+): Promise<AbstractData> => {
+  if ((arg6 === undefined && arg7 === undefined)) {
+    const apiKey = arg5;
+    const { impact, synopsis } = await generateImpactSynopsis(
+      text,
+      categories,
+      keywords,
+      apiKey
+    );
+    return await generateFinalAbstractFull(
+      text,
+      type,
+      categories,
+      keywords,
+      impact,
+      synopsis,
+      apiKey
+    );
+  } else {
+    const impact = arg5!;
+    const synopsis = arg6!;
+    const apiKey = arg7;
+    return await generateFinalAbstractFull(
+      text,
+      type,
+      categories,
+      keywords,
+      impact,
+      synopsis,
+      apiKey
+    );
+  }
 };
 
 export const generateCreativeAbstract = async (coreIdea: string, apiKey?: string): Promise<AbstractData> => {
