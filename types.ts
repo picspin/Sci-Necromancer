@@ -208,3 +208,34 @@ export interface ErrorBoundaryState {
   error?: AppError;
   errorInfo?: any;
 }
+
+// ===== Compatibility legacy error types (restored for older imports) =====
+
+// 错误代码枚举（与现有 errorLogger / createAppError 使用的 code 保持一致）
+export type ErrorCode =
+  | 'UNKNOWN_ERROR'
+  | 'NETWORK_ERROR'
+  | 'API_ERROR'
+  | 'FILE_PROCESSING_ERROR'
+  | 'VALIDATION_ERROR';
+
+// 错误严重程度
+export type ErrorSeverity = 'low' | 'medium' | 'high' | 'critical';
+
+// 重试配置（retryUtils 使用）
+export interface RetryConfig {
+  maxAttempts: number;
+  baseDelay: number;
+  maxDelay: number;
+  backoffFactor: number;
+}
+
+// 错误恢复动作（ServiceErrorBoundary 等可能使用）
+export type ErrorRecoveryAction =
+  | 'RETRY'
+  | 'SWITCH_PROVIDER'
+  | 'FALLBACK_OFFLINE'
+  | 'IGNORE'
+  | 'REPORT';
+
+// 如果后续要逐步迁移到 AppError，可在 createError 之类函数里统一转换
