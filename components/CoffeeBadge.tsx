@@ -32,7 +32,7 @@ const CoffeeBadge: React.FC = () => {
           <img 
             src="/Weixin Image_830.jpg" 
             alt="WeChat QR Code for donation"
-            className="w-auto h-auto max-w-none shadow-2xl rounded-lg"
+            className="shadow-2xl rounded-lg w-[340px] md:w-[300px] sm:w-[260px] max-w-[90vw]"
           />
         </div>
       )}
