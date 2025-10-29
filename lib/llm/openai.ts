@@ -112,7 +112,8 @@ export async function generateImpactSynopsis(
   return await callOpenAIAPI(prompt, apiKey, baseUrl, model);
 }
 
-export async function generateFinalAbstract(
+// 原函数改名（内部使用）
+async function generateFinalAbstractFull(
   text: string,
   type: AbstractType,
   categories: Category[],
@@ -124,13 +125,80 @@ export async function generateFinalAbstract(
   if (!apiKey) {
     throw new Error('OpenAI API key is required');
   }
-
   const settings = getSettings();
   const baseUrl = settings.openAIBaseUrl || 'https://api.openai.com/v1';
   const model = settings.openAITextModel || 'gpt-4o';
 
-  const prompt = await prompts.getFinalAbstractPrompt(text, type, categories, keywords, impact, synopsis);
+  const prompt = await prompts.getFinalAbstractPrompt(
+    text,
+    type,
+    categories,
+    keywords,
+    impact,
+    synopsis
+  );
   return await callOpenAIAPI(prompt, apiKey, baseUrl, model);
+}
+
+// 兼容旧签名：generateFinalAbstract(text, type, categories, keywords, apiKey?)
+// 新签名：generateFinalAbstract(text, type, categories, keywords, impact, synopsis, apiKey?)
+export async function generateFinalAbstract(
+  text: string,
+  type: AbstractType,
+  categories: Category[],
+  keywords: string[],
+  arg5?: string,
+  arg6?: string,
+  arg7?: string
+): Promise<AbstractData> {
+  // 判断调用方式
+  if (
+    // 老式：5 参数（第5是 apiKey）
+    (arg6 === undefined && arg7 === undefined) ||
+    // 老式但 apiKey 是可选（arg5 可能是 undefined）
+    (arg6 === undefined && arg7 === undefined && arg5 === undefined)
+  ) {
+    const apiKey = arg5;
+    // 先生成 impact & synopsis
+    const { impact, synopsis } = await generateImpactSynopsis(
+      text,
+      categories,
+      keywords,
+      apiKey
+    );
+    return await generateFinalAbstractFull(
+      text,
+      type,
+      categories,
+      keywords,
+      impact,
+      synopsis,
+      apiKey
+    );
+  } else {
+    // 新式：7 参数
+    const impact = arg5!;
+    const synopsis = arg6!;
+    const apiKey = arg7;
+    return await generateFinalAbstractFull(
+      text,
+      type,
+      categories,
+      keywords,
+      impact,
+      synopsis,
+      apiKey
+    );
+  }
+}
+
+// 简单的测试图像生成功能（占位）
+export async function testImageGeneration(
+  prompt: string = 'Test scientific figure',
+  apiKey?: string
+): Promise<string> {
+  // 这里你可以直接调用 generateImage 或返回占位符
+  return `data:image/png;base64,${btoa(`TEST_IMAGE_${Date.now()}_${prompt}`)}`;
 }
 
 export async function generateCreativeAbstract(
