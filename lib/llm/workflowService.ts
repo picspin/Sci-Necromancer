@@ -40,30 +40,47 @@ export class WorkflowService {
    * In the future, this could be optimized with a dedicated endpoint
    */
   async generateImpactSynopsis(
-    text: string,
-    categories: Category[],
-    keywords: string[]
-  ): Promise<{ impact: string; synopsis: string }> {
-    try {
-      // Use the existing generateFinalAbstract function which already generates impact & synopsis
-      // We'll use a default type for now since we just need impact & synopsis
-      let result: AbstractData;
-      
-      if (this.providerName === 'google') {
-        result = await gemini.generateFinalAbstract(text, 'Standard Abstract', categories, keywords, this.apiKey);
-      } else {
-        result = await openai.generateFinalAbstract(text, 'Standard Abstract', categories, keywords, this.apiKey);
-      }
-      
-      return {
-        impact: result.impact,
-        synopsis: result.synopsis
-      };
-    } catch (error) {
-      console.error('Failed to generate impact & synopsis:', error);
-      throw error;
+  text: string,
+  categories: Category[],
+  keywords: string[]
+): Promise<{ impact: string; synopsis: string }> {
+  try {
+    if (this.providerName === 'google') {
+      return await gemini.generateImpactSynopsis(text, categories, keywords, this.apiKey);
+    } else {
+      return await openai.generateImpactSynopsis(text, categories, keywords, this.apiKey);
     }
+      } catch (error) {
+    console.error('Failed to generate impact & synopsis:', error);
+    throw error;
   }
+}
+
+  // async generateImpactSynopsis(
+  //   text: string,
+  //   categories: Category[],
+  //   keywords: string[]
+  // ): Promise<{ impact: string; synopsis: string }> {
+  //   try {
+  //     // Use the existing generateFinalAbstract function which already generates impact & synopsis
+  //     // We'll use a default type for now since we just need impact & synopsis
+  //     let result: AbstractData;
+      
+  //     if (this.providerName === 'google') {
+  //       result = await gemini.generateFinalAbstract(text, 'Standard Abstract', categories, keywords, this.apiKey);
+  //     } else {
+  //       result = await openai.generateFinalAbstract(text, 'Standard Abstract', categories, keywords, this.apiKey);
+  //     }
+      
+      // return {
+      //   impact: result.impact,
+      //   synopsis: result.synopsis
+      // };
+  //   } catch (error) {
+  //     console.error('Failed to generate impact & synopsis:', error);
+  //     throw error;
+  //   }
+  // }
 
   /**
    * Step 3: Suggest abstract types based on content analysis
