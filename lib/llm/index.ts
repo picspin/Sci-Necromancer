@@ -84,3 +84,34 @@ export const generateImage = (imageState: ImageState, creativeContext: string): 
     const apiKey = getApiKey();
     return getService().generateImage(imageState, creativeContext, apiKey);
 };
+
+// Conference-specific functions
+export const analyzeContentForConference = (text: string, conference: string): Promise<AnalysisResult> => {
+    const apiKey = getApiKey();
+    const service = getService();
+    if ('analyzeContentForConference' in service) {
+        return (service as any).analyzeContentForConference(text, conference, apiKey);
+    }
+    // Fallback to regular analysis
+    return service.analyzeContent(text, apiKey);
+};
+
+export const generateAbstractForConference = (text: string, type: AbstractType, categories: Category[], keywords: string[], conference: string): Promise<AbstractData> => {
+    const apiKey = getApiKey();
+    const service = getService();
+    if ('generateAbstractForConference' in service) {
+        return (service as any).generateAbstractForConference(text, type, categories, keywords, conference, apiKey);
+    }
+    // Fallback to regular generation
+    return service.generateFinalAbstract(text, type, categories, keywords, '', '', apiKey);
+};
+
+export const generateCreativeAbstractForConference = (coreIdea: string, conference: string): Promise<AbstractData> => {
+    const apiKey = getApiKey();
+    const service = getService();
+    if ('generateCreativeAbstractForConference' in service) {
+        return (service as any).generateCreativeAbstractForConference(coreIdea, conference, apiKey);
+    }
+    // Fallback to regular creative generation
+    return service.generateCreativeAbstract(coreIdea, apiKey);
+};

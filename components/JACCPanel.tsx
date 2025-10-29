@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useContext, useEffect } from 'react';
+import React, { useState, useContext, useEffect } from 'react';
 import { AbstractData, GenerationMode, ImageState, AnalysisResult, AbstractTypeSuggestion, AbstractType, Category, SavedAbstract } from '../types';
 import * as llm from '../lib/llm';
 import { SvgIcon } from './SvgIcon';
@@ -287,14 +287,14 @@ const JACCPanel: React.FC = () => {
   const loadAbstractData = (abstract: SavedAbstract) => {
     setInputText(abstract.originalText);
     setGeneratedAbstract(abstract.abstractData);
-    setSelectedCategories(abstract.categories);
+    setSelectedCategories(abstract.categories || []);
     setSelectedKeywords(abstract.keywords);
     setSelectedAbstractType(abstract.abstractType);
     setCurrentAbstractId(abstract.id);
     setSaveTitle(abstract.title);
     
     setAnalysisResult({
-      categories: abstract.categories,
+      categories: abstract.categories || [],
       keywords: abstract.keywords
     });
   };

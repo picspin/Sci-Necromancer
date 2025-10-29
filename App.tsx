@@ -1,13 +1,11 @@
 import React, { useState } from 'react';
-import { Conference } from './types';
 import { SettingsProvider } from './context/SettingsContext';
 import { AbstractProvider } from './context/AbstractContext';
 import { ErrorBoundary } from './components/error/ErrorBoundary';
-import ISMRMPanel from './components/ISMRMPanel';
-import JACCPanel from './components/JACCPanel';
-import RSNAPanel from './components/RSNAPanel';
+import ConferencePanel from './components/ConferencePanel';
 import { AbstractManager } from './components/AbstractManager';
 import ModelManager from './components/ModelManager';
+import NotificationDisplay from './components/NotificationDisplay';
 import { SvgIcon } from './components/SvgIcon';
 import LanguageSelector from './components/LanguageSelector';
 import { useTranslation } from 'react-i18next';
@@ -15,7 +13,6 @@ import { getMemeTranslation } from './lib/i18n';
 
 const App: React.FC = () => {
     const { t } = useTranslation();
-    const [activeConference, setActiveConference] = useState<Conference>('ISMRM');
     const [showAbstractManager, setShowAbstractManager] = useState(false);
     const [showModelManager, setShowModelManager] = useState(false);
 
@@ -73,50 +70,8 @@ const App: React.FC = () => {
 
                         {/* Main Content */}
                         <main className="max-w-7xl mx-auto px-6 py-8">
-                            {/* Conference Tabs */}
-                            <nav className="flex gap-2 mb-6">
-                                <button
-                                    onClick={() => setActiveConference('ISMRM')}
-                                    className={`px-6 py-3 rounded-lg font-medium transition-colors ${
-                                        activeConference === 'ISMRM'
-                                            ? 'bg-brand-primary text-white'
-                                            : 'bg-base-200 text-text-secondary hover:bg-base-300'
-                                    }`}
-                                >
-                                    {t('navigation.ismrm')}
-                                </button>
-                                <button
-                                    onClick={() => setActiveConference('RSNA')}
-                                    className={`px-6 py-3 rounded-lg font-medium transition-colors ${
-                                        activeConference === 'RSNA'
-                                            ? 'bg-brand-primary text-white'
-                                            : 'bg-base-200 text-text-secondary hover:bg-base-300'
-                                    }`}
-                                    disabled
-                                    title={t('navigation.coming_soon')}
-                                >
-                                    {t('navigation.rsna')} ({t('navigation.coming_soon')})
-                                </button>
-                                <button
-                                    onClick={() => setActiveConference('JACC')}
-                                    className={`px-6 py-3 rounded-lg font-medium transition-colors ${
-                                        activeConference === 'JACC'
-                                            ? 'bg-brand-primary text-white'
-                                            : 'bg-base-200 text-text-secondary hover:bg-base-300'
-                                    }`}
-                                    disabled
-                                    title={t('navigation.coming_soon')}
-                                >
-                                    {t('navigation.jacc')} ({t('navigation.coming_soon')})
-                                </button>
-                            </nav>
-
-                            {/* Conference Panels */}
-                            <div>
-                                {activeConference === 'ISMRM' && <ISMRMPanel />}
-                                {activeConference === 'RSNA' && <RSNAPanel />}
-                                {activeConference === 'JACC' && <JACCPanel />}
-                            </div>
+                            {/* Conference Panel with integrated navigation */}
+                            <ConferencePanel />
                         </main>
                         
                         {/* Abstract Manager Modal */}
@@ -131,6 +86,9 @@ const App: React.FC = () => {
                         {showModelManager && (
                             <ModelManager onClose={() => setShowModelManager(false)} />
                         )}
+
+                        {/* Notification Display */}
+                        <NotificationDisplay />
 
                         {/* Footer */}
                         <footer className="bg-base-200 border-t border-base-300 py-4 px-6 mt-12">

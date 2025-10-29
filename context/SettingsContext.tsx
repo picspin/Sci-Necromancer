@@ -1,6 +1,8 @@
 import React, { createContext, useState, useEffect, ReactNode } from 'react';
 import { Settings } from '../types';
 import { LocalStorageService } from '../services/databaseService';
+import { databaseFallbackService } from '../services/databaseFallbackService';
+import { notificationService } from '../lib/utils/notificationService';
 
 interface SettingsContextType {
   settings: Settings;
@@ -16,6 +18,14 @@ const defaultSettings: Settings = {
   model: 'gemini-2.0-flash-exp',
   temperature: 0.7,
   maxTokens: 2048,
+  databaseEnabled: false,
+  supabaseMCP: {
+    enabled: false,
+    apiUrl: '',
+    apiKey: '',
+    connectionStatus: 'disconnected',
+    autoSync: true,
+  },
 };
 
 export const SettingsContext = createContext<SettingsContextType>({
@@ -50,8 +60,31 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
   };
 
   const saveSettings = (newSettings: Settings) => {
+    const prevSettings = settings;
     setSettings(newSettings);
     localStorage.setItem('app-settings', JSON.stringify(newSettings));
+    
+    // Handle database activation changes
+    if (prevSettings.databaseEnabled !== newSettings.databaseEnabled) {
+      if (newSettings.databaseEnabled) {
+        // Database was enabled
+        if (newSettings.supabaseMCP?.connectionStatus === 'connected') {
+          // TODO: Initialize cloud service when Supabase MCP is implemented
+          databaseFallbackService.setCloudService(null, true);
+          notificationService.info(
+            'Cloud Storage Enabled',
+            'Your abstracts will now be synced to the cloud'
+          );
+        }
+      } else {
+        // Database was disabled
+        databaseFallbackService.setCloudService(null, false);
+        notificationService.info(
+          'Cloud Storage Disabled',
+          'Your abstracts will be stored locally only'
+        );
+      }
+    }
   };
 
   return (

@@ -17,7 +17,7 @@ const getSettings = () => {
 // Call OpenAI-compatible API
 async function callOpenAIAPI(prompt: string, apiKey: string, baseUrl: string, model: string): Promise<any> {
   const url = `${baseUrl.replace(/\/$/, '')}/chat/completions`;
-  
+
   const response = await fetch(url, {
     method: 'POST',
     headers: {
@@ -48,7 +48,7 @@ async function callOpenAIAPI(prompt: string, apiKey: string, baseUrl: string, mo
 
   const data = await response.json();
   const content = data.choices?.[0]?.message?.content;
-  
+
   if (!content) {
     throw new Error('No content in API response');
   }
@@ -85,10 +85,10 @@ export async function suggestAbstractType(
 
   const prompt = await prompts.getAbstractTypeSuggestionPrompt(text, categories, keywords);
   const result = await callOpenAIAPI(prompt, apiKey, baseUrl, model);
-  
+
   // Handle both array and object with suggestions field
   const suggestions = Array.isArray(result) ? result : (result.suggestions || []);
-  
+
   return suggestions
     .filter((s: AbstractTypeSuggestion) => s.probability >= 0.30)
     .sort((a: AbstractTypeSuggestion, b: AbstractTypeSuggestion) => b.probability - a.probability);
@@ -99,7 +99,7 @@ export async function generateImpactSynopsis(
   categories: Category[],
   keywords: string[],
   apiKey?: string
-): Promise<{impact: string, synopsis: string}> {
+): Promise<{ impact: string, synopsis: string }> {
   if (!apiKey) {
     throw new Error('OpenAI API key is required');
   }
@@ -149,197 +149,225 @@ export async function generateCreativeAbstract(
   return await callOpenAIAPI(prompt, apiKey, baseUrl, model);
 }
 
+// ============================================================================
+// IMAGE GENERATION - Simplified Architecture
+// ============================================================================
+// Two paths:
+// 1. SiliconFlow: Direct API call to /v1/images/generations
+// 2. MCP Tools: Call model with tool access (MyGenAssist, etc.)
+// ============================================================================
+
 export async function generateImage(
   imageState: ImageState,
   creativeContext: string,
   apiKey?: string
 ): Promise<string> {
-  if (!apiKey) {
-    throw new Error('OpenAI API key is required');
-  }
+  if (!apiKey) throw new Error('API key required');
 
   const settings = getSettings();
-  const baseUrl = settings.openAIBaseUrl || 'https://api.openai.com/v1';
-  const imageModel = settings.openAIImageModel || 'dall-e-3';
-
-  console.log('OpenAI Image Generation Settings:', {
-    baseUrl,
-    imageModel,
-    hasApiKey: !!apiKey,
-    mode: imageState.base64 && imageState.file ? 'editing' : 'creative'
-  });
-
-  try {
-    if (imageState.base64 && imageState.file) {
-      // Image editing mode - use vision model for analysis then generate
-      const analysisPrompt = `Analyze this image and create a detailed description for regenerating an improved version. Focus on: ${imageState.specs}. Provide a comprehensive prompt for image generation that maintains the scientific/medical context while implementing the requested improvements.`;
-      
-      console.log('Starting vision analysis...');
-      
-      // First, analyze the image using vision model
-      const visionUrl = `${baseUrl.replace(/\/$/, '')}/chat/completions`;
-      const visionResponse = await fetch(visionUrl, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: settings.openAITextModel || 'gpt-4o',
-          messages: [
-            {
-              role: 'user',
-              content: [
-                { type: 'text', text: analysisPrompt },
-                {
-                  type: 'image_url',
-                  image_url: {
-                    url: `data:${imageState.file.type};base64,${imageState.base64}`
-                  }
-                }
-              ]
-            }
-          ],
-          max_tokens: 500
-        }),
-      });
-
-      if (!visionResponse.ok) {
-        const errorText = await visionResponse.text();
-        console.error('Vision analysis failed:', errorText);
-        throw new Error(`Vision analysis failed: ${visionResponse.status} - ${errorText}`);
-      }
-
-      const visionData = await visionResponse.json();
-      const imageDescription = visionData.choices?.[0]?.message?.content;
-      
-      if (!imageDescription) {
-        throw new Error('Failed to analyze the uploaded image');
-      }
-
-      console.log('Vision analysis complete, generating image...');
-
-      // Now generate new image based on analysis
-      const generationPrompt = `${imageDescription}\n\nAdditional specifications: ${imageState.specs}\n\nCreate a professional, publication-quality scientific/medical image.`;
-      
-      return await generateImageFromPrompt(generationPrompt, apiKey, baseUrl, imageModel);
-    } else {
-      // Creative mode - generate from context and specs
-      const prompt = `Generate a scientific or medical imaging figure based on this context: ${creativeContext}. Specifications: ${imageState.specs}. The image should be publication-quality, professional, and suitable for academic presentation.`;
-      
-      console.log('Starting creative image generation...');
-      return await generateImageFromPrompt(prompt, apiKey, baseUrl, imageModel);
-    }
-  } catch (error) {
-    console.error('Error generating image:', error);
-    throw new Error(`Failed to generate image: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  
+  // Check if MCP image generation is enabled
+  if (settings.mcpConfig?.imageGeneration?.enabled) {
+    return await generateImageViaMCP(imageState, creativeContext, apiKey, settings);
   }
+  
+  // Otherwise use SiliconFlow direct API
+  return await generateImageViaSiliconFlow(imageState, creativeContext, apiKey, settings);
 }
 
-// Helper function for image generation
-async function generateImageFromPrompt(prompt: string, apiKey: string, baseUrl: string, model: string): Promise<string> {
-  // Try standard OpenAI images/generations endpoint first
-  let url = `${baseUrl.replace(/\/$/, '')}/images/generations`;
+// Path 1: SiliconFlow Direct API
+async function generateImageViaSiliconFlow(
+  imageState: ImageState,
+  creativeContext: string,
+  apiKey: string,
+  settings: any
+): Promise<string> {
+  const baseUrl = settings.openAIBaseUrl || 'https://api.siliconflow.cn';
+  const imageModel = settings.openAIImageModel || 'black-forest-labs/FLUX.1-schnell';
   
-  let requestBody: any = {
-    model: model,
-    prompt: prompt,
-    n: 1,
-    size: '1024x1024',
-    response_format: 'b64_json',
-    quality: 'hd'
-  };
+  // Build prompt
+  let prompt: string;
+  if (imageState.base64 && imageState.file) {
+    // If user uploaded an image, analyze it first with vision model
+    const visionModel = settings.openAIVisionModel || settings.openAITextModel || 'Qwen/Qwen2-VL-72B-Instruct';
+    const analysisPrompt = `Analyze this image and describe it for regeneration. Focus on: ${imageState.specs}`;
+    const description = await analyzeImageWithVision(imageState, analysisPrompt, apiKey, baseUrl, visionModel);
+    prompt = `${description}\n\nSpecifications: ${imageState.specs}\n\nCreate a professional scientific/medical image.`;
+  } else {
+    // Creative generation from scratch
+    prompt = `Generate a scientific/medical figure: ${creativeContext}. Specifications: ${imageState.specs}. Professional, publication-quality.`;
+  }
 
-  let response = await fetch(url, {
+  // Call SiliconFlow API - strictly following their documentation
+  const response = await fetch(`${baseUrl.replace(/\/$/, '')}/v1/images/generations`, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify(requestBody),
+    body: JSON.stringify({
+      model: imageModel,
+      prompt: prompt,
+      image_size: '1024x1024',
+      batch_size: 1,
+      num_inference_steps: 20,
+      guidance_scale: 7.5
+    }),
   });
 
-  // If standard endpoint fails, try chat completions with image generation
   if (!response.ok) {
-    console.log('Standard image endpoint failed, trying chat completions...');
-    url = `${baseUrl.replace(/\/$/, '')}/chat/completions`;
-    
-    requestBody = {
+    const errorText = await response.text();
+    throw new Error(`SiliconFlow API failed: ${response.status} - ${errorText}`);
+  }
+
+  const data = await response.json();
+  
+  // Extract image URL from response
+  const imageUrl = data.images?.[0]?.url;
+  if (!imageUrl) {
+    throw new Error('No image URL in SiliconFlow response');
+  }
+
+  // Download and convert to base64
+  const imgResponse = await fetch(imageUrl);
+  const arrayBuffer = await imgResponse.arrayBuffer();
+  return btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+}
+
+// Path 2: MCP Tool-based Generation (MyGenAssist, etc.)
+async function generateImageViaMCP(
+  imageState: ImageState,
+  creativeContext: string,
+  apiKey: string,
+  settings: any
+): Promise<string> {
+  const mcpConfig = settings.mcpConfig?.imageGeneration;
+  const baseUrl = mcpConfig.baseUrl || 'https://chat.int.bayer.com/api/v2';
+  const model = mcpConfig.model || settings.openAITextModel || 'gpt-4o';
+  
+  // Parse custom configuration if provided
+  let customHeaders = {};
+  if (mcpConfig.customConfig) {
+    try {
+      const parsed = JSON.parse(mcpConfig.customConfig);
+      customHeaders = parsed.customHeaders || {};
+    } catch (e) {
+      console.warn('Failed to parse custom MCP config:', e);
+    }
+  }
+  
+  // Build prompt
+  let prompt: string;
+  if (imageState.base64 && imageState.file) {
+    const analysisPrompt = `Analyze this image and describe it for regeneration. Focus on: ${imageState.specs}`;
+    const description = await analyzeImageWithVision(imageState, analysisPrompt, apiKey, baseUrl, model);
+    prompt = `${description}\n\nSpecifications: ${imageState.specs}\n\nCreate a professional scientific/medical image.`;
+  } else {
+    prompt = `Generate a scientific/medical figure: ${creativeContext}. Specifications: ${imageState.specs}. Professional, publication-quality.`;
+  }
+
+  // Call MCP endpoint with tool access
+  const response = await fetch(`${baseUrl.replace(/\/$/, '')}/chat/agent`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+      ...customHeaders
+    },
+    body: JSON.stringify({
       model: model,
       messages: [
         {
           role: 'system',
-          content: 'You are an AI that generates images. Respond with a base64-encoded image.'
+          content: 'You are an AI assistant with image generation tools. Generate images as requested and return the image data.'
         },
         {
           role: 'user',
-          content: prompt
+          content: `Generate image: ${prompt}`
         }
       ],
-      max_tokens: 4000,
-      temperature: 0.7
-    };
-
-    response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(requestBody),
-    });
-  }
+      temperature: 0.7,
+      stream: false
+    }),
+  });
 
   if (!response.ok) {
     const errorText = await response.text();
-    console.error('Image generation API error:', {
-      status: response.status,
-      statusText: response.statusText,
-      error: errorText,
-      url,
-      model
-    });
-    throw new Error(`Image generation API call failed: ${response.status} ${response.statusText}\n${errorText}`);
+    throw new Error(`MCP tool call failed: ${response.status} - ${errorText}`);
   }
 
   const data = await response.json();
-  console.log('Image generation response received:', {
-    hasData: !!data.data,
-    hasChoices: !!data.choices,
-    dataLength: data.data?.length,
-    choicesLength: data.choices?.length
-  });
   
-  // Try to extract image data from different response formats
-  let imageData = data.data?.[0]?.b64_json; // Standard OpenAI format
-  
-  if (!imageData) {
-    // Try chat completion format
-    const content = data.choices?.[0]?.message?.content;
-    if (content) {
-      console.log('Trying to extract image from chat completion response...');
-      // Look for base64 data in the response
-      const base64Match = content.match(/data:image\/[^;]+;base64,([A-Za-z0-9+/=]+)/);
-      if (base64Match) {
-        imageData = base64Match[1];
-        console.log('Found base64 image in data URL format');
-      } else if (content.match(/^[A-Za-z0-9+/=]+$/)) {
-        // Assume the entire content is base64
-        imageData = content;
-        console.log('Treating entire content as base64');
-      } else {
-        console.log('Content does not appear to be base64 image data:', content.substring(0, 100));
+  // Extract image from tool calls
+  const toolCalls = data.choices?.[0]?.message?.tool_calls;
+  if (toolCalls?.length > 0) {
+    for (const call of toolCalls) {
+      const args = typeof call.function?.arguments === 'string' 
+        ? JSON.parse(call.function.arguments) 
+        : call.function?.arguments;
+      const imageData = args?.image || args?.image_data || args?.base64;
+      if (imageData && imageData.length > 100) {
+        return imageData.replace(/^data:image\/[^;]+;base64,/, '');
       }
     }
-  } else {
-    console.log('Found image data in standard OpenAI format');
-  }
-  
-  if (!imageData) {
-    console.error('No image data found in response:', JSON.stringify(data, null, 2));
-    throw new Error('No image data received from API. The model may not support image generation or returned an unexpected format.');
   }
 
-  console.log('Image generation successful, returning base64 data');
-  return imageData;
+  // Extract from content as fallback
+  const content = data.choices?.[0]?.message?.content;
+  if (content) {
+    const base64Match = content.match(/data:image\/[^;]+;base64,([A-Za-z0-9+/=]+)/);
+    if (base64Match) return base64Match[1];
+    if (content.match(/^[A-Za-z0-9+/=]{100,}$/)) return content;
+  }
+
+  throw new Error('No image data returned from MCP tools');
+}
+
+// Vision analysis helper (shared by both paths)
+async function analyzeImageWithVision(
+  imageState: ImageState, 
+  prompt: string, 
+  apiKey: string, 
+  baseUrl: string, 
+  visionModel: string
+): Promise<string> {
+  const response = await fetch(`${baseUrl.replace(/\/$/, '')}/chat/completions`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: visionModel,
+      messages: [
+        {
+          role: 'user',
+          content: [
+            { type: 'text', text: prompt },
+            {
+              type: 'image_url',
+              image_url: {
+                url: `data:${imageState.file!.type};base64,${imageState.base64}`
+              }
+            }
+          ]
+        }
+      ],
+      max_tokens: 500
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Vision analysis failed: ${response.status} - ${errorText}`);
+  }
+
+  const data = await response.json();
+  const description = data.choices?.[0]?.message?.content;
+
+  if (!description) {
+    throw new Error('No content returned from vision model');
+  }
+
+  return description;
 }

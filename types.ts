@@ -1,6 +1,17 @@
 export type GenerationMode = 'standard' | 'creative';
-export type Conference = 'ISMRM' | 'RSNA' | 'JACC';
-export type AbstractType = 'Standard Abstract' | 'MRI in Clinical Practice Abstract' | 'ISMRT Abstract' | 'Registered Abstract';
+export type Conference = 'ISMRM' | 'RSNA' | 'JACC' | 'ER';
+export type AbstractType = 
+  // ISMRM Types
+  | 'Standard Abstract' 
+  | 'MRI in Clinical Practice Abstract' 
+  | 'ISMRT Abstract' 
+  | 'Registered Abstract'
+  // RSNA Types
+  | 'RSNA Scientific Abstract'
+  // JACC Types
+  | 'JACC Scientific Abstract'
+  // ER Types
+  | 'ER Scientific Abstract';
 
 export interface AbstractData {
   impact: string;
@@ -35,6 +46,31 @@ export interface AbstractTypeSuggestion {
 
 // New types for Model Manager Settings
 export type AIProvider = 'google' | 'openai';
+export type ConnectionStatus = 'connected' | 'disconnected' | 'error' | 'connecting';
+
+export interface SupabaseMCPConfig {
+    enabled: boolean;
+    apiUrl: string;
+    apiKey: string;
+    connectionStatus: ConnectionStatus;
+    autoSync: boolean;
+    lastConnectionTest?: Date;
+    errorMessage?: string;
+}
+
+export interface MCPToolConfig {
+    enabled: boolean;
+    baseUrl: string;
+    model?: string;
+    customHeaders?: Record<string, string>;
+    customConfig?: string; // JSON string for tool-specific configuration
+}
+
+export interface MCPConfig {
+    supabase?: SupabaseMCPConfig;
+    imageGeneration?: MCPToolConfig;
+    // Future MCP tools can be added here
+}
 
 export interface Settings {
     provider: AIProvider;
@@ -47,7 +83,10 @@ export interface Settings {
     openAITextModel?: string;
     openAIVisionModel?: string;
     openAIImageModel?: string;
-    databaseUrl?: string;
+    databaseUrl?: string; // Legacy - will be moved to MCP config
+    supabaseMCP?: SupabaseMCPConfig; // Legacy - moved to mcpConfig
+    databaseEnabled?: boolean; // User preference for cloud storage
+    mcpConfig?: MCPConfig; // New unified MCP configuration
 }
 
 // Database types
@@ -112,6 +151,45 @@ export interface WritingStyleConfig {
   logicalRigor: boolean;
   eliminateAITone: boolean;
   prohibitedPhrases: string[];
+}
+
+// Conference Module System
+export interface ConferenceGuidelines {
+  abstractTypes: AbstractType[];
+  wordLimits: Record<string, number>;
+  requiredSections: string[];
+  formattingRules: string[];
+  submissionDeadlines?: Date[];
+}
+
+export interface ConferenceModule {
+  id: Conference;
+  name: string;
+  submissionUrl: string;
+  guidelines: ConferenceGuidelines;
+  abstractTypes: AbstractType[];
+  generateAbstract(params: AbstractGenerationParams): Promise<AbstractData>;
+  validateAbstract(abstract: AbstractData): ValidationResult;
+  getCategories(): Category[];
+  getKeywords(): string[];
+  getColorScheme(): { primary: string; secondary: string; accent: string };
+  getDisplayName(): string;
+  isAvailable(): boolean;
+}
+
+export interface AbstractGenerationParams {
+  inputText: string;
+  abstractType: AbstractType;
+  categories: Category[];
+  keywords: string[];
+  impact?: string;
+  synopsis?: string;
+}
+
+export interface ValidationResult {
+  isValid: boolean;
+  errors: string[];
+  warnings: string[];
 }
 
 // Error types
