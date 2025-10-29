@@ -9,12 +9,15 @@ import RSNAPanel from './components/RSNAPanel';
 import { AbstractManager } from './components/AbstractManager';
 import ModelManager from './components/ModelManager';
 import { SvgIcon } from './components/SvgIcon';
+import LanguageSelector from './components/LanguageSelector';
+import { useTranslation } from 'react-i18next';
+import { getMemeTranslation } from './lib/i18n';
 
 const App: React.FC = () => {
+    const { t } = useTranslation();
     const [activeConference, setActiveConference] = useState<Conference>('ISMRM');
     const [showAbstractManager, setShowAbstractManager] = useState(false);
     const [showModelManager, setShowModelManager] = useState(false);
-    const [showLangMenu, setShowLangMenu] = useState(false);
 
     return (
         <ErrorBoundary>
@@ -27,7 +30,7 @@ const App: React.FC = () => {
                                 <div className="flex items-center gap-3">
                                     <SvgIcon type="logo" className="h-8 w-8 text-brand-primary" />
                                     <h1 className="text-2xl font-bold text-brand-primary">
-                                        Sci-Necromancer
+                                        {getMemeTranslation('Sci-Evil', t) || t('header.title')}
                                     </h1>
                                 </div>
                                 <div className="flex items-center gap-4">
@@ -35,54 +38,35 @@ const App: React.FC = () => {
                                     <button
                                         onClick={() => setShowAbstractManager(true)}
                                         className="flex items-center gap-2 px-4 py-2 bg-base-300 text-text-secondary hover:text-text-primary rounded-lg hover:bg-base-300/80 transition-colors"
-                                        title="Abstract Manager"
+                                        title={t('tooltips.abstract_manager')}
                                     >
                                         <SvgIcon type="document" className="h-5 w-5" />
-                                        <span className="hidden sm:inline">Abstracts</span>
+                                        <span className="hidden sm:inline">{t('header.abstracts')}</span>
                                     </button>
                                     
                                     {/* Model Manager */}
                                     <button
                                         onClick={() => setShowModelManager(true)}
                                         className="flex items-center gap-2 px-4 py-2 bg-base-300 text-text-secondary hover:text-text-primary rounded-lg hover:bg-base-300/80 transition-colors"
-                                        title="Model Manager"
+                                        title={t('tooltips.model_settings')}
                                     >
                                         <SvgIcon type="settings" className="h-5 w-5" />
-                                        <span className="hidden sm:inline">Models</span>
+                                        <span className="hidden sm:inline">{t('header.models')}</span>
                                     </button>
                                     
                                     {/* GitHub Link */}
                                     <a
-                                        href="https://github.com/yourusername/sci-necromancer"
+                                        href="https://github.com/yourusername/sci-evil"
                                         target="_blank"
                                         rel="noopener noreferrer"
                                         className="flex items-center gap-2 px-4 py-2 bg-base-300 text-text-secondary hover:text-text-primary rounded-lg hover:bg-base-300/80 transition-colors"
-                                        title="GitHub Repository"
+                                        title={t('tooltips.github_repo')}
                                     >
                                         <SvgIcon type="github" className="h-5 w-5" />
                                     </a>
                                     
-                                    {/* Language Toggle */}
-                                    <div className="relative">
-                                        <button
-                                            onClick={() => setShowLangMenu(!showLangMenu)}
-                                            className="flex items-center gap-2 px-4 py-2 bg-base-300 text-text-secondary hover:text-text-primary rounded-lg hover:bg-base-300/80 transition-colors"
-                                            title="Language"
-                                        >
-                                            <SvgIcon type="language" className="h-5 w-5" />
-                                            <span className="hidden sm:inline">EN</span>
-                                        </button>
-                                        {showLangMenu && (
-                                            <div className="absolute right-0 mt-2 w-32 bg-base-200 border border-base-300 rounded-md shadow-lg py-1 z-50">
-                                                <button className="block w-full text-left px-4 py-2 text-sm text-text-primary hover:bg-base-300">
-                                                    English
-                                                </button>
-                                                <button className="block w-full text-left px-4 py-2 text-sm text-text-secondary opacity-50 cursor-not-allowed">
-                                                    中文 (TBD)
-                                                </button>
-                                            </div>
-                                        )}
-                                    </div>
+                                    {/* Language Selector */}
+                                    <LanguageSelector />
                                 </div>
                             </div>
                         </header>
@@ -99,7 +83,7 @@ const App: React.FC = () => {
                                             : 'bg-base-200 text-text-secondary hover:bg-base-300'
                                     }`}
                                 >
-                                    ISMRM
+                                    {t('navigation.ismrm')}
                                 </button>
                                 <button
                                     onClick={() => setActiveConference('RSNA')}
@@ -109,9 +93,9 @@ const App: React.FC = () => {
                                             : 'bg-base-200 text-text-secondary hover:bg-base-300'
                                     }`}
                                     disabled
-                                    title="Coming soon"
+                                    title={t('navigation.coming_soon')}
                                 >
-                                    RSNA (TBD)
+                                    {t('navigation.rsna')} ({t('navigation.coming_soon')})
                                 </button>
                                 <button
                                     onClick={() => setActiveConference('JACC')}
@@ -121,9 +105,9 @@ const App: React.FC = () => {
                                             : 'bg-base-200 text-text-secondary hover:bg-base-300'
                                     }`}
                                     disabled
-                                    title="Coming soon"
+                                    title={t('navigation.coming_soon')}
                                 >
-                                    JACC (TBD)
+                                    {t('navigation.jacc')} ({t('navigation.coming_soon')})
                                 </button>
                             </nav>
 
@@ -151,7 +135,7 @@ const App: React.FC = () => {
                         {/* Footer */}
                         <footer className="bg-base-200 border-t border-base-300 py-4 px-6 mt-12">
                             <div className="max-w-7xl mx-auto text-center text-text-secondary text-sm">
-                                <p>Sci-Necromancer - Academic Submission Generator</p>
+                                <p>{t('footer.copyright')}</p>
                             </div>
                         </footer>
                     </div>

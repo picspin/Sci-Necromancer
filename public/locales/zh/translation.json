@@ -1,0 +1,181 @@
+{
+  "common": {
+    "loading": "加载中...",
+    "error": "错误",
+    "save": "保存",
+    "cancel": "取消",
+    "close": "关闭",
+    "clear": "清除",
+    "generate": "生成",
+    "analyze": "分析",
+    "confirm": "确认",
+    "edit": "编辑",
+    "delete": "删除",
+    "upload": "上传",
+    "download": "下载",
+    "copy": "复制",
+    "paste": "粘贴",
+    "search": "搜索",
+    "filter": "筛选",
+    "sort": "排序",
+    "settings": "设置",
+    "help": "帮助",
+    "about": "关于",
+    "language": "语言",
+    "english": "English",
+    "chinese": "中文"
+  },
+  "header": {
+    "title": "SCI邪修",
+    "subtitle": "学术投稿生成器",
+    "abstracts": "摘要库",
+    "models": "模型配置",
+    "github": "GitHub 仓库",
+    "language_toggle": "语言切换"
+  },
+  "navigation": {
+    "ismrm": "ISMRM",
+    "rsna": "RSNA", 
+    "jacc": "JACC",
+    "er": "ER",
+    "coming_soon": "即将推出"
+  },
+  "tabs": {
+    "abstract_generation": "摘要生成",
+    "figure_generation": "图像生成"
+  },
+  "modes": {
+    "standard_analysis": "标准分析",
+    "creative_expansion": "邪修模式",
+    "standard_edit": "标准编辑",
+    "creative_generation": "邪修生成"
+  },
+  "forms": {
+    "upload_file": "上传 PDF/DOCX 文件或粘贴文本",
+    "paste_text": "在此粘贴您的论文全文...",
+    "creative_prompt": "邪修扩展：一句话创意",
+    "creative_placeholder": "例如：使用AI从MRI扫描预测患者结果。",
+    "image_upload": "上传图像",
+    "image_specs": "图像规格和指导",
+    "image_specs_placeholder": "例如：'制作灰度T1加权MRI扫描'，'添加指向海马体的箭头'，'格式化为3x3网格'。",
+    "choose_file": "选择文件",
+    "no_file_chosen": "未选择文件"
+  },
+  "buttons": {
+    "analyze_content": "1. 分析",
+    "generate_abstract": "2. 生成",
+    "generate_creatively": "一键炼丹",
+    "generate_figure": "筑基",
+    "deep_update": "深度更新",
+    "save_abstract": "保存",
+    "clear_all": "清除"
+  },
+  "loading_messages": {
+    "analyzing_content": "🔍 分析内容中...",
+    "generating_impact_synopsis": "📝 生成影响与概要中...",
+    "suggesting_abstract_types": "🎯 推荐摘要类型中...",
+    "generating_abstract": "✨ 生成规范摘要中...",
+    "generating_creative": "✨ 邪修炼丹中...",
+    "generating_figure": "筑基中...",
+    "deep_diving": "🔬 深入挖掘内容中...",
+    "processing_file": "📄 处理 {{filename}} 中...",
+    "please_wait": "请稍候片刻..."
+  },
+  "analysis": {
+    "title": "分析完成 ✨",
+    "description": "审查并编辑生成的内容，然后选择类别和关键词。",
+    "impact_statement": "影响声明 (40词)",
+    "synopsis": "概要 (100词)",
+    "categories": "类别 (按概率排序)",
+    "keywords": "关键词",
+    "confirm_selections": "确认选择并查看摘要类型",
+    "word_count": "{{count}} / {{max}} 词"
+  },
+  "abstract_types": {
+    "title": "推荐摘要类型",
+    "description": "根据您的内容，我们推荐以下摘要类型。请选择一个继续。",
+    "match_probability": "{{percent}}% 匹配"
+  },
+  "output": {
+    "title": "生成输出",
+    "impact": "影响",
+    "synopsis": "概要",
+    "abstract": "摘要",
+    "keywords": "关键词",
+    "categories": "类别",
+    "word_count": "字数统计",
+    "no_content": "您生成的内容将显示在这里。",
+    "begin_prompt": "请在左侧面板提供输入开始。",
+    "generating": "生成中...",
+    "content_generated": "内容生成成功",
+    "word": "Word",
+    "pdf": "PDF",
+    "json": "JSON"
+  },
+  "model_manager": {
+    "title": "模型配置",
+    "provider": "AI 提供商",
+    "openai_settings": "OpenAI 设置",
+    "google_settings": "Google AI 设置",
+    "supabase_settings": "Supabase MCP 设置",
+    "api_key": "API 密钥",
+    "base_url": "基础URL",
+    "model": "模型",
+    "validate": "验证",
+    "load_models": "加载模型",
+    "connection_status": "连接状态",
+    "connected": "已连接",
+    "disconnected": "未连接",
+    "validating": "验证中...",
+    "database_activation": "数据库激活",
+    "enable_cloud_storage": "启用云存储"
+  },
+  "abstract_manager": {
+    "title": "摘要管理器",
+    "saved_abstracts": "已保存摘要",
+    "no_abstracts": "未找到已保存的摘要。",
+    "load": "加载",
+    "delete": "删除",
+    "export": "导出",
+    "created": "创建时间",
+    "conference": "会议",
+    "type": "类型"
+  },
+  "export": {
+    "word": "导出到Word",
+    "pdf": "导出到PDF",
+    "copy_text": "复制文本",
+    "download_image": "下载图像"
+  },
+  "errors": {
+    "no_input": "请提供输入文本进行分析。",
+    "incomplete_analysis": "请在生成前完成分析和选择步骤。",
+    "no_abstract_for_image": "请先生成摘要以为创意图像生成提供上下文。",
+    "no_image_uploaded": "请为标准模式编辑上传图像。",
+    "file_processing_failed": "文件处理失败。请尝试直接粘贴文本。",
+    "save_failed": "保存摘要失败",
+    "load_failed": "加载摘要失败",
+    "api_error": "API请求失败。请检查您的设置并重试。",
+    "network_error": "网络错误。请检查您的连接并重试。"
+  },
+  "tooltips": {
+    "creative_mode_disabled": "请先生成摘要以启用此模式。",
+    "deep_update": "使用高级提示进行深度细化",
+    "save_abstract": "将摘要保存到摘要管理器",
+    "clear_data": "清除所有数据并重置",
+    "github_repo": "GitHub 仓库",
+    "model_settings": "模型设置",
+    "abstract_manager": "摘要管理器"
+  },
+  "accessibility": {
+    "skip_to_content": "跳转到主要内容",
+    "loading_content": "正在加载内容，请稍候",
+    "error_occurred": "发生错误",
+    "content_updated": "内容已更新",
+    "navigation_instructions": "使用方向键在选项间导航，回车或空格键选择",
+    "toggle_instructions": "使用回车或空格键切换选择"
+  },
+  "footer": {
+    "copyright": "SCI邪修 - 学术投稿生成器"
+  }
+}

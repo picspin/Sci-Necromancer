@@ -1,0 +1,181 @@
+{
+  "common": {
+    "loading": "Loading...",
+    "error": "Error",
+    "save": "Save",
+    "cancel": "Cancel",
+    "close": "Close",
+    "clear": "Clear",
+    "generate": "Generate",
+    "analyze": "Analyze",
+    "confirm": "Confirm",
+    "edit": "Edit",
+    "delete": "Delete",
+    "upload": "Upload",
+    "download": "Download",
+    "copy": "Copy",
+    "paste": "Paste",
+    "search": "Search",
+    "filter": "Filter",
+    "sort": "Sort",
+    "settings": "Settings",
+    "help": "Help",
+    "about": "About",
+    "language": "Language",
+    "english": "English",
+    "chinese": "中文"
+  },
+  "header": {
+    "title": "Sci-Evil",
+    "subtitle": "Academic Submission Generator",
+    "abstracts": "Abstracts",
+    "models": "Models",
+    "github": "GitHub Repository",
+    "language_toggle": "Language"
+  },
+  "navigation": {
+    "ismrm": "ISMRM",
+    "rsna": "RSNA",
+    "jacc": "JACC",
+    "er": "ER",
+    "coming_soon": "Coming soon"
+  },
+  "tabs": {
+    "abstract_generation": "Abstract Generation",
+    "figure_generation": "Figure Generation"
+  },
+  "modes": {
+    "standard_analysis": "Standard Analysis",
+    "creative_expansion": "Creative Expansion",
+    "standard_edit": "Standard Edit",
+    "creative_generation": "Creative Generation"
+  },
+  "forms": {
+    "upload_file": "Upload PDF/DOCX File or Paste Text",
+    "paste_text": "Paste the full text of your paper here...",
+    "creative_prompt": "Creative Expansion: One-Sentence Idea",
+    "creative_placeholder": "e.g., Using AI to predict patient outcomes from MRI scans.",
+    "image_upload": "Upload Image",
+    "image_specs": "Image Specifications & Guidelines",
+    "image_specs_placeholder": "e.g., 'Make this a grayscale T1-weighted MRI scan', 'Add arrows pointing to the hippocampus', 'Format as a 3x3 grid'.",
+    "choose_file": "Choose File",
+    "no_file_chosen": "No file chosen"
+  },
+  "buttons": {
+    "analyze_content": "1. Analyze",
+    "generate_abstract": "2. Generate",
+    "generate_creatively": "Generate Creatively",
+    "generate_figure": "Generate Figure",
+    "deep_update": "Deep Update",
+    "save_abstract": "Save",
+    "clear_all": "Clear"
+  },
+  "loading_messages": {
+    "analyzing_content": "🔍 Analyzing content...",
+    "generating_impact_synopsis": "📝 Generating impact & synopsis...",
+    "suggesting_abstract_types": "🎯 Suggesting abstract types...",
+    "generating_abstract": "✨ Generating spec-compliant abstract...",
+    "generating_creative": "✨ Creatively generating abstract...",
+    "generating_figure": "Generating figure...",
+    "deep_diving": "🔬 Deep diving into content...",
+    "processing_file": "📄 Processing {{filename}}...",
+    "please_wait": "This may take a few moments..."
+  },
+  "analysis": {
+    "title": "Analysis Complete ✨",
+    "description": "Review and edit the generated content, then select categories and keywords.",
+    "impact_statement": "Impact Statement (40 words)",
+    "synopsis": "Synopsis (100 words)",
+    "categories": "Categories (sorted by probability)",
+    "keywords": "Keywords",
+    "confirm_selections": "Confirm & View Abstract Types",
+    "word_count": "{{count}} / {{max}} words"
+  },
+  "abstract_types": {
+    "title": "Recommended Abstract Type",
+    "description": "Based on your content, we recommend the following abstract types. Please select one to proceed.",
+    "match_probability": "{{percent}}% match"
+  },
+  "output": {
+    "title": "Generated Output",
+    "impact": "Impact",
+    "synopsis": "Synopsis",
+    "abstract": "Abstract",
+    "keywords": "Keywords",
+    "categories": "Categories",
+    "word_count": "Word Count",
+    "no_content": "Your generated content will appear here.",
+    "begin_prompt": "Begin by providing input on the left panel.",
+    "generating": "Generating...",
+    "content_generated": "Content generated successfully",
+    "word": "Word",
+    "pdf": "PDF",
+    "json": "JSON"
+  },
+  "model_manager": {
+    "title": "Model Configuration",
+    "provider": "AI Provider",
+    "openai_settings": "OpenAI Settings",
+    "google_settings": "Google AI Settings",
+    "supabase_settings": "Supabase MCP Settings",
+    "api_key": "API Key",
+    "base_url": "Base URL",
+    "model": "Model",
+    "validate": "Validate",
+    "load_models": "Load Models",
+    "connection_status": "Connection Status",
+    "connected": "Connected",
+    "disconnected": "Disconnected",
+    "validating": "Validating...",
+    "database_activation": "Database Activation",
+    "enable_cloud_storage": "Enable Cloud Storage"
+  },
+  "abstract_manager": {
+    "title": "Abstract Manager",
+    "saved_abstracts": "Saved Abstracts",
+    "no_abstracts": "No saved abstracts found.",
+    "load": "Load",
+    "delete": "Delete",
+    "export": "Export",
+    "created": "Created",
+    "conference": "Conference",
+    "type": "Type"
+  },
+  "export": {
+    "word": "Export to Word",
+    "pdf": "Export to PDF",
+    "copy_text": "Copy Text",
+    "download_image": "Download Image"
+  },
+  "errors": {
+    "no_input": "Please provide input text to analyze.",
+    "incomplete_analysis": "Please complete the analysis and selection steps before generating.",
+    "no_abstract_for_image": "Please generate an abstract first to provide context for creative image generation.",
+    "no_image_uploaded": "Please upload an image for standard mode editing.",
+    "file_processing_failed": "Failed to process file. Please try pasting the text directly.",
+    "save_failed": "Failed to save abstract",
+    "load_failed": "Failed to load abstract",
+    "api_error": "API request failed. Please check your settings and try again.",
+    "network_error": "Network error. Please check your connection and try again."
+  },
+  "tooltips": {
+    "creative_mode_disabled": "Generate an abstract first to enable this mode.",
+    "deep_update": "Deep dive refinement using advanced prompts",
+    "save_abstract": "Save abstract to Abstract Manager",
+    "clear_data": "Clear all data and reset",
+    "github_repo": "GitHub Repository",
+    "model_settings": "Model Settings",
+    "abstract_manager": "Abstract Manager"
+  },
+  "accessibility": {
+    "skip_to_content": "Skip to main content",
+    "loading_content": "Loading content, please wait",
+    "error_occurred": "An error occurred",
+    "content_updated": "Content has been updated",
+    "navigation_instructions": "Use arrow keys to navigate between options, Enter or Space to select",
+    "toggle_instructions": "Use Enter or Space to toggle selection"
+  },
+  "footer": {
+    "copyright": "Sci-Evil - Academic Submission Generator"
+  }
+}

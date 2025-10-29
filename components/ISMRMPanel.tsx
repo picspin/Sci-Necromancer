@@ -8,14 +8,17 @@ import OutputDisplay from './OutputDisplay';
 import { fileProcessingService } from '../lib/file/FileProcessingService';
 import { SettingsContext } from '../context/SettingsContext';
 import { useAbstractContext } from '../context/AbstractContext';
+import { useTranslation } from 'react-i18next';
+import { getMemeTranslation } from '../lib/i18n';
 
 const ISMRMPanel: React.FC = () => {
+  const { t } = useTranslation();
   const { databaseService, settings } = useContext(SettingsContext);
   const { abstractToLoad, clearLoadedAbstract } = useAbstractContext();
   
   // Global State
   const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [loadingMessage, setLoadingMessage] = useState<string>('Generating...');
+  const [loadingMessage, setLoadingMessage] = useState<string>(t('output.generating'));
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'abstract' | 'figure'>('abstract');
 
@@ -77,7 +80,7 @@ const ISMRMPanel: React.FC = () => {
       e.target.value = '';
 
       setIsLoading(true);
-      setLoadingMessage(`📄 Processing ${file.name}...`);
+      setLoadingMessage(t('loading_messages.processing_file', { filename: file.name }));
       
       try {
         // Use FileProcessingService for PDF and DOCX
@@ -122,31 +125,43 @@ const ISMRMPanel: React.FC = () => {
     
     try {
       // Step 1: Analyze content
-      setLoadingMessage('🔍 Analyzing content...');
+      setLoadingMessage(t('loading_messages.analyzing_content'));
       const result = await llm.analyzeContent(inputText);
-      setAnalysisResult(result);
-      setSelectedCategories(result.categories.filter(c => c.probability > 0.25));
-      setSelectedKeywords(result.keywords);
+      
+      // Validate and sanitize the result
+      const validatedResult = {
+        categories: Array.isArray(result?.categories) ? result.categories : [],
+        keywords: Array.isArray(result?.keywords) ? result.keywords : []
+      };
+      
+      setAnalysisResult(validatedResult);
+      const categories = validatedResult.categories;
+      const keywords = validatedResult.keywords;
+      setSelectedCategories(categories.filter(c => c && c.probability > 0.25));
+      setSelectedKeywords(keywords);
       
       // Step 2: Generate Impact & Synopsis
-      setLoadingMessage('📝 Generating impact & synopsis...');
+      setLoadingMessage(t('loading_messages.generating_impact_synopsis'));
       const impactSynopsisResult = await llm.generateImpactSynopsis(
         inputText,
-        result.categories.filter(c => c.probability > 0.25), 
-        result.keywords
+        categories.filter(c => c.probability > 0.25), 
+        keywords
       );
       setImpact(impactSynopsisResult.impact);
       setSynopsis(impactSynopsisResult.synopsis);
       
       // Step 3: Suggest abstract types
-      setLoadingMessage('🎯 Suggesting abstract types...');
-      const suggestions = await llm.suggestAbstractType(inputText, result.categories, result.keywords);
-      setTypeSuggestions(suggestions);
+      setLoadingMessage(t('loading_messages.suggesting_abstract_types'));
+      const suggestions = await llm.suggestAbstractType(inputText, categories, keywords);
+      // Ensure suggestions is an array
+      const validSuggestions = Array.isArray(suggestions) ? suggestions : [];
+      setTypeSuggestions(validSuggestions);
       
       // Open modal to show results
       setModalStep('analysis');
       setIsModalOpen(true);
     } catch (e) {
+      console.error('Analysis error:', e);
       setError(e instanceof Error ? e.message : 'An unknown error occurred during analysis.');
     } finally {
       setIsLoading(false);
@@ -171,7 +186,7 @@ const ISMRMPanel: React.FC = () => {
       return setError('Please complete the analysis and selection steps before generating.');
     }
     setIsLoading(true);
-    setLoadingMessage('✨ Generating spec-compliant abstract...');
+    setLoadingMessage(t('loading_messages.generating_abstract'));
     setError(null);
     setGeneratedAbstract(null);
     try {
@@ -195,7 +210,7 @@ const ISMRMPanel: React.FC = () => {
   const handleGenerateCreative = async () => {
     if (!inputText.trim()) return setError('Please provide a core idea to expand.');
     setIsLoading(true);
-    setLoadingMessage('✨ Creatively generating abstract...');
+    setLoadingMessage(t('loading_messages.generating_creative'));
     setError(null);
     resetWorkflow();
     try {
@@ -224,7 +239,7 @@ const ISMRMPanel: React.FC = () => {
       }
 
       setIsLoading(true);
-      setLoadingMessage('Generating figure...');
+      setLoadingMessage(t('loading_messages.generating_figure'));
       setError(null);
       setGeneratedImage(null);
       try {
@@ -295,7 +310,7 @@ const ISMRMPanel: React.FC = () => {
     if (!generatedAbstract || !selectedAbstractType) return;
     
     setIsLoading(true);
-    setLoadingMessage('🔬 Deep diving into content...');
+    setLoadingMessage(t('loading_messages.deep_diving'));
     setError(null);
     
     try {
@@ -336,17 +351,17 @@ Keywords: ${generatedAbstract.keywords.join(', ')}`;
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         <div className="flex flex-col gap-6 p-4">
           <div className="flex border-b border-base-300">
-            <TabButton id="abstract" activeTab={activeTab} setActiveTab={setActiveTab} label="Abstract Generation" icon="text" />
-            <TabButton id="figure" activeTab={activeTab} setActiveTab={setActiveTab} label="Figure Generation" icon="image" />
+            <TabButton id="abstract" activeTab={activeTab} setActiveTab={setActiveTab} label={t('tabs.abstract_generation')} icon="text" />
+            <TabButton id="figure" activeTab={activeTab} setActiveTab={setActiveTab} label={t('tabs.figure_generation')} icon="image" />
           </div>
 
           {activeTab === 'abstract' && (
             <div className="space-y-4 animate-fade-in">
-              <ModeSelector mode={abstractMode} setMode={setAbstractMode} />
+              <ModeSelector mode={abstractMode} setMode={setAbstractMode} t={t} />
               {abstractMode === 'standard' ? (
                 <div className="bg-base-100 p-4 rounded-lg">
                   <label htmlFor="file-upload" className="block text-sm font-medium text-text-secondary mb-2">
-                    Upload PDF/DOCX File or Paste Text
+                    {t('forms.upload_file')}
                   </label>
                   <input 
                     id="file-upload" 
@@ -360,7 +375,7 @@ Keywords: ${generatedAbstract.keywords.join(', ')}`;
                     <textarea 
                       value={inputText} 
                       onChange={(e) => handleTextChange(e.target.value)} 
-                      placeholder="Paste the full text of your paper here..." 
+                      placeholder={t('forms.paste_text')} 
                       className="w-full h-60 p-3 bg-base-100 border border-base-300 rounded-md focus:ring-2 focus:ring-brand-primary focus:outline-none transition"
                       aria-label="Input text for abstract generation"
                     />
@@ -369,9 +384,9 @@ Keywords: ${generatedAbstract.keywords.join(', ')}`;
               ) : (
                 <div className="bg-base-100 p-4 rounded-lg">
                   <label htmlFor="creative-prompt" className="block text-sm font-medium text-text-secondary mb-2">
-                    Creative Expansion: One-Sentence Idea
+                    {getMemeTranslation('Creative Expansion', t) || t('forms.creative_prompt')}
                   </label>
-                  <input id="creative-prompt" type="text" value={inputText} onChange={(e) => handleTextChange(e.target.value)} placeholder="e.g., Using AI to predict patient outcomes from MRI scans." className="w-full p-3 bg-base-100 border border-base-300 rounded-md focus:ring-2 focus:ring-brand-primary focus:outline-none transition" />
+                  <input id="creative-prompt" type="text" value={inputText} onChange={(e) => handleTextChange(e.target.value)} placeholder={t('forms.creative_placeholder')} className="w-full p-3 bg-base-100 border border-base-300 rounded-md focus:ring-2 focus:ring-brand-primary focus:outline-none transition" />
                 </div>
               )}
               <div className="space-y-3">
@@ -384,7 +399,7 @@ Keywords: ${generatedAbstract.keywords.join(', ')}`;
                         className="flex-1 flex items-center justify-center gap-2 bg-base-300 hover:bg-opacity-80 text-white font-bold py-3 px-4 rounded-lg transition-all duration-300 disabled:bg-base-300/50 disabled:cursor-not-allowed focus:outline-none focus:ring-3 focus:ring-brand-primary"
                         aria-label="Analyze content to extract categories and keywords"
                       >
-                        <SvgIcon type="sparkles" className="h-5 w-5" />1. Analyze
+                        <SvgIcon type="sparkles" className="h-5 w-5" />{t('buttons.analyze_content')}
                       </button>
                       <button 
                         onClick={handleGenerateAbstract} 
@@ -392,7 +407,7 @@ Keywords: ${generatedAbstract.keywords.join(', ')}`;
                         className="flex-1 flex items-center justify-center gap-2 bg-brand-primary hover:bg-brand-secondary text-white font-bold py-3 px-4 rounded-lg transition-all duration-300 disabled:bg-base-300/50 disabled:cursor-not-allowed focus:outline-none focus:ring-3 focus:ring-brand-primary"
                         aria-label="Generate spec-compliant abstract"
                       >
-                        <SvgIcon type="document" className="h-5 w-5" />2. Generate
+                        <SvgIcon type="document" className="h-5 w-5" />{t('buttons.generate_abstract')}
                       </button>
                     </>
                   ) : (
@@ -402,7 +417,7 @@ Keywords: ${generatedAbstract.keywords.join(', ')}`;
                       className="w-full flex items-center justify-center gap-2 bg-brand-primary hover:bg-brand-secondary text-white font-bold py-3 px-4 rounded-lg transition-all duration-300 disabled:bg-base-300/50 disabled:cursor-not-allowed focus:outline-none focus:ring-3 focus:ring-brand-primary"
                       aria-label="Generate creative abstract from core idea"
                     >
-                      <SvgIcon type="sparkles" className="h-5 w-5" />Generate Creatively
+                      <SvgIcon type="sparkles" className="h-5 w-5" />{getMemeTranslation('Generate Creatively', t) || t('buttons.generate_creatively')}
                     </button>
                   )}
                 </div>
@@ -418,7 +433,7 @@ Keywords: ${generatedAbstract.keywords.join(', ')}`;
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="h-5 w-5">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0111.186 0z" />
                     </svg>
-                    Save
+                    {t('buttons.save_abstract')}
                   </button>
                   <button
                     onClick={handleClear}
@@ -429,7 +444,7 @@ Keywords: ${generatedAbstract.keywords.join(', ')}`;
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="h-5 w-5">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
                     </svg>
-                    Clear
+                    {t('buttons.clear_all')}
                   </button>
                 </div>
                 
@@ -444,7 +459,7 @@ Keywords: ${generatedAbstract.keywords.join(', ')}`;
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="h-5 w-5">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z" />
                     </svg>
-                    Deep Update
+                    {t('buttons.deep_update')}
                   </button>
                 )}
               </div>
@@ -453,7 +468,7 @@ Keywords: ${generatedAbstract.keywords.join(', ')}`;
 
           {activeTab === 'figure' && (
             <div className="space-y-4 animate-fade-in">
-                <ImageModeSelector mode={imageMode} setMode={setImageMode} creativeDisabled={!generatedAbstract} creativeTooltip="Generate an abstract first to enable this mode." />
+                <ImageModeSelector mode={imageMode} setMode={setImageMode} creativeDisabled={!generatedAbstract} creativeTooltip={t('tooltips.creative_mode_disabled')} t={t} />
                  {imageMode === 'standard' ? (
                     <div className="bg-base-100 p-4 rounded-lg">
                         <label htmlFor="image-upload" className="block text-sm font-medium text-text-secondary mb-2">Upload Image</label>
@@ -467,7 +482,7 @@ Keywords: ${generatedAbstract.keywords.join(', ')}`;
                     </div>
                 )}
                 <div className="bg-base-100 p-4 rounded-lg">
-                    <label htmlFor="image-specs" className="block text-sm font-medium text-text-secondary mb-2">Image Specifications & Guidelines</label>
+                    <label htmlFor="image-specs" className="block text-sm font-medium text-text-secondary mb-2">{t('forms.image_specs')}</label>
                     <textarea id="image-specs" value={imageState.specs} onChange={(e) => setImageState({...imageState, specs: e.target.value})} placeholder="e.g., 'Make this a grayscale T1-weighted MRI scan', 'Add arrows pointing to the hippocampus', 'Format as a 3x3 grid'." className="w-full h-32 p-3 bg-base-100 border border-base-300 rounded-md focus:ring-2 focus:ring-brand-primary focus:outline-none transition"/>
                 </div>
                 <button 
@@ -522,17 +537,17 @@ const TabButton: React.FC<{id: 'abstract' | 'figure', activeTab: string, setActi
   </button>
 );
 
-const ModeSelector: React.FC<{mode: GenerationMode, setMode: (mode: GenerationMode) => void}> = ({ mode, setMode }) => (
+const ModeSelector: React.FC<{mode: GenerationMode, setMode: (mode: GenerationMode) => void, t: any}> = ({ mode, setMode, t }) => (
     <div className="flex bg-base-100 rounded-lg p-1">
-        <ModeButton label="Standard Analysis" icon="document" active={mode === 'standard'} onClick={() => setMode('standard')} />
-        <ModeButton label="Creative Expansion" icon="sparkles" active={mode === 'creative'} onClick={() => setMode('creative')} />
+        <ModeButton label={t('modes.standard_analysis')} icon="document" active={mode === 'standard'} onClick={() => setMode('standard')} />
+        <ModeButton label={getMemeTranslation('Creative Expansion', t) || t('modes.creative_expansion')} icon="sparkles" active={mode === 'creative'} onClick={() => setMode('creative')} />
     </div>
 );
 
-const ImageModeSelector: React.FC<{mode: GenerationMode, setMode: (mode: GenerationMode) => void, creativeDisabled: boolean, creativeTooltip?: string}> = ({ mode, setMode, creativeDisabled, creativeTooltip}) => (
+const ImageModeSelector: React.FC<{mode: GenerationMode, setMode: (mode: GenerationMode) => void, creativeDisabled: boolean, creativeTooltip?: string, t: any}> = ({ mode, setMode, creativeDisabled, creativeTooltip, t}) => (
     <div className="flex bg-base-100 rounded-lg p-1">
-        <ModeButton label="Standard Edit" icon="document" active={mode === 'standard'} onClick={() => setMode('standard')} />
-        <ModeButton label="Creative Generation" icon="sparkles" active={mode === 'creative'} onClick={() => setMode('creative')} disabled={creativeDisabled} tooltip={creativeTooltip} />
+        <ModeButton label={t('modes.standard_edit')} icon="document" active={mode === 'standard'} onClick={() => setMode('standard')} />
+        <ModeButton label={getMemeTranslation('Creative Generation', t) || t('modes.creative_generation')} icon="sparkles" active={mode === 'creative'} onClick={() => setMode('creative')} disabled={creativeDisabled} tooltip={creativeTooltip} />
     </div>
 );
 
@@ -551,8 +566,12 @@ const AnalysisStep: React.FC<{
   synopsis: string,
   onConfirm: (cats: Category[], keys: string[], impact: string, synopsis: string) => void
 }> = ({result, impact: initialImpact, synopsis: initialSynopsis, onConfirm}) => {
-    const [selectedCats, setSelectedCats] = useState<Category[]>(result.categories.filter(c => c.probability > 0.25));
-    const [selectedKeys, setSelectedKeys] = useState<string[]>(result.keywords);
+    const [selectedCats, setSelectedCats] = useState<Category[]>(
+      Array.isArray(result.categories) ? result.categories.filter(c => c.probability > 0.25) : []
+    );
+    const [selectedKeys, setSelectedKeys] = useState<string[]>(
+      Array.isArray(result.keywords) ? result.keywords : []
+    );
     const [impact, setImpact] = useState<string>(initialImpact);
     const [synopsis, setSynopsis] = useState<string>(initialSynopsis);
     
@@ -626,7 +645,7 @@ const AnalysisStep: React.FC<{
                     aria-labelledby="categories-heading"
                     aria-describedby="categories-help"
                 >
-                    {result.categories
+                    {(Array.isArray(result.categories) ? result.categories : [])
                         .sort((a, b) => b.probability - a.probability)
                         .filter(c => c.probability > 0.25)
                         .map(cat => (
@@ -656,7 +675,7 @@ const AnalysisStep: React.FC<{
                     aria-labelledby="keywords-heading"
                     aria-describedby="keywords-help"
                 >
-                    {result.keywords.map(key => (
+                    {(Array.isArray(result.keywords) ? result.keywords : []).map(key => (
                         <button 
                             key={key} 
                             onClick={() => toggleKeyword(key)}
@@ -695,7 +714,7 @@ const TypeSuggestionStep: React.FC<{suggestions: AbstractTypeSuggestion[], onSel
             onSelect(type);
         } else if (e.key === 'ArrowDown') {
             e.preventDefault();
-            const nextIndex = Math.min(index + 1, suggestions.length - 1);
+            const nextIndex = Math.min(index + 1, (Array.isArray(suggestions) ? suggestions.length : 1) - 1);
             setSelectedIndex(nextIndex);
             // Focus next element
             const nextButton = e.currentTarget.parentElement?.children[nextIndex] as HTMLButtonElement;
@@ -721,7 +740,7 @@ const TypeSuggestionStep: React.FC<{suggestions: AbstractTypeSuggestion[], onSel
                 aria-labelledby="type-suggestion-title"
                 aria-describedby="type-suggestion-description"
             >
-                {suggestions.map((suggestion, index) => (
+                {(Array.isArray(suggestions) ? suggestions : []).map((suggestion, index) => (
                     <button 
                         key={suggestion.type} 
                         onClick={() => onSelect(suggestion.type)}
