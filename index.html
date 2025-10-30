@@ -179,6 +179,27 @@
         min-width: 44px;
         padding: 0.5rem;
       }
+
+      /* Micro-interaction animations (neutral, no horizontal translate) */
+      @keyframes uiFadeIn {
+        from { opacity: 0; transform: translateY(4px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+
+      .animate-fade-in {
+        animation: uiFadeIn 220ms cubic-bezier(0.22, 1, 0.36, 1);
+        will-change: opacity, transform;
+      }
+
+      @keyframes modalShow {
+        from { opacity: 0; transform: translateY(6px) scale(0.98); }
+        to { opacity: 1; transform: translateY(0) scale(1); }
+      }
+
+      .animate-modal-show {
+        animation: modalShow 260ms cubic-bezier(0.22, 1, 0.36, 1);
+        will-change: opacity, transform;
+      }
     </style>
   </head>
   <body class="bg-base-100 text-text-primary">

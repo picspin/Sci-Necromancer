@@ -24,10 +24,7 @@ const CoffeeBadge: React.FC = () => {
       {/* QR Code Overlay */}
       {isHovered && (
         <div 
-          className="absolute top-full left-1/2 transform -translate-x-1/2 mt-2 z-50 animate-fade-in"
-          style={{
-            animation: 'fadeIn 0.3s ease-in-out'
-          }}
+          className="absolute top-full left-1/2 transform -translate-x-1/2 mt-2 z-50 coffee-fade-in"
         >
           <img 
             src="/Weixin Image_830.jpg" 
@@ -38,7 +35,7 @@ const CoffeeBadge: React.FC = () => {
       )}
 
       <style>{`
-        @keyframes fadeIn {
+        @keyframes coffeeFadeIn {
           from {
             opacity: 0;
             transform: translateX(-50%) translateY(-10px);
@@ -48,8 +45,14 @@ const CoffeeBadge: React.FC = () => {
             transform: translateX(-50%) translateY(0);
           }
         }
-        .animate-fade-in {
-          animation: fadeIn 0.3s ease-in-out;
+        .coffee-fade-in {
+          animation: coffeeFadeIn 240ms cubic-bezier(0.22, 1, 0.36, 1);
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .coffee-fade-in {
+            animation-duration: 0.01ms !important;
+            animation-iteration-count: 1 !important;
+          }
         }
       `}</style>
     </div>
