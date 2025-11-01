@@ -11,6 +11,7 @@ import LanguageSelector from './components/LanguageSelector';
 import CoffeeBadge from './components/CoffeeBadge';
 import { useTranslation } from 'react-i18next';
 import { getMemeTranslation } from './lib/i18n';
+import FloatingTips from './components/FloatingTips';
 
 const App: React.FC = () => {
     const { t } = useTranslation();
@@ -92,6 +93,9 @@ const App: React.FC = () => {
 
                         {/* Notification Display */}
                         <NotificationDisplay />
+
+                        {/* Floating Tips Control */}
+                        <FloatingTips />
 
                         {/* Footer */}
                         <footer className="bg-base-200 border-t border-base-300 py-4 px-6 mt-12">
