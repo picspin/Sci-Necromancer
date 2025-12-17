@@ -9,10 +9,10 @@ interface LiveRegionProps {
 /**
  * ARIA live region component for announcing dynamic content changes to screen readers
  */
-const LiveRegion: React.FC<LiveRegionProps> = ({ 
-  message, 
+const LiveRegion: React.FC<LiveRegionProps> = ({
+  message,
   priority = 'polite',
-  clearAfter = 3000 
+  clearAfter = 3000,
 }) => {
   const [currentMessage, setCurrentMessage] = useState(message);
 
@@ -29,12 +29,7 @@ const LiveRegion: React.FC<LiveRegionProps> = ({
   }, [message, clearAfter]);
 
   return (
-    <div
-      role="status"
-      aria-live={priority}
-      aria-atomic="true"
-      className="sr-only"
-    >
+    <div role="status" aria-live={priority} aria-atomic="true" className="sr-only">
       {currentMessage}
     </div>
   );
@@ -63,8 +58,6 @@ export const useLiveRegion = () => {
     priority,
     announce,
     clear,
-    LiveRegionComponent: () => (
-      <LiveRegion message={announcement} priority={priority} />
-    ),
+    LiveRegionComponent: () => <LiveRegion message={announcement} priority={priority} />,
   };
 };

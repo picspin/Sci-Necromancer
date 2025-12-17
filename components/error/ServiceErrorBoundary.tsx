@@ -8,9 +8,12 @@ interface ServiceErrorBoundaryProps {
   recoveryActions?: ErrorRecoveryAction[];
 }
 
-interface ServiceErrorBoundaryState extends ErrorBoundaryState { }
+interface ServiceErrorBoundaryState extends ErrorBoundaryState {}
 
-class ServiceErrorBoundary extends React.Component<ServiceErrorBoundaryProps, ServiceErrorBoundaryState> {
+class ServiceErrorBoundary extends React.Component<
+  ServiceErrorBoundaryProps,
+  ServiceErrorBoundaryState
+> {
   constructor(props: ServiceErrorBoundaryProps) {
     super(props);
     (this as any).state = { hasError: false };
@@ -24,12 +27,12 @@ class ServiceErrorBoundary extends React.Component<ServiceErrorBoundaryProps, Se
       recoverable: true,
       timestamp: new Date(),
       severity: 'high',
-      context: 'Service Error'
+      context: 'Service Error',
     };
 
     return {
       hasError: true,
-      error: appError
+      error: appError,
     };
   }
 
@@ -41,13 +44,13 @@ class ServiceErrorBoundary extends React.Component<ServiceErrorBoundaryProps, Se
       recoverable: true,
       timestamp: new Date(),
       severity: 'high',
-      context: `${(this as any).props.serviceName} Service`
+      context: `${(this as any).props.serviceName} Service`,
     };
 
     (this as any).setState({
       hasError: true,
       error: appError,
-      errorInfo
+      errorInfo,
     });
 
     if ((this as any).props.onError) {
@@ -58,7 +61,7 @@ class ServiceErrorBoundary extends React.Component<ServiceErrorBoundaryProps, Se
     console.error(`ServiceErrorBoundary (${(this as any).props.serviceName}):`, {
       message: error.message,
       service: (this as any).props.serviceName,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     });
   }
 
@@ -96,7 +99,7 @@ const ServiceErrorFallback: React.FC<ServiceErrorFallbackProps> = ({
   error,
   serviceName,
   retry,
-  recoveryActions
+  recoveryActions,
 }) => {
   const getServiceIcon = (serviceName: string) => {
     switch (serviceName.toLowerCase()) {
@@ -118,9 +121,7 @@ const ServiceErrorFallback: React.FC<ServiceErrorFallbackProps> = ({
     <div className="p-4 border border-red-300 bg-red-50 rounded-lg">
       <div className="flex items-center mb-3">
         <span className="text-xl mr-2">{getServiceIcon(serviceName)}</span>
-        <h4 className="text-lg font-medium text-red-800">
-          {serviceName} Service Error
-        </h4>
+        <h4 className="text-lg font-medium text-red-800">{serviceName} Service Error</h4>
       </div>
 
       <p className="text-red-700 mb-4">{error.message}</p>
@@ -139,10 +140,11 @@ const ServiceErrorFallback: React.FC<ServiceErrorFallbackProps> = ({
           <button
             key={index}
             onClick={action.action}
-            className={`px-3 py-1 text-sm rounded transition-colors ${action.primary
+            className={`px-3 py-1 text-sm rounded transition-colors ${
+              action.primary
                 ? 'bg-blue-600 text-white hover:bg-blue-700'
                 : 'bg-gray-600 text-white hover:bg-gray-700'
-              }`}
+            }`}
           >
             {action.label}
           </button>

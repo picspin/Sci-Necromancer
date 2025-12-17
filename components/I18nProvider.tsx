@@ -35,11 +35,7 @@ const I18nProvider: React.FC<I18nProviderProps> = ({ children }) => {
     );
   }
 
-  return (
-    <I18nextProvider i18n={i18n}>
-      {children}
-    </I18nextProvider>
-  );
+  return <I18nextProvider i18n={i18n}>{children}</I18nextProvider>;
 };
 
 export default I18nProvider;

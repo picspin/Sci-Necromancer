@@ -25,12 +25,12 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
       recoverable: true,
       timestamp: new Date(),
       severity: 'medium',
-      context: 'Component Error'
+      context: 'Component Error',
     };
 
     return {
       hasError: true,
-      error: appError
+      error: appError,
     };
   }
 
@@ -42,13 +42,13 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
       recoverable: true,
       timestamp: new Date(),
       severity: 'medium',
-      context: this.props.context || 'Component Error'
+      context: this.props.context || 'Component Error',
     };
 
     this.setState({
       hasError: true,
       error: appError,
-      errorInfo
+      errorInfo,
     });
 
     if (this.props.onError) {
@@ -58,7 +58,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     console.error('ErrorBoundary caught an error:', {
       message: error.message,
       context: this.props.context,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     });
   }
 
@@ -102,24 +102,34 @@ const DefaultErrorFallback: React.FC<DefaultErrorFallbackProps> = ({ error, retr
 
   const getErrorIcon = (severity?: string) => {
     switch (severity) {
-      case 'critical': return '🚨';
-      case 'high': return '⚠️';
-      case 'medium': return '⚡';
-      default: return 'ℹ️';
+      case 'critical':
+        return '🚨';
+      case 'high':
+        return '⚠️';
+      case 'medium':
+        return '⚡';
+      default:
+        return 'ℹ️';
     }
   };
 
   const getSeverityColor = (severity?: string) => {
     switch (severity) {
-      case 'critical': return 'border-red-500 bg-red-50';
-      case 'high': return 'border-orange-500 bg-orange-50';
-      case 'medium': return 'border-yellow-500 bg-yellow-50';
-      default: return 'border-blue-500 bg-blue-50';
+      case 'critical':
+        return 'border-red-500 bg-red-50';
+      case 'high':
+        return 'border-orange-500 bg-orange-50';
+      case 'medium':
+        return 'border-yellow-500 bg-yellow-50';
+      default:
+        return 'border-blue-500 bg-blue-50';
     }
   };
 
   return (
-    <div className={`p-6 border-2 rounded-lg ${getSeverityColor(error.severity)} max-w-md mx-auto mt-8`}>
+    <div
+      className={`p-6 border-2 rounded-lg ${getSeverityColor(error.severity)} max-w-md mx-auto mt-8`}
+    >
       <div className="flex items-center mb-4">
         <span className="text-2xl mr-3">{getErrorIcon(error.severity)}</span>
         <div>
@@ -156,10 +166,7 @@ const DefaultErrorFallback: React.FC<DefaultErrorFallbackProps> = ({ error, retr
             Report this error
           </button>
         ) : (
-          <ErrorFeedback
-            errorId={errorId}
-            onClose={() => setShowFeedback(false)}
-          />
+          <ErrorFeedback errorId={errorId} onClose={() => setShowFeedback(false)} />
         )}
       </div>
 
@@ -167,7 +174,9 @@ const DefaultErrorFallback: React.FC<DefaultErrorFallbackProps> = ({ error, retr
         <details className="mt-4">
           <summary className="cursor-pointer text-sm text-gray-600">Technical Details</summary>
           <pre className="mt-2 text-xs bg-gray-100 p-2 rounded overflow-auto">
-            {typeof error.details === 'string' ? error.details : JSON.stringify(error.details, null, 2)}
+            {typeof error.details === 'string'
+              ? error.details
+              : JSON.stringify(error.details, null, 2)}
           </pre>
         </details>
       )}

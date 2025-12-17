@@ -9,7 +9,11 @@ interface ExportButtonsProps {
   abstractType?: AbstractType;
 }
 
-const ExportButtons: React.FC<ExportButtonsProps> = ({ abstract, conference = 'ISMRM', abstractType = 'Standard Abstract' }) => {
+const ExportButtons: React.FC<ExportButtonsProps> = ({
+  abstract,
+  conference = 'ISMRM',
+  abstractType = 'Standard Abstract',
+}) => {
   const [isExporting, setIsExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
 
@@ -39,39 +43,47 @@ ${abstract.impact}
 
 ${abstract.synopsis}
 
-${abstract.abstract ? `---
+${
+  abstract.abstract
+    ? `---
 
 ## ABSTRACT
 
 ${abstract.abstract}
 
----` : ''}
+---`
+    : ''
+}
 
 ## KEYWORDS
 
-${abstract.keywords.map(k => `- ${k}`).join('\n')}
+${abstract.keywords.map((k) => `- ${k}`).join('\n')}
 
-${abstract.categories ? `
+${
+  abstract.categories
+    ? `
 ---
 
 ## CATEGORIES
 
-${abstract.categories.map(c => `- ${c.name} (${c.type})`).join('\n')}
-` : ''}
+${abstract.categories.map((c) => `- ${c.name} (${c.type})`).join('\n')}
+`
+    : ''
+}
     `;
     const blob = new Blob([content.trim()], { type: 'text/markdown;charset=utf-8' });
     downloadBlob(blob, `${conference.toLowerCase()}_abstract.md`);
   };
-  
+
   const handleExportPdf = async () => {
     if (!abstract) return;
-    
+
     setIsExporting(true);
     setExportError(null);
-    
+
     try {
       const blob = await exportService.exportToPDF(abstract, conference, {
-        customTitle: abstractType
+        customTitle: abstractType,
       });
       downloadBlob(blob, `${conference.toLowerCase()}_abstract.pdf`);
     } catch (error) {
@@ -83,11 +95,9 @@ ${abstract.categories.map(c => `- ${c.name} (${c.type})`).join('\n')}
     }
   };
 
-
-
   const handleExportJson = () => {
     if (!abstract) return;
-    
+
     const blob = exportService.exportToJSON(abstract, conference, abstractType);
     downloadBlob(blob, `${conference.toLowerCase()}_abstract.json`);
   };

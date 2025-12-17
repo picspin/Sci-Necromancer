@@ -12,12 +12,19 @@ interface AccessibilitySettingsProps {
  * Accessibility settings panel for high contrast mode, font size, and reduced motion
  */
 const AccessibilitySettings: React.FC<AccessibilitySettingsProps> = ({ isOpen, onClose }) => {
-  const { theme, toggleHighContrast, setFontSize, toggleReducedMotion, resetTheme, isHighContrast } = useTheme();
+  const {
+    theme,
+    toggleHighContrast,
+    setFontSize,
+    toggleReducedMotion,
+    resetTheme,
+    isHighContrast,
+  } = useTheme();
 
   return (
-    <Modal 
-      isOpen={isOpen} 
-      onClose={onClose} 
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
       title="Accessibility Settings"
       size="md"
       ariaLabel="Accessibility settings dialog"
@@ -51,7 +58,9 @@ const AccessibilitySettings: React.FC<AccessibilitySettingsProps> = ({ isOpen, o
         {/* Font Size */}
         <div className="space-y-2">
           <h3 className="text-base font-semibold text-text-primary">Font Size</h3>
-          <p className="text-sm text-text-secondary mb-3">Adjust text size for better readability (supports up to 200% zoom)</p>
+          <p className="text-sm text-text-secondary mb-3">
+            Adjust text size for better readability (supports up to 200% zoom)
+          </p>
           <div className="flex gap-2" role="radiogroup" aria-label="Font size selection">
             <button
               onClick={() => setFontSize('normal')}
@@ -123,7 +132,11 @@ const AccessibilitySettings: React.FC<AccessibilitySettingsProps> = ({ isOpen, o
         {/* Info Box */}
         <div className="bg-base-100 p-4 rounded-lg border border-base-300">
           <div className="flex gap-3">
-            <SvgIcon type="info" className="h-5 w-5 text-brand-primary flex-shrink-0 mt-0.5" aria-hidden="true" />
+            <SvgIcon
+              type="info"
+              className="h-5 w-5 text-brand-primary flex-shrink-0 mt-0.5"
+              aria-hidden="true"
+            />
             <div className="text-sm text-text-secondary">
               <p className="font-medium text-text-primary mb-1">Accessibility Features</p>
               <ul className="space-y-1 list-disc list-inside">

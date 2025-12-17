@@ -9,7 +9,10 @@ interface ComponentErrorBoundaryProps {
   isolateError?: boolean; // If true, only shows minimal fallback to maintain app functionality
 }
 
-export class ComponentErrorBoundary extends Component<ComponentErrorBoundaryProps, ErrorBoundaryState> {
+export class ComponentErrorBoundary extends Component<
+  ComponentErrorBoundaryProps,
+  ErrorBoundaryState
+> {
   constructor(props: ComponentErrorBoundaryProps) {
     super(props);
     (this as any).state = { hasError: false };
@@ -23,12 +26,12 @@ export class ComponentErrorBoundary extends Component<ComponentErrorBoundaryProp
       recoverable: true,
       timestamp: new Date(),
       severity: 'low',
-      context: 'Component Error'
+      context: 'Component Error',
     };
 
     return {
       hasError: true,
-      error: appError
+      error: appError,
     };
   }
 
@@ -40,13 +43,13 @@ export class ComponentErrorBoundary extends Component<ComponentErrorBoundaryProp
       recoverable: true,
       timestamp: new Date(),
       severity: 'low',
-      context: `${(this as any).props.componentName} Component`
+      context: `${(this as any).props.componentName} Component`,
     };
 
     (this as any).setState({
       hasError: true,
       error: appError,
-      errorInfo
+      errorInfo,
     });
 
     if ((this as any).props.onError) {
@@ -57,7 +60,7 @@ export class ComponentErrorBoundary extends Component<ComponentErrorBoundaryProp
     console.warn(`ComponentErrorBoundary (${(this as any).props.componentName}):`, {
       message: error.message,
       component: (this as any).props.componentName,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     });
   }
 
@@ -68,7 +71,7 @@ export class ComponentErrorBoundary extends Component<ComponentErrorBoundaryProp
   render() {
     const state = (this as any).state;
     const props = (this as any).props;
-    
+
     if (state.hasError && state.error) {
       // If we want to isolate the error and maintain app functionality
       if (props.isolateError) {
@@ -107,16 +110,14 @@ interface ComponentErrorFallbackProps {
 const ComponentErrorFallback: React.FC<ComponentErrorFallbackProps> = ({
   error,
   componentName,
-  retry
+  retry,
 }) => {
   return (
     <div className="p-3 border border-yellow-300 bg-yellow-50 rounded">
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center">
           <span className="text-yellow-600 mr-2">⚠️</span>
-          <span className="text-sm font-medium text-yellow-800">
-            {componentName} Error
-          </span>
+          <span className="text-sm font-medium text-yellow-800">{componentName} Error</span>
         </div>
         <button
           onClick={retry}
@@ -125,10 +126,8 @@ const ComponentErrorFallback: React.FC<ComponentErrorFallbackProps> = ({
           Retry
         </button>
       </div>
-      
-      <p className="text-xs text-yellow-700">
-        {error.message}
-      </p>
+
+      <p className="text-xs text-yellow-700">{error.message}</p>
     </div>
   );
 };

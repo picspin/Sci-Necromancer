@@ -205,9 +205,7 @@ const HelpDocumentation: React.FC<HelpDocumentationProps> = ({ isOpen, onClose }
     (section) =>
       section.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       section.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      section.keywords.some((keyword) =>
-        keyword.toLowerCase().includes(searchQuery.toLowerCase())
-      )
+      section.keywords.some((keyword) => keyword.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
   const currentSection = selectedSection
@@ -255,9 +253,7 @@ const HelpDocumentation: React.FC<HelpDocumentationProps> = ({ isOpen, onClose }
               <span aria-hidden="true">←</span> Back to topics
             </button>
             <div>
-              <h3 className="text-xl font-bold text-text-primary mb-3">
-                {currentSection.title}
-              </h3>
+              <h3 className="text-xl font-bold text-text-primary mb-3">{currentSection.title}</h3>
               <div className="prose prose-invert max-w-none text-text-secondary whitespace-pre-line">
                 {currentSection.content}
               </div>
@@ -276,9 +272,7 @@ const HelpDocumentation: React.FC<HelpDocumentationProps> = ({ isOpen, onClose }
                 >
                   <div className="flex items-center justify-between">
                     <div>
-                      <h4 className="font-semibold text-text-primary">
-                        {section.title}
-                      </h4>
+                      <h4 className="font-semibold text-text-primary">{section.title}</h4>
                       <p className="text-sm text-text-secondary mt-1 line-clamp-2">
                         {section.content.split('\n')[0]}
                       </p>
@@ -311,9 +305,7 @@ const HelpDocumentation: React.FC<HelpDocumentationProps> = ({ isOpen, onClose }
         {/* Quick Links */}
         {!currentSection && !searchQuery && (
           <div className="pt-4 border-t border-base-300">
-            <h4 className="text-sm font-semibold text-text-primary mb-2">
-              Quick Links
-            </h4>
+            <h4 className="text-sm font-semibold text-text-primary mb-2">Quick Links</h4>
             <div className="flex flex-wrap gap-2">
               {['getting-started', 'keyboard-shortcuts', 'accessibility', 'troubleshooting'].map(
                 (id) => {

@@ -1,0 +1,12 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+echo "🔄 Post-merge hook triggered..."
+echo "📦 Installing/updating dependencies..."
+npm install
+
+echo "🏗️  Building project..."
+npm run build
+
+echo "🌐 Starting automated browser testing..."
+node scripts/auto-test-browser.mjs

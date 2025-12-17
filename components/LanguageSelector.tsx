@@ -6,22 +6,22 @@ import { SvgIcon } from './SvgIcon';
 const LanguageSelector: React.FC = () => {
   const { t, i18n } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
-  
+
   const currentLanguage = i18n.language || 'en';
-  
+
   const languages = [
     { code: 'en', name: t('common.english'), flag: '🇺🇸' },
-    { code: 'zh', name: t('common.chinese'), flag: '🇨🇳' }
+    { code: 'zh', name: t('common.chinese'), flag: '🇨🇳' },
   ];
-  
+
   const handleLanguageChange = (languageCode: string) => {
     i18n.changeLanguage(languageCode);
     localStorage.setItem('i18nextLng', languageCode);
     setIsOpen(false);
   };
-  
-  const currentLang = languages.find(lang => lang.code === currentLanguage) || languages[0];
-  
+
+  const currentLang = languages.find((lang) => lang.code === currentLanguage) || languages[0];
+
   return (
     <div className="relative">
       <button
@@ -38,16 +38,12 @@ const LanguageSelector: React.FC = () => {
           <span>{currentLang.code.toUpperCase()}</span>
         </span>
       </button>
-      
+
       {isOpen && (
         <>
           {/* Backdrop */}
-          <div 
-            className="fixed inset-0 z-40" 
-            onClick={() => setIsOpen(false)}
-            aria-hidden="true"
-          />
-          
+          <div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)} aria-hidden="true" />
+
           {/* Dropdown */}
           <div className="absolute right-0 mt-2 w-40 bg-base-200 border border-base-300 rounded-md shadow-lg py-1 z-50 animate-fade-in">
             {languages.map((language) => (
@@ -55,8 +51,8 @@ const LanguageSelector: React.FC = () => {
                 key={language.code}
                 onClick={() => handleLanguageChange(language.code)}
                 className={`block w-full text-left px-4 py-2 text-sm transition-colors hover:bg-base-300 flex items-center gap-2 ${
-                  currentLanguage === language.code 
-                    ? 'text-brand-primary bg-brand-primary/10' 
+                  currentLanguage === language.code
+                    ? 'text-brand-primary bg-brand-primary/10'
                     : 'text-text-primary'
                 }`}
                 role="menuitem"

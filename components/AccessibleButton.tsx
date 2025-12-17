@@ -31,7 +31,8 @@ export const AccessibleButton = forwardRef<HTMLButtonElement, AccessibleButtonPr
     },
     ref
   ) => {
-    const baseClasses = 'inline-flex items-center justify-center gap-2 font-semibold rounded-lg transition-all duration-200 focus:outline-none focus:ring-3 focus:ring-brand-primary disabled:opacity-50 disabled:cursor-not-allowed';
+    const baseClasses =
+      'inline-flex items-center justify-center gap-2 font-semibold rounded-lg transition-all duration-200 focus:outline-none focus:ring-3 focus:ring-brand-primary disabled:opacity-50 disabled:cursor-not-allowed';
 
     const variantClasses = {
       primary: 'bg-brand-primary hover:bg-brand-secondary text-white',
@@ -85,26 +86,18 @@ export const AccessibleButton = forwardRef<HTMLButtonElement, AccessibleButtonPr
         {...props}
       >
         {loading && (
-          <SvgIcon 
-            type="loader" 
+          <SvgIcon
+            type="loader"
             className={`${iconSizeClasses[size]} animate-spin`}
             aria-hidden="true"
           />
         )}
         {!loading && icon && iconPosition === 'left' && (
-          <SvgIcon 
-            type={icon} 
-            className={iconSizeClasses[size]}
-            aria-hidden="true"
-          />
+          <SvgIcon type={icon} className={iconSizeClasses[size]} aria-hidden="true" />
         )}
         <span>{children}</span>
         {!loading && icon && iconPosition === 'right' && (
-          <SvgIcon 
-            type={icon} 
-            className={iconSizeClasses[size]}
-            aria-hidden="true"
-          />
+          <SvgIcon type={icon} className={iconSizeClasses[size]} aria-hidden="true" />
         )}
       </button>
     );

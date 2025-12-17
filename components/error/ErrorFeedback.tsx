@@ -7,10 +7,10 @@ interface ErrorFeedbackProps {
   compact?: boolean;
 }
 
-export const ErrorFeedback: React.FC<ErrorFeedbackProps> = ({ 
-  errorId, 
-  onClose, 
-  compact = false 
+export const ErrorFeedback: React.FC<ErrorFeedbackProps> = ({
+  errorId,
+  onClose,
+  compact = false,
 }) => {
   const [rating, setRating] = useState<'helpful' | 'not-helpful' | null>(null);
   const [comment, setComment] = useState('');
@@ -20,7 +20,7 @@ export const ErrorFeedback: React.FC<ErrorFeedbackProps> = ({
     if (rating) {
       errorLogger.collectUserFeedback(errorId, rating, comment.trim() || undefined);
       setSubmitted(true);
-      
+
       // Auto-close after submission
       setTimeout(() => {
         onClose?.();
@@ -30,7 +30,9 @@ export const ErrorFeedback: React.FC<ErrorFeedbackProps> = ({
 
   if (submitted) {
     return (
-      <div className={`${compact ? 'p-2' : 'p-3'} bg-green-50 border border-green-200 rounded text-sm`}>
+      <div
+        className={`${compact ? 'p-2' : 'p-3'} bg-green-50 border border-green-200 rounded text-sm`}
+      >
         <div className="flex items-center text-green-700">
           <span className="mr-2">✓</span>
           <span>Thank you for your feedback!</span>
@@ -41,10 +43,8 @@ export const ErrorFeedback: React.FC<ErrorFeedbackProps> = ({
 
   return (
     <div className={`${compact ? 'p-2' : 'p-3'} bg-gray-50 border border-gray-200 rounded`}>
-      <div className="text-sm text-gray-700 mb-2">
-        Was this error message helpful?
-      </div>
-      
+      <div className="text-sm text-gray-700 mb-2">Was this error message helpful?</div>
+
       <div className="flex gap-2 mb-2">
         <button
           onClick={() => setRating('helpful')}
@@ -67,7 +67,7 @@ export const ErrorFeedback: React.FC<ErrorFeedbackProps> = ({
           👎 Not helpful
         </button>
       </div>
-      
+
       {rating === 'not-helpful' && (
         <div className="mb-2">
           <textarea
@@ -80,11 +80,9 @@ export const ErrorFeedback: React.FC<ErrorFeedbackProps> = ({
           />
         </div>
       )}
-      
+
       <div className="flex justify-between items-center">
-        <div className="text-xs text-gray-500">
-          Error ID: {errorId.substring(0, 8)}...
-        </div>
+        <div className="text-xs text-gray-500">Error ID: {errorId.substring(0, 8)}...</div>
         <div className="flex gap-1">
           {onClose && (
             <button
@@ -149,10 +147,7 @@ export const ErrorStatsDisplay: React.FC<ErrorStatsDisplayProps> = ({ onClose })
       <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[80vh] overflow-y-auto">
         <div className="flex justify-between items-center mb-4">
           <h3 className="text-lg font-semibold">Error Statistics</h3>
-          <button
-            onClick={onClose}
-            className="text-gray-500 hover:text-gray-700 text-xl"
-          >
+          <button onClick={onClose} className="text-gray-500 hover:text-gray-700 text-xl">
             ×
           </button>
         </div>
@@ -176,9 +171,7 @@ export const ErrorStatsDisplay: React.FC<ErrorStatsDisplayProps> = ({ onClose })
             <div className="text-sm text-gray-600">High</div>
           </div>
           <div className="bg-blue-50 p-3 rounded">
-            <div className="text-2xl font-bold text-blue-600">
-              {stats.recentErrors.length}
-            </div>
+            <div className="text-2xl font-bold text-blue-600">{stats.recentErrors.length}</div>
             <div className="text-sm text-gray-600">Recent (24h)</div>
           </div>
         </div>
@@ -206,7 +199,10 @@ export const ErrorStatsDisplay: React.FC<ErrorStatsDisplayProps> = ({ onClose })
             <h4 className="font-medium mb-2">Most Common Errors</h4>
             <div className="space-y-2">
               {stats.topErrors.map((error, index) => (
-                <div key={index} className="flex justify-between items-center p-2 bg-gray-50 rounded">
+                <div
+                  key={index}
+                  className="flex justify-between items-center p-2 bg-gray-50 rounded"
+                >
                   <span className="font-mono text-sm">{error.code}</span>
                   <div className="text-right">
                     <div className="text-sm font-medium">{error.count} occurrences</div>

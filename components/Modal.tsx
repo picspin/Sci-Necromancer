@@ -11,14 +11,14 @@ interface ModalProps {
   ariaDescribedBy?: string;
 }
 
-const Modal: React.FC<ModalProps> = ({ 
-  isOpen = true, 
-  onClose, 
-  title, 
-  children, 
+const Modal: React.FC<ModalProps> = ({
+  isOpen = true,
+  onClose,
+  title,
+  children,
   size = 'md',
   ariaLabel,
-  ariaDescribedBy 
+  ariaDescribedBy,
 }) => {
   const modalRef = useRef<HTMLDivElement>(null);
   const focusManager = useRef(createFocusManager());
@@ -65,7 +65,7 @@ const Modal: React.FC<ModalProps> = ({
   };
 
   return (
-    <div 
+    <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50 animate-fade-in"
       role="presentation"
       onClick={(e) => {
@@ -96,16 +96,24 @@ const Modal: React.FC<ModalProps> = ({
               aria-label="Close modal"
               type="button"
             >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              <svg
+                className="w-6 h-6"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
               </svg>
             </button>
           </div>
         )}
-        <div 
-          id={descId.current}
-          className="p-6 overflow-y-auto max-h-[calc(90vh-80px)]"
-        >
+        <div id={descId.current} className="p-6 overflow-y-auto max-h-[calc(90vh-80px)]">
           {children}
         </div>
       </div>

@@ -9,11 +9,7 @@ interface ContextualHelpProps {
 /**
  * Contextual help component that displays help text in a popover
  */
-const ContextualHelp: React.FC<ContextualHelpProps> = ({
-  title,
-  content,
-  position = 'top',
-}) => {
+const ContextualHelp: React.FC<ContextualHelpProps> = ({ title, content, position = 'top' }) => {
   const [isOpen, setIsOpen] = useState(false);
 
   const positionClasses = {

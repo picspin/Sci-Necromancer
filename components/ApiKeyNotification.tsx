@@ -12,9 +12,10 @@ const ApiKeyNotification: React.FC<ApiKeyNotificationProps> = ({ provider, onOpe
   const { settings } = useContext(SettingsContext);
 
   // Check if API key is configured
-  const hasApiKey = provider === 'google' 
-    ? settings.googleApiKey && settings.googleApiKey.trim() !== ''
-    : settings.openAIApiKey && settings.openAIApiKey.trim() !== '';
+  const hasApiKey =
+    provider === 'google'
+      ? settings.googleApiKey && settings.googleApiKey.trim() !== ''
+      : settings.openAIApiKey && settings.openAIApiKey.trim() !== '';
 
   // Don't show if API key is configured or notification is dismissed
   if (hasApiKey || isDismissed) {
@@ -30,13 +31,11 @@ const ApiKeyNotification: React.FC<ApiKeyNotificationProps> = ({ provider, onOpe
           <SvgIcon type="info" className="h-5 w-5 text-yellow-600" />
         </div>
         <div className="ml-3 flex-1">
-          <h3 className="text-sm font-medium text-yellow-800">
-            {providerName} API Key Required
-          </h3>
+          <h3 className="text-sm font-medium text-yellow-800">{providerName} API Key Required</h3>
           <div className="mt-2 text-sm text-yellow-700">
             <p>
-              To use {providerName} models, you need to configure your API key. 
-              Click the settings button to add your API key.
+              To use {providerName} models, you need to configure your API key. Click the settings
+              button to add your API key.
             </p>
           </div>
           <div className="mt-3 flex gap-2">
