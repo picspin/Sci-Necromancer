@@ -100,7 +100,17 @@ export async function suggestAbstractType(
   const result = await callOpenAIAPI(prompt, apiKey, baseUrl, model);
 
   // Handle both array and object with suggestions field
-  const suggestions = Array.isArray(result) ? result : result.suggestions || [];
+  let suggestions = Array.isArray(result) ? result : result?.suggestions || [];
+
+  // Ensure suggestions is always an array
+  if (!Array.isArray(suggestions)) {
+    console.warn(
+      'suggestAbstractType: suggestions is not an array, got:',
+      typeof suggestions,
+      suggestions
+    );
+    suggestions = [];
+  }
 
   return suggestions
     .filter((s: AbstractTypeSuggestion) => s.probability >= 0.3)

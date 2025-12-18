@@ -1,12 +1,16 @@
 import { defineConfig } from 'vite';
-import react from '@vitejs/plugin-react';
+import vue from '@vitejs/plugin-vue';
 import path from 'path';
 
 // https://vitejs.dev/config/
 export default defineConfig({
-  plugins: [react()],
+  plugins: [vue()],
   resolve: {
     alias: {
+      '@/src': path.resolve(__dirname, './src'),
+      '@/components': path.resolve(__dirname, './src/components'),
+      '@/composables': path.resolve(__dirname, './src/composables'),
+      '@/plugins': path.resolve(__dirname, './src/plugins'),
       '@': path.resolve(__dirname, './'),
     },
   },
@@ -16,7 +20,7 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks: {
-          'react-vendor': ['react', 'react-dom'],
+          'vue-vendor': ['vue', 'pinia', 'vue-i18n'],
           'ai-vendor': ['@google/genai', 'openai'],
           'pdf-vendor': ['pdf-parse', 'jspdf', 'mammoth', 'docx'],
         },

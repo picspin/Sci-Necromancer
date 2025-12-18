@@ -12,20 +12,28 @@
     "resolveJsonModule": true,
     "isolatedModules": true,
     "noEmit": true,
-    "jsx": "react-jsx",
+    "jsx": "preserve",
 
     /* Linting */
     "strict": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
-    
+
     /* Path mapping */
     "baseUrl": ".",
     "paths": {
       "@/*": ["./*"]
-    }
+    },
+    "types": ["vite/client"]
   },
-  "include": ["**/*.ts", "**/*.tsx"],
-  "exclude": ["node_modules", "dist"]
+  "include": ["src/**/*.ts", "lib/**/*.ts", "vite.config.ts"],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "**/*.tsx",
+    "lib/llm/__tests__/**",
+    "components/**/*.tsx",
+    "vitest.setup.ts"
+  ]
 }

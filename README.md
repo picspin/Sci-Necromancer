@@ -1,178 +1,182 @@
-# Sci-Necromancer 🧙‍♂️
+# Sci-Necromancer (Vue Edition)
 
-> AI-powered academic abstract generation system for medical imaging research
+AI-powered academic abstract generation for medical imaging research, implemented with Vue 3 + TypeScript.
 
-An intelligent assistant for generating conference-ready abstracts (ISMRM, RSNA, JACC, ER) with automated analysis, structured formatting, and figure generation capabilities.
+This Vue app provides multi-conference abstract workflows (ISMRM, RSNA, JACC, ER), figure generation, local persistence, and internationalization. It adapts the UI/UX and feature set from the React main branch while conforming to Vue architecture.
 
-## ✨ Features
+## Features
 
-- **Smart Analysis**: Automatically extract categories, keywords, impact statements, and synopsis from your research
-- **Multi-Conference Support**: ISMRM, RSNA, JACC, and ER abstract formats
-- **Spec-Compliant Generation**: Follows conference-specific guidelines and word limits
-- **Figure Generation**: Create scientific figures via SiliconFlow or MCP tools
-- **Multiple AI Providers**: Google AI (Gemini) and OpenAI-compatible APIs
-- **MCP Tools Integration**: Extensible tool system for databases, image generation, and more
-- **Export Options**: Markdown, PDF, and JSON formats
+- Abstract workflows for ISMRM, RSNA, JACC, ER
+- Content analysis → impact & synopsis → type suggestion → final abstract
+- Figure generation: Standard (upload + edit) and Creative (from abstract context)
+- Providers: Google AI (Gemini) and OpenAI-compatible APIs (incl. SiliconFlow)
+- Local persistence with an Abstract Manager (import/export JSON)
+- Internationalization (English, Chinese) with Vue I18n and i18next
+- Accessibility-conscious UI: keyboard focus, screen reader utilities
+- Exports: Markdown, PDF, JSON
 
-## 🚀 Quick Start
+## Tech Stack
 
-### Prerequisites
+- Frontend: Vue 3 (Composition API), TypeScript
+- State: Pinia + Vue composables
+- Styling: Tailwind CSS (CDN in index.html) + theme utilities
+- Build: Vite
+- AI: @google/genai (Gemini), OpenAI-compatible REST
+- File processing: pdf-parse, mammoth/docx
+
+## Project Structure
+
+- src/
+  - main.ts: Vue app entry and plugin setup
+  - App.vue: Layout, header, modals (AbstractManager, ModelManager), notifications
+  - components/panels/: ConferencePanel.vue + per-conference panels
+  - components/ui/: common UI components (Modal, SvgIcon, NotificationDisplay, etc.)
+  - components/managers/: AbstractManager.vue, ModelManager.vue
+  - components/export/: ExportButtons.vue
+  - composables/: useSettings.ts, useAbstract.ts, useNotifications.ts, useConferenceRegistry.ts
+  - plugins/: i18n.ts, errorHandler.ts
+- lib/
+  - llm/: provider integrations (gemini.ts, openai.ts), index.ts facade
+  - file/: FileProcessingService.ts, file-process/{pdf.ts, docx.ts}
+  - utils/: notificationService.ts, retryUtils.ts, errorLogger.ts
+  - conference/: BaseConferenceModule.ts and registry/router
+- public/
+  - Static guideline markdowns and locales
+- vite.config.ts: Vue plugin, alias, manual chunks, dev server config
+- tsconfig.json: TypeScript options
+
+## Quick Start
+
+Prerequisites
 
 - Node.js 18+
-- API key from Google AI or OpenAI-compatible provider
+- API key for Google AI (Gemini) or an OpenAI-compatible provider
 
-### Installation
+Install and run
 
-```bash
-# Clone the repository
-git clone <your-repo-url>
-cd sci-necromancer
+- npm install
+- npm run dev
+- The server attempts port 3000; if taken, Vite will use 3001 or another port
 
-# Install dependencies
-npm install
+Production build
 
-# Start development server
-npm run dev
-```
+- npm run build
+- npm run preview
 
-The app will open at `http://localhost:5173`
+## First-Time Setup (Model Manager)
 
-### First-Time Setup
+- Click the gear icon in App header to open Model Manager
+- Choose provider:
+  - Google AI: enter your Gemini API key (from Google AI Studio)
+  - OpenAI-compatible: enter base URL and API key (e.g., https://api.openai.com/v1 or SiliconFlow)
+- Optionally set models:
+  - Text model (e.g., gemini-2.5-pro or gpt-4o)
+  - Vision model (for analyzing uploaded images)
+  - Image model (for image generation; SiliconFlow defaults provided)
+- Save settings (stored safely in localStorage on this device)
 
-1. Click the **Settings** icon (⚙️) in the top right
-2. Choose your AI provider:
-   - **Google AI**: Enter your Gemini API key
-   - **OpenAI Compatible**: Enter API key and base URL
-3. Configure models (or use defaults)
-4. Click **Save Settings**
+## Usage
 
-## 📖 Usage
+ISMRM/RSNA/JACC workflows
 
-### Generate an Abstract
+- Standard mode: upload PDF/DOCX or paste text, then Analyze → Impact/Synopsis → Type Suggestion → Generate
+- Creative mode: provide a core idea; system generates an abstract directly
+- Save abstracts to Abstract Manager for later use; import/export via JSON
 
-1. **Input**: Paste your research text or upload a file (.txt)
-2. **Analyze**: Click "Analyze" to extract categories and keywords
-3. **Review**: Edit the generated Impact and Synopsis if needed
-4. **Select Type**: Choose the recommended abstract type
-5. **Generate**: Click "Generate" to create your spec-compliant abstract
-6. **Export**: Download as Markdown, PDF, or JSON
+Figure generation
 
-### Generate a Figure
+- Standard: upload image, specify editing instructions (specs), and generate
+- Creative: generate figure from the context (impact + synopsis) of your abstract
 
-1. Switch to **Figure Generation** tab
-2. Choose mode:
-   - **Standard**: Upload an image and add specifications
-   - **Creative**: Generate from abstract context
-3. Add your specifications/guidelines
-4. Click **Generate Figure**
-5. Download the generated image
+Exports
 
-## 🔧 Configuration
+- Use ExportButtons to download Abstract as Markdown, PDF, or JSON
 
-### AI Providers
+## Internationalization
 
-**Google AI (Recommended)**
+- Vue I18n provides runtime locale handling (Composition API mode)
+- i18next + language detector synchronize locale (resources in public/locales)
+- LanguageSelector component toggles languages
 
-- Get API key: [Google AI Studio](https://aistudio.google.com/app/apikey)
-- Models: `gemini-2.5-flash`, `gemini-2.5-pro`
+## Persistence & MCP
 
-**OpenAI Compatible**
+- Local-only by default (as requested)
+- AbstractManager uses a local DatabaseService (LocalStorage)
+- Optional MCP image generation wiring exists in code but remains disabled if not configured
 
-- Supports: OpenAI, SiliconFlow, and other compatible APIs
-- SiliconFlow: `https://api.siliconflow.cn`
-- Models: `gpt-4o`, `Qwen/Qwen2.5-72B-Instruct`, etc.
+## Development Notes
 
-### MCP Tools (Optional)
+- Dev server: configured to open on port 3000 (vite.config.ts); Vite will auto-select another port if busy
+- Path alias: '@' maps to project root; '@/components', '@/composables', '@/plugins' mapped in Vite resolve.alias
+- Build chunks: manualChunks split vue-vendor, ai-vendor, pdf-vendor
+- Type checking: The build script uses only Vite build; type lint via `npm run lint` (tsc --noEmit)
 
-Enable advanced features in the **MCP Tools** tab:
+## Testing & Debugging
 
-- **Supabase**: Cloud database for storing abstracts
-- **Image Generation**: Generate figures via MCP platforms
-- **Custom Tools**: Add your own via JSON configuration
+Functional checklist (dev server)
 
-See [MCP_TOOLS_GUIDE.md](MCP_TOOLS_GUIDE.md) for details.
+- App header: Model Manager opens, Abstract Manager opens
+- i18n: Language toggles update UI
+- ISMRM/RSNA/JACC panels:
+  - File upload and parsing: PDF/DOCX text extraction populates input
+  - Analyze → Impact/Synopsis → Type Suggestion → Generate flows
+  - Creative mode generation
+  - Export buttons: MD/PDF/JSON downloads
+- Figure generation: Standard (upload + preview), Creative (requires generated abstract)
+- Notifications: appear and auto-dismiss
 
-## 📚 Documentation
+Troubleshooting
 
-### User Guides
+- Missing API key: provider calls will error with clear messages in UI/console
+- PDF/DOCX parsing: very large files may need manual text paste
+- Port conflicts: Vite switches to a free port and logs the chosen URL
 
-- [Quick Reference](QUICK_REFERENCE.md) - Common tasks and shortcuts
-- [Workflow Guide](WORKFLOW.md) - Detailed workflow explanation
-- [Configuration Guide](CONFIGURATION.md) - Advanced settings
-- [Troubleshooting](TROUBLESHOOTING.md) - Common issues and solutions
+## Deployment (Vercel)
 
-### Image Generation
+- This is a static Vite build; Vercel auto-detects
+- Steps:
+  - Push this repo to GitHub
+  - In Vercel, "New Project" → import repo
+  - Framework preset: Vite
+  - Build command: `npm run build`
+  - Output directory: `dist`
+  - Environment variables: none required (keys entered via UI and stored locally)
+- After deploy:
+  - Open the app
+  - Configure provider keys in Model Manager
 
-- [Quick Start](QUICK_START_IMAGE_GENERATION.md) - Setup guide
-- [Architecture](IMAGE_GENERATION_ARCHITECTURE.md) - Technical details
-- [Flow Diagram](IMAGE_GENERATION_FLOW.md) - Visual workflow
+## Security Considerations
 
-### Advanced
+- No server-side storage of keys; keys persist in localStorage
+- Avoid uploading sensitive data; parsing runs in-browser
+- Error logs and feedback are privacy-filtered and stored locally
 
-- [MCP Tools Guide](MCP_TOOLS_GUIDE.md) - Extensible tool system
-- [Model Configuration](MODEL_CONFIGURATION_GUIDE.md) - Provider setup
-- [Testing Guide](TESTING_GUIDE.md) - Quality assurance
-- [Agent Guide](agent.md) - Development guidelines
+## Migration Parity with React Main Branch
 
-## 🏗️ Architecture
+This Vue app matches the main-branch feature set and UI/UX:
 
-```
-Sci-Necromancer/
-├── components/          # React UI components
-├── lib/
-│   ├── llm/            # AI provider integrations
-│   ├── file/           # File processing
-│   └── utils/          # Utilities
-├── context/            # React context providers
-├── services/           # Business logic
-├── public/             # Static assets & guidelines
-└── types.ts            # TypeScript definitions
-```
+- Conference workflows and guidelines
+- Provider switching and model configuration
+- File parsing and export options
+- Figure generation modes
+- Abstract Manager with import/export
+- i18n and accessibility utilities
 
-## 🛠️ Tech Stack
+Remaining differences
 
-- **Frontend**: React 18, TypeScript, Tailwind CSS
-- **Build**: Vite
-- **AI**: Google Gemini, OpenAI API
-- **State**: React Context + Jotai
-- **Styling**: Tailwind CSS + Custom themes
+- Internals use Vue composables/Pinia instead of React Context/Jotai
+- Build/test scripts reflect Vue tooling
 
-## 🤝 Contributing
+## Commands
 
-Contributions welcome! Please follow the guidelines in [agent.md](agent.md).
+- npm install
+- npm run dev
+- npm run build
+- npm run preview
+- npm run lint
 
-### Development Workflow
+## Acknowledgments
 
-```bash
-# Install dependencies
-npm install
-
-# Run development server
-npm run dev
-
-# Build for production
-npm run build
-
-# Preview production build
-npm run preview
-```
-
-## 📝 License
-
-[Your License Here]
-
-## 🙏 Acknowledgments
-
-- ISMRM for abstract guidelines
-- Google AI for Gemini models
-- SiliconFlow for image generation models
-
-## 📧 Support
-
-- Issues: [GitHub Issues](your-repo-url/issues)
-- Documentation: See `/docs` folder
-- Email: [your-email]
-
----
-
-**Made with ❤️ for the medical imaging research community**
+- ISMRM, RSNA, JACC for public abstract guidelines
+- Google AI (Gemini) and OpenAI-compatible providers
+- SiliconFlow for image generation APIs

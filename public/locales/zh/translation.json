@@ -35,7 +35,7 @@
   },
   "navigation": {
     "ismrm": "ISMRM",
-    "rsna": "RSNA", 
+    "rsna": "RSNA",
     "jacc": "JACC",
     "er": "ER",
     "coming_soon": "即将推出"
@@ -78,7 +78,7 @@
     "generating_creative": "✨ 邪修炼丹中...",
     "generating_figure": "筑基中...",
     "deep_diving": "🔬 深入挖掘内容中...",
-    "processing_file": "📄 处理 {{filename}} 中...",
+    "processing_file": "📄 处理文件中...",
     "please_wait": "请稍候片刻..."
   },
   "analysis": {
