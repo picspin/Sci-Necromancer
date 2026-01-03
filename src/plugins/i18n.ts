@@ -37,8 +37,8 @@ export const i18n = createI18n({
   },
 });
 
-// Initialize i18next and load translations
-(async () => {
+// Initialize i18next and load translations, and expose a readiness promise
+export const i18nReady: Promise<void> = (async () => {
   const resources = await loadTranslations();
 
   await i18next.use(LanguageDetector).init({

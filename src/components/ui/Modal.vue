@@ -108,7 +108,9 @@ const setupModal = async () => {
   if (!props.isOpen) return;
 
   // Save current focus
-  focusManager.saveFocus();
+  try {
+    focusManager.saveFocus?.();
+  } catch {}
 
   // Prevent body scroll
   document.body.style.overflow = 'hidden';
@@ -116,10 +118,8 @@ const setupModal = async () => {
   // Wait for DOM to update
   await nextTick();
 
-  // Setup focus trap
-  if (modalRef.value) {
-    cleanupFocusTrap = trapFocus(modalRef.value);
-  }
+  // Setup focus trap (temporarily disabled due to MutationObserver issues)
+  // Intentionally skipping trapFocus to avoid runtime crashes on some environments.
 
   // Handle escape key
   document.addEventListener('keydown', handleEscape);

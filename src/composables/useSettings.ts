@@ -1,5 +1,6 @@
 import { ref, computed } from 'vue';
 import type { Settings } from '@/types';
+import { LocalStorageService } from '@/services/databaseService';
 
 // Local storage service
 const STORAGE_KEY = 'app-settings';
@@ -31,47 +32,11 @@ const saveSettingsToStorage = (settings: Settings): void => {
   }
 };
 
-// Local storage service implementation
-const LocalStorageServiceImpl = {
-  getItem: (key: string): string | null => {
-    try {
-      return localStorage.getItem(key);
-    } catch (error) {
-      console.error(`Failed to get item '${key}' from localStorage:`, error);
-      return null;
-    }
-  },
-
-  setItem: (key: string, value: string): void => {
-    try {
-      localStorage.setItem(key, value);
-    } catch (error) {
-      console.error(`Failed to set item '${key}' in localStorage:`, error);
-    }
-  },
-
-  removeItem: (key: string): void => {
-    try {
-      localStorage.removeItem(key);
-    } catch (error) {
-      console.error(`Failed to remove item '${key}' from localStorage:`, error);
-    }
-  },
-
-  clear: (): void => {
-    try {
-      localStorage.clear();
-    } catch (error) {
-      console.error('Failed to clear localStorage:', error);
-    }
-  },
-};
+// Database service instance - use proper LocalStorageService class with abstract methods
+const databaseServiceInstance = new LocalStorageService();
 
 // Reactive settings store
 const settings = ref<Settings>(loadSettingsFromStorage());
-
-// Database service instance
-const databaseService = LocalStorageServiceImpl;
 
 export function useSettings() {
   const updateSettings = (updates: Partial<Settings>): void => {
@@ -99,9 +64,6 @@ export function useSettings() {
     updateSettings,
     saveSettings,
     resetSettings,
-    databaseService,
+    databaseService: databaseServiceInstance,
   };
 }
-
-// Export LocalStorageService for external use
-export const LocalStorageService = LocalStorageServiceImpl;

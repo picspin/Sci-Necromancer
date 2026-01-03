@@ -23,10 +23,11 @@
     "about": "关于",
     "language": "语言",
     "english": "English",
-    "chinese": "中文"
+    "chinese": "中文",
+    "title": "标题"
   },
   "header": {
-    "title": "SCI邪修",
+    "title": "SCI邪修🧙‍♂️",
     "subtitle": "学术投稿生成器",
     "abstracts": "摘要库",
     "models": "模型配置",
@@ -37,7 +38,8 @@
     "ismrm": "ISMRM",
     "rsna": "RSNA",
     "jacc": "JACC",
-    "er": "ER",
+    "er": "ECR",
+    "esc": "ESC",
     "coming_soon": "即将推出"
   },
   "tabs": {
@@ -165,7 +167,8 @@
     "clear_data": "清除所有数据并重置",
     "github_repo": "GitHub 仓库",
     "model_settings": "模型设置",
-    "abstract_manager": "摘要管理器"
+    "abstract_manager": "摘要管理器",
+    "help_documentation": "使用说明与配置提示"
   },
   "accessibility": {
     "skip_to_content": "跳转到主要内容",
@@ -177,5 +180,44 @@
   },
   "footer": {
     "copyright": "SCI邪修 - 学术投稿生成器"
+  },
+  "ecr": {
+    "title": "欧洲放射学大会 (ECR)",
+    "subtitle": "ESR 摘要投稿",
+    "analysis_complete": "ECR 分析完成",
+    "analysis_description": "请审查并确认您 ECR 摘要的建议类别、关键词和研究类型。",
+    "research_type": "研究类型",
+    "research_type_description": "选择您的研究设计以获取 EQUATOR Network 报告指南",
+    "equator_network": "EQUATOR Network",
+    "categories_title": "建议的 ECR 类别",
+    "keywords_title": "建议的关键词",
+    "submission_link": "ECR 摘要投稿",
+    "submission_url": "www.myESR.org/abstractsubmission",
+    "confirm_proceed": "确认选择并继续",
+    "abstract_types": {
+      "research_presentation": "ECR 研究报告",
+      "clinical_trials": "ECR 放射学临床试验",
+      "epos_scientific": "ECR EPOS 科学海报",
+      "epos_educational": "ECR EPOS 教育海报",
+      "student": "ECR 学生报告"
+    },
+    "research_types": {
+      "case_control": "病例对照研究",
+      "cross_sectional": "横断面研究",
+      "diagnostic": "诊断或预后研究",
+      "experimental": "实验研究（动物研究）",
+      "observational": "观察性研究",
+      "rct": "随机对照试验"
+    },
+    "checklists": {
+      "strobe": "STROBE",
+      "stard": "STARD",
+      "arrive": "ARRIVE",
+      "consort": "CONSORT"
+    },
+    "view_guidelines": "查看指南",
+    "pubmed_reference": "PubMed 参考文献",
+    "word_limit_warning": "最多280词",
+    "british_english": "使用英式英语拼写"
   }
 }

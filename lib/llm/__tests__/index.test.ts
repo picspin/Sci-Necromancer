@@ -17,7 +17,7 @@ describe('LLM Index - Provider Selection', () => {
     const { analyzeContent } = await import('@/lib/llm/index');
 
     // This should internally call gemini.ts
-    expect(() => analyzeContent('test', 'ISMRM')).toBeDefined();
+    expect(() => analyzeContent('test')).toBeDefined();
   });
 
   it('should route to OpenAI provider when configured', async () => {
@@ -35,9 +35,10 @@ describe('LLM Index - Provider Selection', () => {
   });
 
   it('should provide conference-specific helpers', async () => {
-    const { generateISMRMAbstract, generateRSNAAbstract } = await import('@/lib/llm/index');
+    const { generateAbstractForConference, generateCreativeAbstractForConference } =
+      await import('@/lib/llm/index');
 
-    expect(typeof generateISMRMAbstract).toBe('function');
-    expect(typeof generateRSNAAbstract).toBe('function');
+    expect(typeof generateAbstractForConference).toBe('function');
+    expect(typeof generateCreativeAbstractForConference).toBe('function');
   });
 });

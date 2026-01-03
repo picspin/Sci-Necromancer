@@ -65,7 +65,8 @@
               <option value="all">All Conferences</option>
               <option value="ISMRM">ISMRM</option>
               <option value="RSNA">RSNA</option>
-              <option value="JACC">JACC</option>
+              <option value="ER">ER</option>
+              <option value="ESC">ESC</option>
             </select>
 
             <select
@@ -295,7 +296,8 @@ watch(
       loadAbstracts();
       loadSyncStatus();
     }
-  }
+  },
+  { immediate: true }
 );
 
 // Handle Escape key to close modal
@@ -307,6 +309,12 @@ const handleEscape = (e: KeyboardEvent) => {
 
 onMounted(() => {
   document.addEventListener('keydown', handleEscape);
+  // Also load abstracts on mount if visible
+  if (props.isVisible) {
+    console.log('onMounted: Loading abstracts because isVisible is true');
+    loadAbstracts();
+    loadSyncStatus();
+  }
 });
 
 onUnmounted(() => {
@@ -335,9 +343,16 @@ const loadAbstracts = async () => {
   loading.value = true;
   error.value = null;
   try {
+    console.log('Loading abstracts...');
+    console.log('databaseService:', databaseService);
+    console.log('databaseService.listAbstracts:', typeof databaseService.listAbstracts);
     const loadedAbstracts = await databaseService.listAbstracts();
+    console.log('Loaded abstracts:', loadedAbstracts);
+    console.log('Loaded abstracts length:', loadedAbstracts?.length);
     abstracts.value = loadedAbstracts;
+    console.log('abstracts.value set to:', abstracts.value.length, 'items');
   } catch (err) {
+    console.error('Error loading abstracts:', err);
     error.value = err instanceof Error ? err.message : 'Failed to load abstracts';
   } finally {
     loading.value = false;
@@ -373,6 +388,7 @@ const loadSyncStatus = async () => {
 };
 
 const filterAndSortAbstracts = () => {
+  console.log('filterAndSortAbstracts called, abstracts.value:', abstracts.value.length);
   let filtered = [...abstracts.value];
 
   // Apply search filter
@@ -417,6 +433,7 @@ const filterAndSortAbstracts = () => {
   });
 
   filteredAbstracts.value = filtered;
+  console.log('filteredAbstracts set to:', filteredAbstracts.value.length, 'items');
 };
 
 const handleSortChange = (e: Event) => {
@@ -457,8 +474,10 @@ const getConferenceColor = (conference: string) => {
       return '#4CAF50';
     case 'RSNA':
       return '#2196F3';
-    case 'JACC':
-      return '#FF9800';
+    case 'ER':
+      return '#9C27B0';
+    case 'ESC':
+      return '#C41E3A';
     default:
       return '#9E9E9E';
   }

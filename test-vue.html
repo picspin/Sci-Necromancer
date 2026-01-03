@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vue Test Page</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-900 text-white p-8">
+    <div id="test-app"></div>
+    <script type="module">
+        import { createApp, ref } from 'vue';
+
+        const app = createApp({
+            setup() {
+                const message = ref('✅ Vue 3 is working!');
+                const count = ref(0);
+
+                return { message, count };
+            },
+            template: `
+                <div class="max-w-2xl mx-auto">
+                    <h1 class="text-4xl font-bold mb-4">{{ message }}</h1>
+                    <p class="text-xl mb-4">Count: {{ count }}</p>
+                    <button
+                        @click="count++"
+                        class="bg-blue-500 hover:bg-blue-600 px-4 py-2 rounded"
+                    >
+                        Click Me
+                    </button>
+                </div>
+            `
+        });
+
+        app.mount('#test-app');
+    </script>
+</body>
+</html>

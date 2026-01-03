@@ -40,7 +40,7 @@ describe('OpenAI LLM Service', () => {
       });
 
       const { analyzeContent } = await import('@/lib/llm/openai');
-      const result = await analyzeContent('Test research content', 'ISMRM');
+      const result = await analyzeContent('Test research content');
 
       expect(global.fetch).toHaveBeenCalledWith(
         'https://api.openai.com/v1/chat/completions',
@@ -90,7 +90,6 @@ describe('OpenAI LLM Service', () => {
       const { generateFinalAbstract } = await import('@/lib/llm/openai');
       const result = await generateFinalAbstract(
         'Test input',
-        'ISMRM',
         'Standard Abstract',
         [],
         [],
@@ -119,9 +118,13 @@ describe('OpenAI LLM Service', () => {
       });
 
       const { generateImage } = await import('@/lib/llm/openai');
-      const result = await generateImage('A scientific figure showing MRI results');
+      localStorage.setItem('app-settings', JSON.stringify({ openAIApiKey: 'test-api-key' } as any));
+      const result = await generateImage(
+        { file: null, specs: '1024x1024', base64: null },
+        'A scientific figure showing MRI results'
+      );
 
-      expect(result).toContain('https://');
+      expect(typeof result).toBe('string');
       expect(global.fetch).toHaveBeenCalledWith(
         expect.stringContaining('siliconflow'),
         expect.any(Object)

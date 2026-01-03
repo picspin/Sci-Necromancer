@@ -27,7 +27,7 @@
     },
     "types": ["vite/client"]
   },
-  "include": ["src/**/*.ts", "lib/**/*.ts", "vite.config.ts"],
+  "include": ["src/**/*.ts", "src/**/*.vue", "lib/**/*.ts", "vite.config.ts", "types/**/*.d.ts"],
   "exclude": [
     "node_modules",
     "dist",

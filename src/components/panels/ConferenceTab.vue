@@ -25,13 +25,13 @@
       </div>
     </button>
 
-    <!-- Submission Link -->
-    <div v-if="isActive && !disabled && submissionUrl !== '#'" class="px-2 py-1">
+    <!-- Submission Link - show for active tab -->
+    <div v-if="isActive && submissionUrl && submissionUrl !== '#'" class="px-2 py-1">
       <a
         :href="submissionUrl"
         target="_blank"
         rel="noopener noreferrer"
-        class="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 hover:underline transition-colors"
+        class="inline-flex items-center gap-1 text-xs text-brand-primary hover:text-brand-secondary hover:underline transition-colors"
         :title="`Submit to ${label}`"
       >
         <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">

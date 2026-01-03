@@ -23,10 +23,11 @@
     "about": "About",
     "language": "Language",
     "english": "English",
-    "chinese": "中文"
+    "chinese": "中文",
+    "title": "Title"
   },
   "header": {
-    "title": "Sci-Evil",
+    "title": "SCI邪修🧙‍♂️",
     "subtitle": "Academic Submission Generator",
     "abstracts": "Abstracts",
     "models": "Models",
@@ -37,7 +38,8 @@
     "ismrm": "ISMRM",
     "rsna": "RSNA",
     "jacc": "JACC",
-    "er": "ER",
+    "er": "ECR",
+    "esc": "ESC",
     "coming_soon": "Coming soon"
   },
   "tabs": {
@@ -177,5 +179,44 @@
   },
   "footer": {
     "copyright": "Sci-Evil - Academic Submission Generator"
+  },
+  "ecr": {
+    "title": "European Congress of Radiology (ECR)",
+    "subtitle": "ESR Abstract Submission",
+    "analysis_complete": "ECR Analysis Complete",
+    "analysis_description": "Please review and confirm the suggested categories, keywords, and research type for your ECR abstract.",
+    "research_type": "Research Type",
+    "research_type_description": "Select your study design to get EQUATOR Network reporting guidelines",
+    "equator_network": "EQUATOR Network",
+    "categories_title": "Suggested ECR Categories",
+    "keywords_title": "Suggested Keywords",
+    "submission_link": "ECR Abstract Submission",
+    "submission_url": "www.myESR.org/abstractsubmission",
+    "confirm_proceed": "Confirm Selections & Proceed",
+    "abstract_types": {
+      "research_presentation": "ECR Research Presentation",
+      "clinical_trials": "ECR Clinical Trials in Radiology",
+      "epos_scientific": "ECR EPOS Scientific Poster",
+      "epos_educational": "ECR EPOS Educational Poster",
+      "student": "ECR Student Presentation"
+    },
+    "research_types": {
+      "case_control": "Case-control study",
+      "cross_sectional": "Cross-sectional study",
+      "diagnostic": "Diagnostic or prognostic study",
+      "experimental": "Experimental (animal study)",
+      "observational": "Observational study",
+      "rct": "Randomised controlled trial"
+    },
+    "checklists": {
+      "strobe": "STROBE",
+      "stard": "STARD",
+      "arrive": "ARRIVE",
+      "consort": "CONSORT"
+    },
+    "view_guidelines": "View guidelines",
+    "pubmed_reference": "PubMed Reference",
+    "word_limit_warning": "Maximum 280 words",
+    "british_english": "Use British English spelling"
   }
 }

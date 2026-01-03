@@ -10,7 +10,7 @@ interface AbstractContextType {
 const AbstractContext = createContext<AbstractContextType>({
   loadAbstract: () => {},
   abstractToLoad: null,
-  clearLoadedAbstract: () => {}
+  clearLoadedAbstract: () => {},
 });
 
 export const useAbstractContext = () => useContext(AbstractContext);

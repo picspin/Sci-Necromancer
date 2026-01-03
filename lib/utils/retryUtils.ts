@@ -1,10 +1,17 @@
-import { RetryConfig, AppError } from '../../types';
+import type { AppError } from '../../types';
+
+export interface RetryConfig {
+  maxAttempts: number;
+  baseDelay: number;
+  maxDelay: number;
+  backoffFactor: number;
+}
 
 export const DEFAULT_RETRY_CONFIG: RetryConfig = {
   maxAttempts: 3,
   baseDelay: 1000, // 1 second
   maxDelay: 10000, // 10 seconds
-  backoffFactor: 2
+  backoffFactor: 2,
 };
 
 export class RetryableError extends Error {
@@ -24,56 +31,59 @@ export async function withRetry<T>(
   context?: string
 ): Promise<T> {
   const finalConfig = { ...DEFAULT_RETRY_CONFIG, ...config };
-  let lastError: Error;
-  
+  let lastError: Error | null = null;
+
   for (let attempt = 1; attempt <= finalConfig.maxAttempts; attempt++) {
     try {
       return await operation();
     } catch (error) {
       lastError = error as Error;
-      
+
       // Check if error is retryable
       if (error instanceof RetryableError && !error.retryable) {
         throw error;
       }
-      
+
       // Don't retry on the last attempt
       if (attempt === finalConfig.maxAttempts) {
         break;
       }
-      
+
       // Calculate delay with exponential backoff
       const delay = Math.min(
         finalConfig.baseDelay * Math.pow(finalConfig.backoffFactor, attempt - 1),
         finalConfig.maxDelay
       );
-      
+
       // Add jitter to prevent thundering herd
       const jitteredDelay = delay + Math.random() * 1000;
-      
-      console.warn(`Retry attempt ${attempt}/${finalConfig.maxAttempts} for ${context || 'operation'} in ${Math.round(jitteredDelay)}ms`, {
-        error: error instanceof Error ? error.message : String(error),
-        attempt,
-        delay: Math.round(jitteredDelay)
-      });
-      
-      await new Promise(resolve => setTimeout(resolve, jitteredDelay));
+
+      console.warn(
+        `Retry attempt ${attempt}/${finalConfig.maxAttempts} for ${context || 'operation'} in ${Math.round(jitteredDelay)}ms`,
+        {
+          error: error instanceof Error ? error.message : String(error),
+          attempt,
+          delay: Math.round(jitteredDelay),
+        }
+      );
+
+      await new Promise((resolve) => setTimeout(resolve, jitteredDelay));
     }
   }
-  
+
   // All retries failed, throw the last error
   throw new RetryableError(
-    `Operation failed after ${finalConfig.maxAttempts} attempts: ${lastError.message}`,
-    lastError
+    `Operation failed after ${finalConfig.maxAttempts} attempts: ${lastError?.message || 'Unknown error'}`,
+    lastError || new Error('Unknown error')
   );
 }
 
 export function isNetworkError(error: any): boolean {
   if (!error) return false;
-  
+
   const message = error.message?.toLowerCase() || '';
   const code = error.code?.toLowerCase() || '';
-  
+
   return (
     message.includes('network') ||
     message.includes('fetch') ||
@@ -88,10 +98,10 @@ export function isNetworkError(error: any): boolean {
 
 export function isRateLimitError(error: any): boolean {
   if (!error) return false;
-  
+
   const message = error.message?.toLowerCase() || '';
   const status = error.status || error.statusCode;
-  
+
   return (
     status === 429 ||
     message.includes('rate limit') ||
@@ -107,7 +117,7 @@ export function shouldRetry(error: any): boolean {
 export function createAppError(error: any, context: string): AppError {
   let code: AppError['code'] = 'UNKNOWN_ERROR';
   let severity: AppError['severity'] = 'medium';
-  
+
   if (isNetworkError(error)) {
     code = 'NETWORK_ERROR';
     severity = 'high';
@@ -121,7 +131,7 @@ export function createAppError(error: any, context: string): AppError {
     code = 'VALIDATION_ERROR';
     severity = 'low';
   }
-  
+
   return {
     code,
     message: error.message || 'An unexpected error occurred',
@@ -129,6 +139,6 @@ export function createAppError(error: any, context: string): AppError {
     recoverable: shouldRetry(error),
     timestamp: new Date(),
     severity,
-    context
+    context,
   };
 }

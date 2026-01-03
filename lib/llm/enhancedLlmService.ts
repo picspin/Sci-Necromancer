@@ -1,12 +1,35 @@
 import * as gemini from './gemini';
 import * as openai from './openai';
-import { AbstractData, ImageState, AnalysisResult, Category, AbstractType, AbstractTypeSuggestion, AIProvider, AppError, Conference } from '../../types';
+import {
+  AbstractData,
+  ImageState,
+  AnalysisResult,
+  Category,
+  AbstractType,
+  AbstractTypeSuggestion,
+  AIProvider,
+  Conference,
+} from '../../types';
 import { withRetry, createAppError, shouldRetry, DEFAULT_RETRY_CONFIG } from '../utils/retryUtils';
 
 interface LLMService {
   analyzeContent(text: string, apiKey?: string): Promise<AnalysisResult>;
-  suggestAbstractType(text: string, categories: Category[], keywords: string[], apiKey?: string): Promise<AbstractTypeSuggestion[]>;
-  generateFinalAbstract(text: string, type: AbstractType, categories: Category[], keywords: string[], apiKey?: string): Promise<AbstractData>;
+  suggestAbstractType(
+    text: string,
+    categories: Category[],
+    keywords: string[],
+    apiKey?: string
+  ): Promise<AbstractTypeSuggestion[]>;
+  // Providers accept impact & synopsis for final abstract. Align to 6-arg signature used elsewhere.
+  generateFinalAbstract(
+    text: string,
+    type: AbstractType,
+    categories: Category[],
+    keywords: string[],
+    impact: string,
+    synopsis: string,
+    apiKey?: string
+  ): Promise<AbstractData>;
   generateCreativeAbstract(coreIdea: string, apiKey?: string): Promise<AbstractData>;
   generateImage(imageState: ImageState, creativeContext: string, apiKey?: string): Promise<string>;
 }
@@ -93,7 +116,7 @@ class EnhancedLLMService {
     } catch (fallbackError) {
       console.error(`Both providers failed for ${context}:`, {
         primary: primaryError?.message,
-        fallback: (fallbackError as Error)?.message
+        fallback: (fallbackError as Error)?.message,
       });
 
       // Check if we should enter offline mode
@@ -115,8 +138,8 @@ class EnhancedLLMService {
   }
 
   async suggestAbstractType(
-    text: string, 
-    categories: Category[], 
+    text: string,
+    categories: Category[],
     keywords: string[]
   ): Promise<AbstractTypeSuggestion[]> {
     return this.executeWithFallback(
@@ -126,13 +149,14 @@ class EnhancedLLMService {
   }
 
   async generateFinalAbstract(
-    text: string, 
-    type: AbstractType, 
-    categories: Category[], 
+    text: string,
+    type: AbstractType,
+    categories: Category[],
     keywords: string[]
   ): Promise<AbstractData> {
     return this.executeWithFallback(
-      (service, apiKey) => service.generateFinalAbstract(text, type, categories, keywords, apiKey),
+      (service, apiKey) =>
+        service.generateFinalAbstract(text, type, categories, keywords, '', '', apiKey),
       'Final Abstract Generation'
     );
   }
@@ -174,53 +198,45 @@ class EnhancedLLMService {
 
   // Conference-specific methods
   async analyzeContentForConference(text: string, conference: Conference): Promise<AnalysisResult> {
-    return this.executeWithFallback(
-      async (service, apiKey) => {
-        // Load conference-specific categories and keywords
-        const conferenceData = await this.loadConferenceData(conference);
-        
-        // For now, use the existing analyzeContent method
-        // In a full implementation, this would use conference-specific prompts
-        const result = await service.analyzeContent(text, apiKey);
-        
-        // Filter and adapt results for the specific conference
-        return this.adaptResultsForConference(result, conference, conferenceData);
-      },
-      `Content Analysis for ${conference}`
-    );
+    return this.executeWithFallback(async (service, apiKey) => {
+      // Load conference-specific categories and keywords
+      const _conferenceData = await this.loadConferenceData(conference);
+
+      // For now, use the existing analyzeContent method
+      // In a full implementation, this would use conference-specific prompts
+      const result = await service.analyzeContent(text, apiKey);
+
+      // Filter and adapt results for the specific conference
+      return this.adaptResultsForConference(result, conference, _conferenceData);
+    }, `Content Analysis for ${conference}`);
   }
 
   async generateAbstractForConference(
-    text: string, 
-    type: AbstractType, 
-    categories: Category[], 
-    keywords: string[], 
+    text: string,
+    type: AbstractType,
+    categories: Category[],
+    keywords: string[],
     conference: Conference
   ): Promise<AbstractData> {
-    return this.executeWithFallback(
-      async (service, apiKey) => {
-        // Load conference-specific guidelines
-        const guidelines = await this.loadConferenceGuidelines(conference, type);
-        
-        // For now, use the existing generateFinalAbstract method
-        // In a full implementation, this would use conference-specific prompts
-        return service.generateFinalAbstract(text, type, categories, keywords, apiKey);
-      },
-      `Abstract Generation for ${conference}`
-    );
+    return this.executeWithFallback(async (service, apiKey) => {
+      // Load conference-specific guidelines
+      // Load conference-specific guidelines (ensures method reference)
+      await this.loadConferenceGuidelines(conference, type);
+      // For now, use the existing generateFinalAbstract method
+      // In a full implementation, this would use conference-specific prompts
+      return service.generateFinalAbstract(text, type, categories, keywords, '', '', apiKey);
+    }, `Abstract Generation for ${conference}`);
   }
 
-  async generateCreativeAbstractForConference(coreIdea: string, conference: Conference): Promise<AbstractData> {
-    return this.executeWithFallback(
-      async (service, apiKey) => {
-        // Load conference-specific creative guidelines
-        const guidelines = await this.loadConferenceGuidelines(conference, 'RSNA Scientific Abstract');
-        
-        // For now, use the existing generateCreativeAbstract method
-        return service.generateCreativeAbstract(coreIdea, apiKey);
-      },
-      `Creative Abstract Generation for ${conference}`
-    );
+  async generateCreativeAbstractForConference(
+    coreIdea: string,
+    conference: Conference
+  ): Promise<AbstractData> {
+    return this.executeWithFallback(async (service, apiKey) => {
+      // Load conference-specific creative guidelines
+      // For now, use the existing generateCreativeAbstract method
+      return service.generateCreativeAbstract(coreIdea, apiKey);
+    }, `Creative Abstract Generation for ${conference}`);
   }
 
   // Helper methods for conference-specific data
@@ -246,7 +262,10 @@ class EnhancedLLMService {
     }
   }
 
-  private async loadConferenceGuidelines(conference: Conference, type: AbstractType): Promise<string> {
+  private async loadConferenceGuidelines(
+    conference: Conference,
+    type: AbstractType
+  ): Promise<string> {
     try {
       switch (conference) {
         case 'RSNA':
@@ -273,55 +292,55 @@ class EnhancedLLMService {
   }
 
   private adaptResultsForConference(
-    result: AnalysisResult, 
-    conference: Conference, 
+    result: AnalysisResult,
+    conference: Conference,
     conferenceData: string
   ): AnalysisResult {
     // For RSNA, adapt categories to radiology-specific ones
     if (conference === 'RSNA') {
       const rsnaCategories = this.extractRSNACategories(result.categories, conferenceData);
       const rsnaKeywords = this.extractRSNAKeywords(result.keywords, conferenceData);
-      
+
       return {
         categories: rsnaCategories,
-        keywords: rsnaKeywords
+        keywords: rsnaKeywords,
       };
     }
-    
+
     // For JACC, adapt categories to cardiovascular-specific ones
     if (conference === 'JACC') {
       const jaccCategories = this.extractJACCCategories(result.categories, conferenceData);
       const jaccKeywords = this.extractJACCKeywords(result.keywords, conferenceData);
-      
+
       return {
         categories: jaccCategories,
-        keywords: jaccKeywords
+        keywords: jaccKeywords,
       };
     }
-    
+
     // For other conferences, return as-is
     return result;
   }
 
-  private extractRSNACategories(categories: Category[], conferenceData: string): Category[] {
+  private extractRSNACategories(categories: Category[], _conferenceData: string): Category[] {
     // Map ISMRM categories to RSNA categories
     const rsnaMapping: { [key: string]: string } = {
-      'Neuro': 'Neuroradiology',
-      'Body': 'Abdominal Imaging',
-      'Cardiovascular': 'Cardiac Imaging',
-      'Musculoskeletal': 'Musculoskeletal Imaging',
-      'Pediatrics': 'Pediatric Imaging',
+      Neuro: 'Neuroradiology',
+      Body: 'Abdominal Imaging',
+      Cardiovascular: 'Cardiac Imaging',
+      Musculoskeletal: 'Musculoskeletal Imaging',
+      Pediatrics: 'Pediatric Imaging',
       'Physics & Engineering': 'Physics',
-      'Interventional': 'Interventional Radiology'
+      Interventional: 'Interventional Radiology',
     };
 
-    return categories.map(cat => ({
+    return categories.map((cat) => ({
       ...cat,
-      name: rsnaMapping[cat.name] || cat.name
+      name: rsnaMapping[cat.name] || cat.name,
     }));
   }
 
-  private extractRSNAKeywords(keywords: string[], conferenceData: string): string[] {
+  private extractRSNAKeywords(keywords: string[], _conferenceData: string): string[] {
     // Add RSNA-specific keywords and filter relevant ones
     const rsnaKeywords = [
       'Diagnostic Accuracy',
@@ -329,15 +348,15 @@ class EnhancedLLMService {
       'Image Quality',
       'Workflow Optimization',
       'Patient Safety',
-      'Cost-effectiveness'
+      'Cost-effectiveness',
     ];
 
     // Combine original keywords with RSNA-specific ones
     const combinedKeywords = [...keywords];
-    
+
     // Add relevant RSNA keywords that aren't already present
-    rsnaKeywords.forEach(keyword => {
-      if (!combinedKeywords.some(k => k.toLowerCase().includes(keyword.toLowerCase()))) {
+    rsnaKeywords.forEach((keyword) => {
+      if (!combinedKeywords.some((k) => k.toLowerCase().includes(keyword.toLowerCase()))) {
         combinedKeywords.push(keyword);
       }
     });
@@ -345,24 +364,24 @@ class EnhancedLLMService {
     return combinedKeywords.slice(0, 10); // Limit to 10 keywords
   }
 
-  private extractJACCCategories(categories: Category[], conferenceData: string): Category[] {
+  private extractJACCCategories(categories: Category[], _conferenceData: string): Category[] {
     // Map ISMRM categories to JACC categories
     const jaccMapping: { [key: string]: string } = {
-      'Cardiovascular': 'Coronary Artery Disease',
-      'Body': 'Cardiac Imaging',
-      'Neuro': 'Cardiac Surgery',
-      'Interventional': 'Interventional Cardiology',
+      Cardiovascular: 'Coronary Artery Disease',
+      Body: 'Cardiac Imaging',
+      Neuro: 'Cardiac Surgery',
+      Interventional: 'Interventional Cardiology',
       'Physics & Engineering': 'Cardiac Imaging',
-      'Pediatrics': 'Congenital Heart Disease'
+      Pediatrics: 'Congenital Heart Disease',
     };
 
-    return categories.map(cat => ({
+    return categories.map((cat) => ({
       ...cat,
-      name: jaccMapping[cat.name] || 'Cardiovascular Medicine'
+      name: jaccMapping[cat.name] || 'Cardiovascular Medicine',
     }));
   }
 
-  private extractJACCKeywords(keywords: string[], conferenceData: string): string[] {
+  private extractJACCKeywords(keywords: string[], _conferenceData: string): string[] {
     // Add JACC-specific cardiovascular keywords
     const jaccKeywords = [
       'Cardiovascular Outcomes',
@@ -374,15 +393,15 @@ class EnhancedLLMService {
       'Interventional Cardiology',
       'Clinical Trials',
       'Biomarkers',
-      'Cardiovascular Risk'
+      'Cardiovascular Risk',
     ];
 
     // Combine original keywords with JACC-specific ones
     const combinedKeywords = [...keywords];
-    
+
     // Add relevant JACC keywords that aren't already present
-    jaccKeywords.forEach(keyword => {
-      if (!combinedKeywords.some(k => k.toLowerCase().includes(keyword.toLowerCase()))) {
+    jaccKeywords.forEach((keyword) => {
+      if (!combinedKeywords.some((k) => k.toLowerCase().includes(keyword.toLowerCase()))) {
         combinedKeywords.push(keyword);
       }
     });
@@ -404,7 +423,7 @@ class EnhancedLLMService {
 
         // Simple keyword extraction based on frequency
         const wordCount = new Map<string, number>();
-        words.forEach(word => {
+        words.forEach((word) => {
           if (word.length > 3) {
             wordCount.set(word, (wordCount.get(word) || 0) + 1);
           }
@@ -412,7 +431,7 @@ class EnhancedLLMService {
 
         // Get top keywords
         const sortedWords = Array.from(wordCount.entries())
-          .sort(([,a], [,b]) => b - a)
+          .sort(([, a], [, b]) => b - a)
           .slice(0, 10)
           .map(([word]) => word);
 
@@ -423,16 +442,16 @@ class EnhancedLLMService {
 
       generateBasicAbstract: (text: string): AbstractData => {
         // Extract first few sentences as impact
-        const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 0);
+        const sentences = text.split(/[.!?]+/).filter((s) => s.trim().length > 0);
         const impact = sentences.slice(0, 2).join('. ').trim() + '.';
         const synopsis = sentences.slice(2, 5).join('. ').trim() + '.';
 
         return {
           impact: impact || 'Impact statement unavailable in offline mode.',
           synopsis: synopsis || 'Synopsis unavailable in offline mode.',
-          keywords: ['offline', 'basic-processing']
+          keywords: ['offline', 'basic-processing'],
         };
-      }
+      },
     };
   }
 }

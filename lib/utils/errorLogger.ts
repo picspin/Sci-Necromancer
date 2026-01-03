@@ -1,11 +1,11 @@
-import { AppError, ErrorCode, ErrorSeverity } from '../../types';
+import { AppError } from '../../types';
 
 export interface ErrorLogEntry {
   id: string;
   timestamp: Date;
-  code: ErrorCode;
+  code: AppError['code'];
   message: string;
-  severity: ErrorSeverity;
+  severity: AppError['severity'];
   context: string;
   userAgent: string;
   url: string;
@@ -21,10 +21,10 @@ export interface ErrorLogEntry {
 
 export interface ErrorStats {
   totalErrors: number;
-  errorsByCode: Record<ErrorCode, number>;
-  errorsBySeverity: Record<ErrorSeverity, number>;
+  errorsByCode: Record<AppError['code'], number>;
+  errorsBySeverity: Record<NonNullable<AppError['severity']>, number>;
   recentErrors: ErrorLogEntry[];
-  topErrors: Array<{ code: ErrorCode; count: number; lastOccurred: Date }>;
+  topErrors: Array<{ code: AppError['code']; count: number; lastOccurred: Date }>;
 }
 
 export interface UserFeedback {
@@ -63,12 +63,18 @@ class ErrorLogger {
   private sanitizeContext(context: string): string {
     // Keep only safe context information
     const safeContexts = [
-      'Content Analysis', 'Abstract Generation', 'File Processing',
-      'Export Service', 'Database Service', 'Component Error',
-      'Service Error', 'Network Error', 'Validation Error'
+      'Content Analysis',
+      'Abstract Generation',
+      'File Processing',
+      'Export Service',
+      'Database Service',
+      'Component Error',
+      'Service Error',
+      'Network Error',
+      'Validation Error',
     ];
-    
-    return safeContexts.find(safe => context.includes(safe)) || 'Unknown Context';
+
+    return safeContexts.find((safe) => context.includes(safe)) || 'Unknown Context';
   }
 
   logError(error: AppError): string {
@@ -82,7 +88,7 @@ class ErrorLogger {
       userAgent: navigator.userAgent.substring(0, 200), // Limit length
       url: window.location.pathname, // Don't include query params
       sessionId: this.sessionId,
-      metadata: this.extractSafeMetadata(error)
+      metadata: this.extractSafeMetadata(error),
     };
 
     this.logs.push(logEntry);
@@ -95,7 +101,7 @@ class ErrorLogger {
         id: logEntry.id,
         code: logEntry.code,
         message: logEntry.message,
-        context: logEntry.context
+        context: logEntry.context,
       });
     }
 
@@ -115,17 +121,17 @@ class ErrorLogger {
       if (error.details.fileType) {
         metadata.fileType = String(error.details.fileType).toLowerCase();
       }
-      
+
       // Provider information (safe)
       if (error.details.provider) {
         metadata.provider = String(error.details.provider).toLowerCase();
       }
-      
+
       // Operation type (safe)
       if (error.details.operation) {
         metadata.operation = String(error.details.operation).toLowerCase();
       }
-      
+
       // Retry count (safe)
       if (typeof error.details.retryCount === 'number') {
         metadata.retryCount = error.details.retryCount;
@@ -157,7 +163,7 @@ class ErrorLogger {
         const logs = JSON.parse(stored);
         this.logs = logs.map((log: any) => ({
           ...log,
-          timestamp: new Date(log.timestamp)
+          timestamp: new Date(log.timestamp),
         }));
       }
     } catch (error) {
@@ -169,26 +175,35 @@ class ErrorLogger {
   getErrorStats(): ErrorStats {
     const now = new Date();
     const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-    
-    const recentErrors = this.logs.filter(log => log.timestamp >= oneDayAgo);
-    
-    const errorsByCode = this.logs.reduce((acc, log) => {
-      acc[log.code] = (acc[log.code] || 0) + 1;
-      return acc;
-    }, {} as Record<ErrorCode, number>);
-    
-    const errorsBySeverity = this.logs.reduce((acc, log) => {
-      acc[log.severity] = (acc[log.severity] || 0) + 1;
-      return acc;
-    }, {} as Record<ErrorSeverity, number>);
-    
+
+    const recentErrors = this.logs.filter((log) => log.timestamp >= oneDayAgo);
+
+    const errorsByCode = this.logs.reduce(
+      (acc, log) => {
+        acc[log.code] = (acc[log.code] || 0) + 1;
+        return acc;
+      },
+      {} as Record<AppError['code'], number>
+    );
+
+    const errorsBySeverity = this.logs.reduce(
+      (acc, log) => {
+        const severity = (log.severity || 'medium') as NonNullable<AppError['severity']>;
+        acc[severity] = (acc[severity] || 0) + 1;
+        return acc;
+      },
+      {} as Record<NonNullable<AppError['severity']>, number>
+    );
+
     const topErrors = Object.entries(errorsByCode)
       .map(([code, count]) => ({
-        code: code as ErrorCode,
+        code: code as AppError['code'],
         count,
-        lastOccurred: this.logs
-          .filter(log => log.code === code)
-          .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())[0]?.timestamp || new Date()
+        lastOccurred:
+          this.logs
+            .filter((log) => log.code === code)
+            .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())[0]?.timestamp ||
+          new Date(),
       }))
       .sort((a, b) => b.count - a.count)
       .slice(0, 5);
@@ -198,7 +213,7 @@ class ErrorLogger {
       errorsByCode,
       errorsBySeverity,
       recentErrors: recentErrors.slice(-10),
-      topErrors
+      topErrors,
     };
   }
 
@@ -207,7 +222,7 @@ class ErrorLogger {
       errorId,
       rating,
       comment: comment ? this.sanitizeMessage(comment) : undefined,
-      timestamp: new Date()
+      timestamp: new Date(),
     };
 
     this.feedback.push(feedback);
@@ -223,7 +238,7 @@ class ErrorLogger {
   }
 
   getErrorById(id: string): ErrorLogEntry | undefined {
-    return this.logs.find(log => log.id === id);
+    return this.logs.find((log) => log.id === id);
   }
 
   clearLogs(): void {
@@ -239,15 +254,15 @@ class ErrorLogger {
       sessionId: this.sessionId,
       exportTime: new Date().toISOString(),
       stats: this.getErrorStats(),
-      logs: this.logs.map(log => ({
+      logs: this.logs.map((log) => ({
         id: log.id,
         timestamp: log.timestamp.toISOString(),
         code: log.code,
         message: log.message,
         severity: log.severity,
         context: log.context,
-        metadata: log.metadata
-      }))
+        metadata: log.metadata,
+      })),
     };
 
     return JSON.stringify(exportData, null, 2);
@@ -256,36 +271,36 @@ class ErrorLogger {
   // Monitor error patterns
   detectErrorPatterns(): Array<{ pattern: string; frequency: number; suggestion: string }> {
     const patterns: Array<{ pattern: string; frequency: number; suggestion: string }> = [];
-    
+
     const stats = this.getErrorStats();
-    
+
     // Check for high network error frequency
     const networkErrors = stats.errorsByCode['NETWORK_ERROR'] || 0;
     if (networkErrors > 5) {
       patterns.push({
         pattern: 'Frequent network errors',
         frequency: networkErrors,
-        suggestion: 'Check internet connection or try switching to offline mode'
+        suggestion: 'Check internet connection or try switching to offline mode',
       });
     }
-    
+
     // Check for API errors
     const apiErrors = stats.errorsByCode['API_ERROR'] || 0;
     if (apiErrors > 3) {
       patterns.push({
         pattern: 'Repeated API failures',
         frequency: apiErrors,
-        suggestion: 'Try switching AI providers or check API key configuration'
+        suggestion: 'Try switching AI providers or check API key configuration',
       });
     }
-    
+
     // Check for file processing errors
     const fileErrors = stats.errorsByCode['FILE_PROCESSING_ERROR'] || 0;
     if (fileErrors > 2) {
       patterns.push({
         pattern: 'File processing issues',
         frequency: fileErrors,
-        suggestion: 'Try converting files to a different format or use manual text input'
+        suggestion: 'Try converting files to a different format or use manual text input',
       });
     }
 
@@ -303,10 +318,10 @@ export function logError(error: AppError): string {
 
 // Utility function to create and log an error
 export function createAndLogError(
-  code: ErrorCode,
+  code: AppError['code'],
   message: string,
   context: string,
-  severity: ErrorSeverity = 'medium',
+  severity: NonNullable<AppError['severity']> = 'medium',
   details?: any
 ): string {
   const appError: AppError = {
@@ -316,8 +331,8 @@ export function createAndLogError(
     recoverable: code !== 'UNKNOWN_ERROR',
     timestamp: new Date(),
     severity,
-    context
+    context,
   };
-  
+
   return errorLogger.logError(appError);
 }

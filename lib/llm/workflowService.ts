@@ -1,4 +1,10 @@
-import { AbstractType, Category, AnalysisResult, AbstractData, AbstractTypeSuggestion } from '../../types';
+import {
+  AbstractType,
+  Category,
+  AnalysisResult,
+  AbstractData,
+  AbstractTypeSuggestion,
+} from '../../types';
 import * as gemini from './gemini';
 import * as openai from './openai';
 
@@ -35,7 +41,7 @@ export class WorkflowService {
   /**
    * Step 2: Generate Impact & Synopsis from the original text
    * This happens after categories/keywords are selected (A2 → A3)
-   * 
+   *
    * For now, we use generateFinalAbstract which already generates impact & synopsis
    * In the future, this could be optimized with a dedicated endpoint
    */
@@ -48,16 +54,32 @@ export class WorkflowService {
       // Use the existing generateFinalAbstract function which already generates impact & synopsis
       // We'll use a default type for now since we just need impact & synopsis
       let result: AbstractData;
-      
+
       if (this.providerName === 'google') {
-        result = await gemini.generateFinalAbstract(text, 'Standard Abstract', categories, keywords, this.apiKey);
+        result = await gemini.generateFinalAbstract(
+          text,
+          'Standard Abstract',
+          categories,
+          keywords,
+          '',
+          '',
+          this.apiKey
+        );
       } else {
-        result = await openai.generateFinalAbstract(text, 'Standard Abstract', categories, keywords, this.apiKey);
+        result = await openai.generateFinalAbstract(
+          text,
+          'Standard Abstract',
+          categories,
+          keywords,
+          '',
+          '',
+          this.apiKey
+        );
       }
-      
+
       return {
         impact: result.impact,
-        synopsis: result.synopsis
+        synopsis: result.synopsis,
       };
     } catch (error) {
       console.error('Failed to generate impact & synopsis:', error);
@@ -84,14 +106,14 @@ export class WorkflowService {
   /**
    * Step 4: Generate full abstract based on selected type
    * This generates the spec-compliant abstract (A4 → A5)
-   * 
+   *
    * For now, we use the existing generateFinalAbstract and add the abstract body
    * In the future, this could use type-specific prompts
    */
   async generateAbstractByType(
     text: string,
-    _impact: string,
-    _synopsis: string,
+    impact: string,
+    synopsis: string,
     type: AbstractType,
     categories: Category[],
     keywords: string[]
@@ -99,25 +121,41 @@ export class WorkflowService {
     try {
       // Use the existing generateFinalAbstract function
       let result: AbstractData;
-      
+
       if (this.providerName === 'google') {
-        result = await gemini.generateFinalAbstract(text, type, categories, keywords, this.apiKey);
+        result = await gemini.generateFinalAbstract(
+          text,
+          type,
+          categories,
+          keywords,
+          impact,
+          synopsis,
+          this.apiKey
+        );
       } else {
-        result = await openai.generateFinalAbstract(text, type, categories, keywords, this.apiKey);
+        result = await openai.generateFinalAbstract(
+          text,
+          type,
+          categories,
+          keywords,
+          '',
+          '',
+          this.apiKey
+        );
       }
-      
+
       // Add the abstract body (for now, use synopsis as placeholder)
       // TODO: Generate actual structured abstract body based on type
       return {
         ...result,
-        abstract: this.generateAbstractBody(result, type)
+        abstract: this.generateAbstractBody(result, type),
       };
     } catch (error) {
       console.error('Failed to generate abstract:', error);
       throw error;
     }
   }
-  
+
   /**
    * Helper to generate abstract body from impact/synopsis
    * This is a temporary solution until we have proper type-specific generation
@@ -125,20 +163,20 @@ export class WorkflowService {
   private generateAbstractBody(data: AbstractData, type: AbstractType): string {
     // For now, create a simple structured format
     // In production, this should call the LLM with type-specific prompts
-    
+
     switch (type) {
       case 'Standard Abstract':
         return `INTRODUCTION:\n${data.synopsis.split('.')[0]}.\n\nMETHODS:\n[Methods will be generated based on the full text analysis]\n\nRESULTS:\n[Results will be generated based on the full text analysis]\n\nDISCUSSION:\n${data.impact}\n\nCONCLUSION:\n[Conclusion will be generated based on the full text analysis]`;
-      
+
       case 'Registered Abstract':
         return `INTRODUCTION:\n${data.synopsis.split('.')[0]}.\n\nHYPOTHESIS:\n[Hypothesis will be generated based on the full text analysis]\n\nMETHODS:\n[Methods will be generated based on the full text analysis]\n\nSTATISTICAL METHODS:\n[Statistical methods will be generated based on the full text analysis]`;
-      
+
       case 'MRI in Clinical Practice Abstract':
         return `BACKGROUND:\n${data.synopsis.split('.')[0]}.\n\nTEACHING POINT:\n${data.impact}\n\nDIAGNOSIS AND TREATMENT:\n[Diagnosis and treatment details will be generated]\n\nSIGNIFICANCE:\n${data.impact}\n\nKEY POINTS:\n- [Key point 1]\n- [Key point 2]\n- [Key point 3]`;
-      
+
       case 'ISMRT Abstract':
         return `BACKGROUND:\n${data.synopsis.split('.')[0]}.\n\nMETHODS:\n[Methods will be generated]\n\nRESULTS:\n[Results will be generated]\n\nCONCLUSIONS:\n${data.impact}`;
-      
+
       default:
         return data.synopsis;
     }
@@ -155,17 +193,17 @@ export class WorkflowService {
     try {
       // Use the existing generateCreativeAbstract function
       let result: AbstractData;
-      
+
       if (this.providerName === 'google') {
         result = await gemini.generateCreativeAbstract(coreIdea, this.apiKey);
       } else {
         result = await openai.generateCreativeAbstract(coreIdea, this.apiKey);
       }
-      
+
       // Add the abstract body
       return {
         ...result,
-        abstract: this.generateAbstractBody(result, type)
+        abstract: this.generateAbstractBody(result, type),
       };
     } catch (error) {
       console.error('Failed to generate creative abstract:', error);
@@ -227,7 +265,7 @@ export class WorkflowService {
       analysis,
       impactSynopsis,
       suggestions,
-      finalAbstract
+      finalAbstract,
     };
   }
 }

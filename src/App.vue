@@ -66,6 +66,23 @@
     <!-- Notification Display -->
     <NotificationDisplay />
 
+    <!-- Right-bottom Help & Configuration Guide Accessory -->
+    <button
+      @click="showHelp = true"
+      class="fixed bottom-4 right-4 z-40 px-4 py-2 bg-brand-primary text-white rounded-full shadow-lg hover:bg-brand-secondary focus:outline-none focus:ring-3 focus:ring-brand-primary"
+      :title="t('tooltips.help_documentation')"
+      aria-label="Open help and documentation"
+      type="button"
+    >
+      <span class="inline-flex items-center gap-2">
+        <SvgIcon type="info" class="h-5 w-5" />
+        <span class="hidden sm:inline">{{ t('common.help') }}</span>
+      </span>
+    </button>
+
+    <!-- Help Documentation Modal -->
+    <HelpDocumentation v-if="showHelp" :is-open="showHelp" @close="showHelp = false" />
+
     <!-- Footer -->
     <footer class="bg-base-200 border-t border-base-300 py-4 px-6 mt-12">
       <div class="max-w-7xl mx-auto text-center text-text-secondary text-sm">
@@ -82,6 +99,7 @@ import { getMemeTranslation } from '@/lib/i18n';
 import ConferencePanel from '@/components/panels/ConferencePanel.vue';
 import AbstractManager from '@/components/managers/AbstractManager.vue';
 import ModelManager from '@/components/managers/ModelManager.vue';
+import HelpDocumentation from '@/components/ui/HelpDocumentation.vue';
 import NotificationDisplay from '@/components/ui/NotificationDisplay.vue';
 import SvgIcon from '@/components/ui/SvgIcon.vue';
 import LanguageSelector from '@/components/LanguageSelector.vue';
@@ -89,4 +107,5 @@ import LanguageSelector from '@/components/LanguageSelector.vue';
 const { t } = useI18n();
 const showAbstractManager = ref(false);
 const showModelManager = ref(false);
+const showHelp = ref(false);
 </script>

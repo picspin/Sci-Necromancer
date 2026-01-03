@@ -139,13 +139,13 @@ export class ConferenceRouter {
           const rsnaModule = await import('./modules/RSNAModule');
           ModuleClass = rsnaModule.RSNAModule;
           break;
-        case 'JACC':
-          const jaccModule = await import('./modules/JACCModule');
-          ModuleClass = jaccModule.JACCModule;
-          break;
         case 'ER':
           const erModule = await import('./modules/ERModule');
           ModuleClass = erModule.ERModule;
+          break;
+        case 'ESC':
+          const escModule = await import('./modules/ESCModule');
+          ModuleClass = escModule.ESCModule;
           break;
         default:
           throw new Error(`Unknown conference: ${conference}`);
@@ -166,7 +166,7 @@ export class ConferenceRouter {
    * Preload all available modules
    */
   async preloadAllModules(): Promise<void> {
-    const conferences: Conference[] = ['ISMRM', 'RSNA', 'JACC', 'ER'];
+    const conferences: Conference[] = ['ISMRM', 'RSNA', 'ER', 'ESC'];
 
     await Promise.allSettled(
       conferences.map(async (conference) => {

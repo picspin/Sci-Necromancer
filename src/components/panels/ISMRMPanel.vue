@@ -209,14 +209,25 @@
               class="w-full h-32 p-3 bg-base-100 border border-base-300 rounded-md focus:ring-2 focus:ring-brand-primary focus:outline-none transition"
             />
           </div>
-          <button
-            @click="handleGenerateImage"
-            :disabled="isLoading"
-            class="w-full flex items-center justify-center gap-2 bg-brand-primary hover:bg-brand-secondary text-white font-bold py-3 px-4 rounded-lg transition-all duration-300 disabled:bg-base-300/50 disabled:cursor-not-allowed focus:outline-none focus:ring-3 focus:ring-brand-primary"
-            aria-label="Generate figure based on specifications"
-          >
-            <SvgIcon type="image" class="h-5 w-5" />Generate Figure
-          </button>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <button
+              @click="handleGenerateImage"
+              :disabled="isLoading"
+              class="w-full flex items-center justify-center gap-2 bg-brand-primary hover:bg-brand-secondary text-white font-bold py-3 px-4 rounded-lg transition-all duration-300 disabled:bg-base-300/50 disabled:cursor-not-allowed focus:outline-none focus:ring-3 focus:ring-brand-primary"
+              aria-label="Generate figure based on specifications"
+            >
+              <SvgIcon type="image" class="h-5 w-5" />{{ t('buttons.generate_figure') }}
+            </button>
+            <button
+              @click="handleGenerateNanobana"
+              :disabled="isLoading"
+              class="w-full flex items-center justify-center gap-2 bg-orange-600 hover:bg-orange-700 text-white font-bold py-3 px-4 rounded-lg transition-all duration-300 disabled:bg-base-300/50 disabled:cursor-not-allowed focus:outline-none focus:ring-3 focus:ring-brand-primary"
+              aria-label="Nanobana enhanced figure generation"
+              title="Premium Nanobana Pro 3 (coming soon)"
+            >
+              🔥 Nanobana🍌
+            </button>
+          </div>
         </div>
       </div>
 
@@ -509,6 +520,12 @@ const handleGenerateCreative = async () => {
   } finally {
     isLoading.value = false;
   }
+};
+
+const handleGenerateNanobana = () => {
+  alert(
+    'Nanobana Pro 3 enhanced generation is coming soon. This will require a premium API with payment gating.'
+  );
 };
 
 const handleGenerateImage = async () => {

@@ -115,6 +115,14 @@ export const generateImage = (imageState: ImageState, creativeContext: string): 
   return getService().generateImage(imageState, creativeContext, apiKey);
 };
 
+export const generateImageNanobana = (
+  imageState: ImageState,
+  specsJson: string
+): Promise<string> => {
+  const apiKey = getApiKey();
+  return openai.generateImageNanobana(imageState, specsJson, apiKey);
+};
+
 // Conference-specific functions
 export const analyzeContentForConference = (
   text: string,
@@ -123,7 +131,7 @@ export const analyzeContentForConference = (
   const apiKey = getApiKey();
   const service = getService();
   if ('analyzeContentForConference' in service) {
-    return (service as any).analyzeContentForConference(text, conference, apiKey);
+    return (service as any).analyzeContentForConference(text, conference);
   }
   // Fallback to regular analysis
   return service.analyzeContent(text, apiKey);
@@ -144,8 +152,7 @@ export const generateAbstractForConference = (
       type,
       categories,
       keywords,
-      conference,
-      apiKey
+      conference
     );
   }
   // Fallback to regular generation

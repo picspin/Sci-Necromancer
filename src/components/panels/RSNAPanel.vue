@@ -6,25 +6,16 @@
           <TabButton
             id="abstract"
             :active-tab="activeTab"
-            label="Abstract Generation"
+            :label="t('tabs.abstract_generation')"
             icon="text"
-            @set-active="setActiveTab"
-          />
-          <TabButton
-            id="figure"
-            :active-tab="activeTab"
-            label="Figure Generation"
-            icon="image"
             @set-active="setActiveTab"
           />
         </div>
 
         <div v-if="activeTab === 'abstract'" class="space-y-4 animate-fade-in">
-          <ModeSelector :mode="abstractMode" @set-mode="setAbstractMode" />
-
           <div v-if="abstractMode === 'standard'" class="bg-base-100 p-4 rounded-lg">
             <label for="file-upload" class="block text-sm font-medium text-text-secondary mb-2">
-              Upload File (.txt, .pdf, .docx) or Paste Text
+              {{ t('forms.upload_file') }}
             </label>
             <input
               id="file-upload"
@@ -37,7 +28,7 @@
               <textarea
                 v-model="inputText"
                 @input="handleTextChange"
-                placeholder="Paste your research paper or study details here for RSNA abstract generation..."
+                :placeholder="t('forms.paste_text')"
                 class="w-full h-60 p-3 bg-base-100 border border-base-300 rounded-md focus:ring-2 focus:ring-brand-primary focus:outline-none transition"
               />
             </div>
@@ -45,14 +36,14 @@
 
           <div v-else class="bg-base-100 p-4 rounded-lg">
             <label for="creative-prompt" class="block text-sm font-medium text-text-secondary mb-2">
-              Creative Expansion: Research Idea for RSNA
+              {{ getMemeTranslation('Creative Expansion', t) || t('forms.creative_prompt') }}
             </label>
             <input
               id="creative-prompt"
               type="text"
               v-model="inputText"
               @input="handleTextChange"
-              placeholder="e.g., AI-powered detection of early lung cancer in chest CT scans."
+              :placeholder="t('forms.creative_placeholder')"
               class="w-full p-3 bg-base-100 border border-base-300 rounded-md focus:ring-2 focus:ring-brand-primary focus:outline-none transition"
             />
           </div>
@@ -65,7 +56,7 @@
                 class="flex-1 flex items-center justify-center gap-2 bg-base-300 hover:bg-opacity-80 text-white font-bold py-3 px-4 rounded-lg transition-all duration-300 disabled:bg-base-300/50 disabled:cursor-not-allowed"
               >
                 <SvgIcon type="sparkles" class="h-5 w-5" />
-                1. Analyze for RSNA
+                {{ t('buttons.analyze_content') }}
               </button>
               <button
                 @click="handleGenerateAbstract"
@@ -73,7 +64,7 @@
                 class="flex-1 flex items-center justify-center gap-2 bg-brand-primary hover:bg-brand-secondary text-white font-bold py-3 px-4 rounded-lg transition-all duration-300 disabled:bg-base-300/50 disabled:cursor-not-allowed"
               >
                 <SvgIcon type="document" class="h-5 w-5" />
-                2. Generate
+                {{ t('buttons.generate_abstract') }}
               </button>
             </template>
             <button
@@ -83,7 +74,7 @@
               class="w-full flex items-center justify-center gap-2 bg-brand-primary hover:bg-brand-secondary text-white font-bold py-3 px-4 rounded-lg transition-all duration-300 disabled:bg-base-300/50 disabled:cursor-not-allowed"
             >
               <SvgIcon type="sparkles" class="h-5 w-5" />
-              Generate Creatively
+              {{ getMemeTranslation('Generate Creatively', t) || t('buttons.generate_creatively') }}
             </button>
           </div>
 
@@ -97,7 +88,8 @@
               class="flex-1 flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-lg transition-all duration-300 disabled:bg-base-300/50 disabled:cursor-not-allowed"
             >
               <SvgIcon type="download" class="h-5 w-5" />
-              {{ currentAbstractId ? 'Update' : 'Save' }} Abstract
+              {{ currentAbstractId ? t('common.edit') : t('common.save') }}
+              {{ t('tabs.abstract_generation').toLowerCase() }}
             </button>
             <button
               @click="handleNewAbstract"
@@ -105,61 +97,9 @@
               class="flex-1 flex items-center justify-center gap-2 bg-gray-600 hover:bg-gray-700 text-white font-bold py-3 px-4 rounded-lg transition-all duration-300 disabled:bg-base-300/50 disabled:cursor-not-allowed"
             >
               <SvgIcon type="document" class="h-5 w-5" />
-              New Abstract
+              {{ t('common.clear') }}
             </button>
           </div>
-        </div>
-
-        <div v-if="activeTab === 'figure'" class="space-y-4 animate-fade-in">
-          <ImageModeSelector
-            :mode="imageMode"
-            :creative-disabled="!generatedAbstract"
-            creative-tooltip="Generate an abstract first to enable this mode."
-            @set-mode="setImageMode"
-          />
-          <div v-if="imageMode === 'standard'" class="bg-base-100 p-4 rounded-lg">
-            <label for="image-upload" class="block text-sm font-medium text-text-secondary mb-2">
-              Upload Medical Image
-            </label>
-            <input
-              id="image-upload"
-              type="file"
-              accept="image/*"
-              @change="handleImageFileChange"
-              class="block w-full text-sm text-text-secondary file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-brand-primary/20 file:text-brand-primary hover:file:bg-brand-primary/30"
-            />
-            <img
-              v-if="imageState.base64"
-              :src="`data:image/png;base64,${imageState.base64}`"
-              alt="Preview"
-              class="mt-4 rounded-lg max-h-40 object-contain mx-auto"
-            />
-          </div>
-          <div v-else class="p-4 bg-base-100/50 rounded-lg text-center">
-            <SvgIcon type="info" class="mx-auto h-8 w-8 text-brand-primary mb-2" />
-            <p class="text-text-secondary font-medium">
-              Creative mode will generate a figure based on your RSNA abstract content.
-            </p>
-          </div>
-          <div class="bg-base-100 p-4 rounded-lg">
-            <label for="image-specs" class="block text-sm font-medium text-text-secondary mb-2">
-              Image Specifications & Guidelines
-            </label>
-            <textarea
-              id="image-specs"
-              v-model="imageState.specs"
-              placeholder="e.g., 'Enhance contrast for better visualization', 'Add measurement annotations', 'Create comparison view'."
-              class="w-full h-32 p-3 bg-base-100 border border-base-300 rounded-md focus:ring-2 focus:ring-brand-primary focus:outline-none transition"
-            />
-          </div>
-          <button
-            @click="handleGenerateImage"
-            :disabled="isLoading"
-            class="w-full flex items-center justify-center gap-2 bg-brand-primary hover:bg-brand-secondary text-white font-bold py-3 px-4 rounded-lg transition-all duration-300 disabled:bg-base-300/50 disabled:cursor-not-allowed"
-          >
-            <SvgIcon type="image" class="h-5 w-5" />
-            Generate Figure
-          </button>
         </div>
       </div>
 
@@ -190,25 +130,37 @@
     <Modal v-if="showSaveModal" @close="showSaveModal = false">
       <div class="space-y-4">
         <h2 class="text-xl font-bold text-text-primary">
-          {{ currentAbstractId ? 'Update Abstract' : 'Save Abstract' }}
+          {{
+            currentAbstractId
+              ? t('common.edit') + ' ' + t('tabs.abstract_generation').toLowerCase()
+              : t('common.save') + ' ' + t('tabs.abstract_generation').toLowerCase()
+          }}
         </h2>
         <p class="text-text-secondary">
           {{
             currentAbstractId
-              ? 'Update the title for your RSNA abstract.'
-              : 'Enter a title for your RSNA abstract to save it for later use.'
+              ? t('abstract_manager.title') +
+                ' ' +
+                t('navigation.rsna').toLowerCase() +
+                ' ' +
+                t('tabs.abstract_generation').toLowerCase()
+              : t('abstract_manager.title') +
+                ' ' +
+                t('navigation.rsna').toLowerCase() +
+                ' ' +
+                t('tabs.abstract_generation').toLowerCase()
           }}
         </p>
         <div>
           <label for="save-title" class="block text-sm font-medium text-text-secondary mb-2">
-            Abstract Title
+            {{ t('output.abstract') + ' ' + t('common.title') }}
           </label>
           <input
             id="save-title"
             ref="saveTitleInput"
             type="text"
             v-model="saveTitle"
-            placeholder="Enter a descriptive title..."
+            :placeholder="t('forms.creative_placeholder')"
             class="w-full p-3 bg-base-100 border border-base-300 rounded-md focus:ring-2 focus:ring-brand-primary focus:outline-none transition"
           />
         </div>
@@ -217,14 +169,14 @@
             @click="showSaveModal = false"
             class="px-4 py-2 text-text-secondary border border-base-300 rounded-md hover:bg-base-100 transition-colors"
           >
-            Cancel
+            {{ t('common.cancel') }}
           </button>
           <button
             @click="handleSaveAbstract"
             :disabled="!saveTitle.trim() || isLoading"
             class="px-4 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-secondary transition-colors disabled:bg-base-300/50 disabled:cursor-not-allowed"
           >
-            {{ currentAbstractId ? 'Update' : 'Save' }}
+            {{ currentAbstractId ? t('common.edit') : t('common.save') }}
           </button>
         </div>
       </div>
@@ -234,10 +186,10 @@
 
 <script setup lang="ts">
 import { ref, watch, nextTick } from 'vue';
+import { useI18n } from 'vue-i18n';
 import type {
   AbstractData,
   GenerationMode,
-  ImageState,
   AnalysisResult,
   AbstractTypeSuggestion,
   AbstractType,
@@ -251,11 +203,13 @@ import OutputDisplay from '@/components/OutputDisplay.vue';
 import { fileProcessingService } from '@/lib/file/FileProcessingService';
 import { useSettings } from '@/composables/useSettings';
 import { useAbstract } from '@/composables/useAbstract';
+import { getMemeTranslation } from '@/lib/i18n';
+
+const { t } = useI18n();
 
 // Import sub-components
 import TabButton from './ISMRMPanelComponents/TabButton.vue';
 import ModeSelector from './ISMRMPanelComponents/ModeSelector.vue';
-import ImageModeSelector from './ISMRMPanelComponents/ImageModeSelector.vue';
 import RSNAAnalysisStep from './RSNAPanelComponents/RSNAAnalysisStep.vue';
 import TypeSuggestionStep from './ISMRMPanelComponents/TypeSuggestionStep.vue';
 
@@ -283,11 +237,6 @@ const selectedAbstractType = ref<AbstractType | null>(null);
 const isModalOpen = ref<boolean>(false);
 const modalStep = ref<'analysis' | 'type'>('analysis');
 const generatedAbstract = ref<AbstractData | null>(null);
-
-// Image State
-const imageMode = ref<GenerationMode>('standard');
-const imageState = ref<ImageState>({ file: null, specs: '', base64: null });
-const generatedImage = ref<string | null>(null);
 
 const resetWorkflow = () => {
   analysisResult.value = null;
@@ -354,20 +303,6 @@ const handleFileChange = async (e: Event) => {
       error.value = err instanceof Error ? err.message : 'Failed to process file.';
     } finally {
       isLoading.value = false;
-    }
-  }
-};
-
-const handleImageFileChange = async (e: Event) => {
-  const target = e.target as HTMLInputElement;
-  if (target.files && target.files[0]) {
-    const file = target.files[0];
-    try {
-      const base64 = await fileToBase64(file);
-      imageState.value = { ...imageState.value, file, base64 };
-    } catch (err) {
-      console.error('Error converting file to base64:', err);
-      error.value = 'Failed to read image file.';
     }
   }
 };
@@ -470,32 +405,10 @@ const handleGenerateCreative = async () => {
   }
 };
 
-const handleGenerateImage = async () => {
-  let context = '';
-  if (imageMode.value === 'creative') {
-    if (!generatedAbstract.value) {
-      error.value =
-        'Please generate an abstract first to provide context for creative image generation.';
-      return;
-    }
-    context = `Impact: ${generatedAbstract.value.impact}\nSynopsis: ${generatedAbstract.value.synopsis}`;
-  } else if (!imageState.value.file) {
-    error.value = 'Please upload an image for standard mode editing.';
-    return;
-  }
-
-  isLoading.value = true;
-  loadingMessage.value = 'Generating figure...';
-  error.value = null;
-  generatedImage.value = null;
-  try {
-    const result = await llm.generateImage(imageState.value, context);
-    generatedImage.value = `data:image/png;base64,${result}`;
-  } catch (e) {
-    error.value = e instanceof Error ? e.message : 'An unknown error during image generation.';
-  } finally {
-    isLoading.value = false;
-  }
+const handleGenerateNanobana = () => {
+  alert(
+    'Nanobana Pro 3 enhanced generation is coming soon. This will require a premium API with payment gating.'
+  );
 };
 
 const openSaveModal = () => {
@@ -587,9 +500,5 @@ const setActiveTab = (tab: 'abstract' | 'figure') => {
 
 const setAbstractMode = (mode: GenerationMode) => {
   abstractMode.value = mode;
-};
-
-const setImageMode = (mode: GenerationMode) => {
-  imageMode.value = mode;
 };
 </script>

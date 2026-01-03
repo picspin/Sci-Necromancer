@@ -30,7 +30,7 @@
     "mammoth": "^1.11.0",
     "openai": "^6.7.0",
     "pdf-parse": "^2.4.5",
-    "pdfjs-dist": "^5.4.296",
+    "pdfjs-dist": "^5.4.449",
     "pinia": "^2.3.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",

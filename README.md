@@ -1,182 +1,291 @@
-# Sci-Necromancer (Vue Edition)
+# Sci-Necromancer
 
-AI-powered academic abstract generation for medical imaging research, implemented with Vue 3 + TypeScript.
+AI-powered academic abstract generator for medical imaging and scientific research conferences.
 
-This Vue app provides multi-conference abstract workflows (ISMRM, RSNA, JACC, ER), figure generation, local persistence, and internationalization. It adapts the UI/UX and feature set from the React main branch while conforming to Vue architecture.
+**[English](README.md) | [中文](README_CN.md) | [Deutsch](README_DE.md)**
+
+## Overview
+
+Sci-Necromancer streamlines the process of preparing conference abstracts by leveraging large language models to analyze research content, generate impact statements, suggest appropriate submission categories, and produce polished abstracts that conform to conference guidelines.
+
+### Supported Conferences
+
+- **ISMRM** - International Society for Magnetic Resonance in Medicine
+- **RSNA** - Radiological Society of North America
+- **ESC** - European Society of Cardiology
+- **ECR** - European Congress of Radiology
 
 ## Features
 
-- Abstract workflows for ISMRM, RSNA, JACC, ER
-- Content analysis → impact & synopsis → type suggestion → final abstract
-- Figure generation: Standard (upload + edit) and Creative (from abstract context)
-- Providers: Google AI (Gemini) and OpenAI-compatible APIs (incl. SiliconFlow)
-- Local persistence with an Abstract Manager (import/export JSON)
-- Internationalization (English, Chinese) with Vue I18n and i18next
-- Accessibility-conscious UI: keyboard focus, screen reader utilities
-- Exports: Markdown, PDF, JSON
+### Abstract Generation
+
+- **Standard Analysis Mode**: Upload PDF/DOCX or paste text, then follow a guided workflow:
+  - Content analysis with keyword extraction
+  - Impact statement and synopsis generation
+  - Abstract type suggestion based on content
+  - Final abstract generation conforming to conference guidelines
+- **Creative Expansion Mode**: Provide a core research idea and generate a complete abstract directly
+
+### Figure Generation
+
+- **Standard Edit**: Upload images and apply AI-powered editing based on specifications
+- **Creative Generation**: Generate figures from abstract context (impact + synopsis)
+
+### Abstract Management
+
+- Save and organize generated abstracts locally
+- Import/export abstracts as JSON for backup and sharing
+- Full CRUD operations on saved abstracts
+
+### Export Options
+
+- Markdown (.md)
+- PDF document
+- JSON data
+
+### Internationalization
+
+- English and Chinese language support
+- Automatic browser language detection
+- Easy language switching via UI
 
 ## Tech Stack
 
-- Frontend: Vue 3 (Composition API), TypeScript
-- State: Pinia + Vue composables
-- Styling: Tailwind CSS (CDN in index.html) + theme utilities
-- Build: Vite
-- AI: @google/genai (Gemini), OpenAI-compatible REST
-- File processing: pdf-parse, mammoth/docx
-
-## Project Structure
-
-- src/
-  - main.ts: Vue app entry and plugin setup
-  - App.vue: Layout, header, modals (AbstractManager, ModelManager), notifications
-  - components/panels/: ConferencePanel.vue + per-conference panels
-  - components/ui/: common UI components (Modal, SvgIcon, NotificationDisplay, etc.)
-  - components/managers/: AbstractManager.vue, ModelManager.vue
-  - components/export/: ExportButtons.vue
-  - composables/: useSettings.ts, useAbstract.ts, useNotifications.ts, useConferenceRegistry.ts
-  - plugins/: i18n.ts, errorHandler.ts
-- lib/
-  - llm/: provider integrations (gemini.ts, openai.ts), index.ts facade
-  - file/: FileProcessingService.ts, file-process/{pdf.ts, docx.ts}
-  - utils/: notificationService.ts, retryUtils.ts, errorLogger.ts
-  - conference/: BaseConferenceModule.ts and registry/router
-- public/
-  - Static guideline markdowns and locales
-- vite.config.ts: Vue plugin, alias, manual chunks, dev server config
-- tsconfig.json: TypeScript options
+| Category         | Technologies                               |
+| ---------------- | ------------------------------------------ |
+| Frontend         | Vue 3 (Composition API), TypeScript        |
+| State Management | Pinia, Vue Composables                     |
+| Styling          | Tailwind CSS                               |
+| Build Tool       | Vite                                       |
+| AI Integration   | Google AI (Gemini), OpenAI-compatible APIs |
+| File Processing  | pdf-parse, mammoth (DOCX)                  |
+| Testing          | Vitest                                     |
 
 ## Quick Start
 
-Prerequisites
+### Prerequisites
 
-- Node.js 18+
+- Node.js 18 or higher
 - API key for Google AI (Gemini) or an OpenAI-compatible provider
 
-Install and run
+### Installation
 
-- npm install
-- npm run dev
-- The server attempts port 3000; if taken, Vite will use 3001 or another port
+```bash
+# Clone the repository
+git clone https://github.com/yourusername/sci-necromancer.git
+cd sci-necromancer
 
-Production build
+# Install dependencies
+npm install
 
-- npm run build
-- npm run preview
+# Start development server
+npm run dev
+```
 
-## First-Time Setup (Model Manager)
+The application will be available at `http://localhost:3000`.
 
-- Click the gear icon in App header to open Model Manager
-- Choose provider:
-  - Google AI: enter your Gemini API key (from Google AI Studio)
-  - OpenAI-compatible: enter base URL and API key (e.g., https://api.openai.com/v1 or SiliconFlow)
-- Optionally set models:
-  - Text model (e.g., gemini-2.5-pro or gpt-4o)
-  - Vision model (for analyzing uploaded images)
-  - Image model (for image generation; SiliconFlow defaults provided)
-- Save settings (stored safely in localStorage on this device)
+### Production Build
+
+```bash
+npm run build
+npm run preview
+```
+
+## Configuration
+
+### First-Time Setup
+
+1. Launch the application and click the **Models** button (gear icon) in the header
+2. Select your AI provider:
+   - **Google AI**: Enter your Gemini API key from [Google AI Studio](https://aistudio.google.com/)
+   - **OpenAI-compatible**: Enter base URL and API key (supports OpenAI, SiliconFlow, and other compatible APIs)
+3. Configure models (optional):
+   - Text model (e.g., `gemini-2.5-pro`, `gpt-4o`)
+   - Vision model (for image analysis)
+   - Image model (for figure generation)
+4. Save settings
+
+Settings are stored in browser localStorage and persist across sessions.
+
+### Supported Providers
+
+| Provider    | Base URL                        | Notes                     |
+| ----------- | ------------------------------- | ------------------------- |
+| Google AI   | N/A                             | Uses `@google/genai` SDK  |
+| OpenAI      | `https://api.openai.com/v1`     | Official OpenAI API       |
+| SiliconFlow | `https://api.siliconflow.cn/v1` | Image generation support  |
+| Custom      | Your endpoint URL               | Any OpenAI-compatible API |
 
 ## Usage
 
-ISMRM/RSNA/JACC workflows
+### Standard Analysis Workflow
 
-- Standard mode: upload PDF/DOCX or paste text, then Analyze → Impact/Synopsis → Type Suggestion → Generate
-- Creative mode: provide a core idea; system generates an abstract directly
-- Save abstracts to Abstract Manager for later use; import/export via JSON
+1. **Select Conference**: Choose the target conference tab (ISMRM, RSNA, ESC, ECR)
+2. **Input Content**: Upload a PDF/DOCX file or paste your research text
+3. **Analyze**: Click "Analyze" to extract categories and keywords
+4. **Generate Impact & Synopsis**: Create impact statement and synopsis
+5. **Select Type**: Review AI-suggested abstract types or choose manually
+6. **Generate Abstract**: Produce the final abstract conforming to conference guidelines
+7. **Export**: Download as Markdown, PDF, or JSON
 
-Figure generation
+### Creative Expansion Mode
 
-- Standard: upload image, specify editing instructions (specs), and generate
-- Creative: generate figure from the context (impact + synopsis) of your abstract
+1. Select a conference and switch to "Creative Expansion" mode
+2. Enter your core research idea or hypothesis
+3. Generate a complete abstract directly from the concept
 
-Exports
+### Figure Generation
 
-- Use ExportButtons to download Abstract as Markdown, PDF, or JSON
+1. Navigate to the "Figure Generation" tab
+2. Choose mode:
+   - **Standard Edit**: Upload an image and specify editing instructions
+   - **Creative Generation**: Generate figures based on your abstract context
+3. Download the generated figure
 
-## Internationalization
+## ECR (European Congress of Radiology) Features
 
-- Vue I18n provides runtime locale handling (Composition API mode)
-- i18next + language detector synchronize locale (resources in public/locales)
-- LanguageSelector component toggles languages
+### Research Type Guidelines (EQUATOR Network)
 
-## Persistence & MCP
+The ECR module integrates EQUATOR Network reporting guidelines to ensure your abstract follows best practices for your study type:
 
-- Local-only by default (as requested)
-- AbstractManager uses a local DatabaseService (LocalStorage)
-- Optional MCP image generation wiring exists in code but remains disabled if not configured
+| Study Type                  | Checklist | Description                                                          |
+| --------------------------- | --------- | -------------------------------------------------------------------- |
+| Case-control study          | STROBE    | Strengthening the Reporting of Observational studies in Epidemiology |
+| Cross-sectional study       | STROBE    | Strengthening the Reporting of Observational studies in Epidemiology |
+| Diagnostic/prognostic study | STARD     | Standards for Reporting of Diagnostic Accuracy Studies               |
+| Experimental (animal)       | ARRIVE    | Animal Research: Reporting of In Vivo Experiments                    |
+| Observational study         | STROBE    | Strengthening the Reporting of Observational studies in Epidemiology |
+| Randomised controlled trial | CONSORT   | Consolidated Standards of Reporting Trials                           |
 
-## Development Notes
+For more information, visit the [EQUATOR Network](http://equator-network.org/).
 
-- Dev server: configured to open on port 3000 (vite.config.ts); Vite will auto-select another port if busy
-- Path alias: '@' maps to project root; '@/components', '@/composables', '@/plugins' mapped in Vite resolve.alias
-- Build chunks: manualChunks split vue-vendor, ai-vendor, pdf-vendor
-- Type checking: The build script uses only Vite build; type lint via `npm run lint` (tsc --noEmit)
+### ECR Abstract Types
 
-## Testing & Debugging
+- **Research Presentation (RP)** - 5-minute oral presentation
+- **Clinical Trials in Radiology (CTiR)** - 8-minute presentation for multicentre/randomised studies
+- **EPOS Scientific Poster** - Electronic poster with scientific content
+- **EPOS Educational Poster** - Teaching-focused electronic poster
+- **Student Presentation** - For university projects and first research papers
 
-Functional checklist (dev server)
+### Submission Portal
 
-- App header: Model Manager opens, Abstract Manager opens
-- i18n: Language toggles update UI
-- ISMRM/RSNA/JACC panels:
-  - File upload and parsing: PDF/DOCX text extraction populates input
-  - Analyze → Impact/Synopsis → Type Suggestion → Generate flows
-  - Creative mode generation
-  - Export buttons: MD/PDF/JSON downloads
-- Figure generation: Standard (upload + preview), Creative (requires generated abstract)
-- Notifications: appear and auto-dismiss
+**ECR Abstract Submission**: [www.myESR.org/abstractsubmission](https://www.myesr.org/abstractsubmission)
 
-Troubleshooting
+## Project Structure
 
-- Missing API key: provider calls will error with clear messages in UI/console
-- PDF/DOCX parsing: very large files may need manual text paste
-- Port conflicts: Vite switches to a free port and logs the chosen URL
+```
+sci-necromancer/
+├── src/
+│   ├── main.ts                 # Application entry point
+│   ├── App.vue                 # Root component
+│   ├── components/
+│   │   ├── panels/             # Conference-specific panels
+│   │   ├── managers/           # Abstract and Model managers
+│   │   ├── ui/                 # Reusable UI components
+│   │   └── export/             # Export functionality
+│   ├── composables/            # Vue composables (hooks)
+│   └── plugins/                # Vue plugins (i18n, etc.)
+├── lib/
+│   ├── llm/                    # LLM provider integrations
+│   │   ├── index.ts            # Unified API facade
+│   │   ├── gemini.ts           # Google AI integration
+│   │   └── openai.ts           # OpenAI-compatible integration
+│   ├── conference/             # Conference module system
+│   │   ├── modules/            # Per-conference implementations
+│   │   ├── ConferenceRegistry.ts
+│   │   └── ConferenceRouter.ts
+│   ├── file/                   # File processing utilities
+│   └── utils/                  # Shared utilities
+├── public/
+│   ├── locales/                # i18n translation files
+│   └── *.md                    # Conference guidelines
+├── types.ts                    # TypeScript type definitions
+├── vite.config.ts              # Vite configuration
+└── tsconfig.json               # TypeScript configuration
+```
 
-## Deployment (Vercel)
+## Development
 
-- This is a static Vite build; Vercel auto-detects
-- Steps:
-  - Push this repo to GitHub
-  - In Vercel, "New Project" → import repo
-  - Framework preset: Vite
-  - Build command: `npm run build`
-  - Output directory: `dist`
-  - Environment variables: none required (keys entered via UI and stored locally)
-- After deploy:
-  - Open the app
-  - Configure provider keys in Model Manager
+### Available Scripts
 
-## Security Considerations
+| Command            | Description                  |
+| ------------------ | ---------------------------- |
+| `npm run dev`      | Start development server     |
+| `npm run build`    | Build for production         |
+| `npm run preview`  | Preview production build     |
+| `npm run lint`     | Run TypeScript type checking |
+| `npm run lint:fix` | Fix ESLint issues            |
+| `npm run format`   | Format code with Prettier    |
+| `npm run test`     | Run tests with Vitest        |
+| `npm run test:ui`  | Run tests with UI            |
 
-- No server-side storage of keys; keys persist in localStorage
-- Avoid uploading sensitive data; parsing runs in-browser
-- Error logs and feedback are privacy-filtered and stored locally
+### Path Aliases
 
-## Migration Parity with React Main Branch
+The `@` alias maps to the project root:
 
-This Vue app matches the main-branch feature set and UI/UX:
+```typescript
+import { useSettings } from '@/src/composables/useSettings';
+import { analyzeContent } from '@/lib/llm';
+```
 
-- Conference workflows and guidelines
-- Provider switching and model configuration
-- File parsing and export options
-- Figure generation modes
-- Abstract Manager with import/export
-- i18n and accessibility utilities
+### Adding a New Conference
 
-Remaining differences
+1. Create a new module in `lib/conference/modules/`
+2. Extend `BaseConferenceModule` with conference-specific guidelines and types
+3. Register the module in `ConferenceRegistry`
+4. Create a corresponding panel component in `src/components/panels/`
+5. Add translations in `public/locales/`
 
-- Internals use Vue composables/Pinia instead of React Context/Jotai
-- Build/test scripts reflect Vue tooling
+## Deployment
 
-## Commands
+### Vercel (Recommended)
 
-- npm install
-- npm run dev
-- npm run build
-- npm run preview
-- npm run lint
+1. Push the repository to GitHub
+2. Import the project in Vercel
+3. Configure:
+   - Framework preset: **Vite**
+   - Build command: `npm run build`
+   - Output directory: `dist`
+4. Deploy
+
+No environment variables are required; API keys are entered via UI and stored locally.
+
+### Other Platforms
+
+The build output is a static site in `dist/`. Deploy to any static hosting service (Netlify, GitHub Pages, Cloudflare Pages, etc.).
+
+## Security
+
+- API keys are stored in browser localStorage only
+- No server-side storage or transmission of credentials
+- File processing runs entirely in-browser
+- Avoid uploading sensitive or confidential research data
+
+## Troubleshooting
+
+| Issue             | Solution                                               |
+| ----------------- | ------------------------------------------------------ |
+| API errors        | Verify API key is correct and has sufficient quota     |
+| PDF parsing fails | Try a smaller file or paste text directly              |
+| Port 3000 in use  | Vite auto-selects another port (check terminal output) |
+| Build type errors | Run `npm run lint` to identify TypeScript issues       |
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/your-feature`)
+3. Commit changes (`git commit -m 'Add your feature'`)
+4. Push to branch (`git push origin feature/your-feature`)
+5. Open a Pull Request
 
 ## Acknowledgments
 
-- ISMRM, RSNA, JACC for public abstract guidelines
-- Google AI (Gemini) and OpenAI-compatible providers
-- SiliconFlow for image generation APIs
+- [ISMRM](https://www.ismrm.org/), [RSNA](https://www.rsna.org/), [ESC](https://www.escardio.org/), [ESR](https://www.myesr.org/) for public abstract guidelines
+- [Google AI](https://ai.google.dev/) (Gemini) for language model capabilities
+- [OpenAI](https://openai.com/) for API compatibility standards
+- [SiliconFlow](https://siliconflow.cn/) for image generation APIs
+- [EQUATOR Network](http://equator-network.org/) for research reporting guidelines
+
+---
+
+**[English](README.md) | [中文](README_CN.md) | [Deutsch](README_DE.md)**

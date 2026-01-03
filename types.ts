@@ -1,5 +1,5 @@
 export type GenerationMode = 'standard' | 'creative';
-export type Conference = 'ISMRM' | 'RSNA' | 'JACC' | 'ER';
+export type Conference = 'ISMRM' | 'RSNA' | 'ER' | 'ESC' | 'IMAGE';
 export type AbstractType =
   // ISMRM Types
   | 'Standard Abstract'
@@ -8,10 +8,16 @@ export type AbstractType =
   | 'Registered Abstract'
   // RSNA Types
   | 'RSNA Scientific Abstract'
-  // JACC Types
-  | 'JACC Scientific Abstract'
-  // ER Types
-  | 'ER Scientific Abstract';
+  // ESC Types
+  | 'ESC Scientific Abstract'
+  | 'ESC Young Investigator Award'
+  // ER/ECR Types (European Congress of Radiology)
+  | 'ER Scientific Abstract'
+  | 'ECR Research Presentation'
+  | 'ECR Clinical Trials in Radiology'
+  | 'ECR EPOS Scientific Poster'
+  | 'ECR EPOS Educational Poster'
+  | 'ECR Student Presentation';
 
 export interface AbstractData {
   impact: string;
@@ -207,4 +213,81 @@ export interface ErrorBoundaryState {
   hasError: boolean;
   error?: AppError;
   errorInfo?: any;
+}
+
+// ============================================================================
+// IMAGE GENERATION PANEL TYPES
+// ============================================================================
+
+export type ImageGenerationMode = 'standard' | 'text-to-image';
+
+export type ImageSpecCategory = 'research' | 'journal' | 'layout' | 'style' | 'format' | 'elements';
+
+// Structured image specification field
+export interface ImageSpecField {
+  key: string;
+  value: string;
+  category: ImageSpecCategory;
+  isValid: boolean;
+}
+
+// State for the image specs smart completion form
+export interface ImageSpecsState {
+  rawInput: string; // User's raw text input
+  parsedFields: ImageSpecField[]; // Extracted structured fields
+  jsonOutput: string; // Final JSON for LLM API
+  selectedTemplate: string | null; // Applied template ID
+  cursorPosition: number; // Current cursor position for completion
+  showSuggestions: boolean; // Whether to show autocomplete popup
+  suggestions: string[]; // Current autocomplete suggestions
+}
+
+// Main state for the Image Generation panel
+export interface ImageGenerationState {
+  mode: ImageGenerationMode;
+  imageFile: File | null;
+  imageBase64: string | null;
+  specsState: ImageSpecsState;
+  abstractIntent: SavedAbstract | null; // Selected from Abstract Manager for text-to-image
+  generatedImage: string | null;
+  isLoading: boolean;
+  loadingMessage: string;
+  error: string | null;
+  zoomLevel: number;
+}
+
+// Template for one-click image specs
+export interface ImageTemplate {
+  id: string;
+  name: string;
+  icon: string;
+  description: string;
+  defaultFields: ImageSpecField[];
+}
+
+// Autocomplete suggestion item
+export interface CompletionSuggestion {
+  text: string;
+  category: ImageSpecCategory;
+  description?: string;
+}
+
+// Trigger mapping for rule-based completion
+export interface TriggerMapping {
+  pattern: RegExp;
+  category: ImageSpecCategory;
+  values: string[];
+}
+
+// Structured output for LLM image generation
+export interface StructuredImagePrompt {
+  research_type: string;
+  journal_style: string;
+  layout: string;
+  color_palette: string;
+  aspect_ratio: string;
+  resolution: string;
+  elements: string[];
+  notes: string;
+  intent?: string; // From Abstract Manager
 }

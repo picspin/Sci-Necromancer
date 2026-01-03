@@ -145,24 +145,26 @@
 ## Button States
 
 ### "1. Analyze" Button
+
 - **Enabled**: When text input is not empty
 - **Disabled**: When loading or text is empty
 - **Loading**: Shows emoji animation (🔍 → 📝 → 🎯)
 
 ### "2. Generate" Button
+
 - **Enabled**: When abstract type is selected
 - **Disabled**: When loading or no type selected
 - **Loading**: Shows emoji animation (✨)
 
 ## Color Coding
 
-| Section    | Color  | Hex Code    | Purpose                    |
-|------------|--------|-------------|----------------------------|
-| Impact     | Blue   | `#2563eb`   | Significance statement     |
-| Synopsis   | Green  | `#16a34a`   | Summary overview           |
-| Categories | Purple | `#9333ea`   | Classification tags        |
-| Keywords   | Orange | `#ea580c`   | Search terms               |
-| Abstract   | Brand  | Custom      | Main content               |
+| Section    | Color  | Hex Code  | Purpose                |
+| ---------- | ------ | --------- | ---------------------- |
+| Impact     | Blue   | `#2563eb` | Significance statement |
+| Synopsis   | Green  | `#16a34a` | Summary overview       |
+| Categories | Purple | `#9333ea` | Classification tags    |
+| Keywords   | Orange | `#ea580c` | Search terms           |
+| Abstract   | Brand  | Custom    | Main content           |
 
 ## Modal Flow
 
@@ -224,7 +226,7 @@
                       ├─ Use generated abstract
                       ├─ Add specs/guidelines
                       └─ Generate new image
-                      
+
 ┌─────────────────────────────────────────┐
 │     Generated Figure Display            │
 │  ┌───────────────────────────────────┐  │
@@ -253,27 +255,30 @@
 
 ## Loading States
 
-| Step | Message | Duration | Visual |
-|------|---------|----------|--------|
-| Analysis | 🔍 Analyzing content... | 3-5s | Spinner |
-| Impact/Synopsis | 📝 Generating impact & synopsis... | 5-8s | Spinner |
-| Type Suggestion | 🎯 Suggesting abstract types... | 2-3s | Spinner |
-| Abstract Generation | ✨ Generating spec-compliant abstract... | 10-15s | Spinner |
-| Image Generation | 🎨 Generating figure... | 15-30s | Spinner |
+| Step                | Message                                  | Duration | Visual  |
+| ------------------- | ---------------------------------------- | -------- | ------- |
+| Analysis            | 🔍 Analyzing content...                  | 3-5s     | Spinner |
+| Impact/Synopsis     | 📝 Generating impact & synopsis...       | 5-8s     | Spinner |
+| Type Suggestion     | 🎯 Suggesting abstract types...          | 2-3s     | Spinner |
+| Abstract Generation | ✨ Generating spec-compliant abstract... | 10-15s   | Spinner |
+| Image Generation    | 🎨 Generating figure...                  | 15-30s   | Spinner |
 
 ## Responsive Behavior
 
 ### Desktop (>1024px)
+
 - Two-column layout
 - Left: Input panel
 - Right: Output panel
 - Modal: Centered, max-width 800px
 
 ### Tablet (768px - 1024px)
+
 - Two-column layout (narrower)
 - Modal: Centered, max-width 600px
 
 ### Mobile (<768px)
+
 - Single-column layout
 - Input panel on top
 - Output panel below
@@ -281,12 +286,12 @@
 
 ## Keyboard Shortcuts (Future Enhancement)
 
-| Shortcut | Action |
-|----------|--------|
+| Shortcut   | Action               |
+| ---------- | -------------------- |
 | Ctrl+Enter | Proceed to next step |
-| Ctrl+S | Save abstract |
-| Ctrl+E | Export as MD |
-| Esc | Close modal |
+| Ctrl+S     | Save abstract        |
+| Ctrl+E     | Export as MD         |
+| Esc        | Close modal          |
 
 ---
 

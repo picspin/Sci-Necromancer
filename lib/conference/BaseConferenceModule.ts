@@ -123,7 +123,7 @@ export abstract class BaseConferenceModule implements ConferenceModule {
    * Generate conference-specific abstract (override in subclasses)
    */
   protected async generateConferenceSpecificAbstract(
-    params: AbstractGenerationParams
+    _params: AbstractGenerationParams
   ): Promise<AbstractData> {
     throw new Error('Conference-specific generation not implemented');
   }
@@ -131,7 +131,7 @@ export abstract class BaseConferenceModule implements ConferenceModule {
   /**
    * Conference-specific validation (override in subclasses)
    */
-  protected validateConferenceSpecific(abstract: AbstractData): ValidationResult {
+  protected validateConferenceSpecific(_abstract: AbstractData): ValidationResult {
     return { isValid: true, errors: [], warnings: [] };
   }
 
@@ -149,11 +149,12 @@ export abstract class BaseConferenceModule implements ConferenceModule {
    * Get conference-specific color scheme
    */
   getColorScheme(): { primary: string; secondary: string; accent: string } {
-    const colorSchemes = {
+    const colorSchemes: Record<string, { primary: string; secondary: string; accent: string }> = {
       ISMRM: { primary: '#4CAF50', secondary: '#81C784', accent: '#2E7D32' },
       RSNA: { primary: '#2196F3', secondary: '#64B5F6', accent: '#1565C0' },
-      JACC: { primary: '#FF9800', secondary: '#FFB74D', accent: '#E65100' },
       ER: { primary: '#9C27B0', secondary: '#BA68C8', accent: '#6A1B9A' },
+      ESC: { primary: '#C41E3A', secondary: '#E57373', accent: '#8B0000' },
+      IMAGE: { primary: '#6366F1', secondary: '#818CF8', accent: '#4F46E5' },
     };
 
     return colorSchemes[this.id] || { primary: '#9E9E9E', secondary: '#BDBDBD', accent: '#616161' };

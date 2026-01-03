@@ -8,48 +8,182 @@ import {
   Category,
 } from '../../../types';
 import { BaseConferenceModule } from '../BaseConferenceModule';
+import { GuidelineService } from '../GuidelineService';
 import * as llm from '../../llm';
 
 /**
- * ER (European Radiology) Conference Module
- * Handles ER-specific abstract generation and validation
+ * Research type definitions with EQUATOR Network reporting guidelines
+ */
+export interface ResearchTypeGuideline {
+  type: string;
+  checklist: string;
+  checklistUrl: string;
+  alternativeUrl: string;
+  description: string;
+}
+
+export const ECR_RESEARCH_TYPES: ResearchTypeGuideline[] = [
+  {
+    type: 'Case-control study',
+    checklist: 'STROBE',
+    checklistUrl: 'https://www.equator-network.org/reporting-guidelines/strobe/',
+    alternativeUrl: 'https://pubmed.ncbi.nlm.nih.gov/18064739/',
+    description: 'Compares subjects with a condition to those without',
+  },
+  {
+    type: 'Cross-sectional study',
+    checklist: 'STROBE',
+    checklistUrl: 'https://www.equator-network.org/reporting-guidelines/strobe/',
+    alternativeUrl: 'https://pubmed.ncbi.nlm.nih.gov/18064739/',
+    description: 'Observational study at a single point in time',
+  },
+  {
+    type: 'Diagnostic or prognostic study',
+    checklist: 'STARD',
+    checklistUrl: 'https://www.equator-network.org/reporting-guidelines/stard/',
+    alternativeUrl: 'https://pubmed.ncbi.nlm.nih.gov/26511519/',
+    description: 'Evaluates diagnostic accuracy or prognostic value',
+  },
+  {
+    type: 'Experimental (animal study)',
+    checklist: 'ARRIVE',
+    checklistUrl: 'https://www.equator-network.org/reporting-guidelines/arrive/',
+    alternativeUrl: 'https://pubmed.ncbi.nlm.nih.gov/32663219/',
+    description: 'Animal research and preclinical studies',
+  },
+  {
+    type: 'Observational study',
+    checklist: 'STROBE',
+    checklistUrl: 'https://www.equator-network.org/reporting-guidelines/strobe/',
+    alternativeUrl: 'https://pubmed.ncbi.nlm.nih.gov/18064739/',
+    description: 'Cohort, case-control, or cross-sectional design',
+  },
+  {
+    type: 'Randomised controlled trial',
+    checklist: 'CONSORT',
+    checklistUrl: 'https://www.equator-network.org/reporting-guidelines/consort/',
+    alternativeUrl: 'https://pubmed.ncbi.nlm.nih.gov/20332509/',
+    description: 'Randomised experimental study with control group',
+  },
+];
+
+/**
+ * ER (European Congress of Radiology / ECR) Module
+ * Handles ECR-specific abstract generation and validation
+ *
+ * ECR is one of the world's largest radiological meetings, organized by the
+ * European Society of Radiology (ESR).
  */
 export class ERModule extends BaseConferenceModule {
   readonly id: Conference = 'ER';
-  readonly name: string = 'European Radiology';
-  readonly submissionUrl: string = 'https://www.myesr.org/publications/';
+  readonly name: string = 'European Congress of Radiology (ECR)';
+  readonly submissionUrl: string = 'https://www.myesr.org/abstractsubmission';
 
   readonly guidelines: ConferenceGuidelines = {
-    abstractTypes: ['ER Scientific Abstract'],
+    abstractTypes: [
+      'ECR Research Presentation',
+      'ECR Clinical Trials in Radiology',
+      'ECR EPOS Scientific Poster',
+      'ECR EPOS Educational Poster',
+      'ECR Student Presentation',
+    ],
     wordLimits: {
-      abstract: 300,
+      abstract: 280,
       impact: 50,
       synopsis: 100,
+      title: 200, // characters
     },
-    requiredSections: ['objectives', 'methods', 'results', 'conclusion'],
+    requiredSections: ['purpose', 'methods', 'results', 'conclusions'],
     formattingRules: [
-      'Use structured format with Objectives, Methods, Results, Conclusion',
-      'Follow European radiology standards and terminology',
-      'Include ethical approval information where applicable',
+      'Maximum 280 words for abstract body',
+      'Title: no full stop at end, no trade names or special symbols',
+      'Use British English spelling throughout',
+      'Numbers < 10 spelled out; numbers >= 10 written numerically',
+      'Dates in British format (day.month.year)',
+      'Each section must be a complete paragraph ending with full stop',
+      'Maximum 9 authors; up to 10 images for posters only',
+      'Up to 3 keywords per column; one per category mandatory',
+      'Declare conflicts of interest for all authors',
+      'Include ethics approval information where applicable',
     ],
   };
 
-  readonly abstractTypes: AbstractType[] = ['ER Scientific Abstract'];
+  // Cached guideline content
+  private guidelineContent: string | null = null;
+
+  readonly abstractTypes: AbstractType[] = [
+    'ECR Research Presentation',
+    'ECR Clinical Trials in Radiology',
+    'ECR EPOS Scientific Poster',
+    'ECR EPOS Educational Poster',
+    'ECR Student Presentation',
+  ];
 
   /**
-   * ER has conference-specific generation methods
+   * ER/ECR has conference-specific generation methods
    */
   protected hasConferenceSpecificGeneration(): boolean {
     return true;
   }
 
   /**
-   * Generate ER-specific abstract
+   * Load guideline from file or database (async)
+   */
+  async loadGuideline(): Promise<string> {
+    if (this.guidelineContent) {
+      return this.guidelineContent;
+    }
+
+    try {
+      // Try to load from GuidelineService (supports database or file fallback)
+      this.guidelineContent = await GuidelineService.loadGuideline('ECR');
+      return this.guidelineContent;
+    } catch (error) {
+      console.warn('Failed to load ECR guideline, using embedded version:', error);
+      return this.getEmbeddedGuideline();
+    }
+  }
+
+  /**
+   * Get embedded guideline as fallback
+   */
+  private getEmbeddedGuideline(): string {
+    return `ECR Abstract Submission Guidelines:
+- Maximum 280 words for abstract body
+- Structured format: Purpose/Objectives, Methods/Materials, Results, Conclusions
+- British English spelling required
+- Title: max 200 characters, no full stop at end, no trade names
+- Numbers < 10 spelled out; >= 10 written numerically
+- Dates in British format (day.month.year)
+- Maximum 9 authors; up to 10 images for posters
+- Include ethics approval and funding information where applicable
+- Consult EQUATOR Network guidelines for your study type (STROBE, STARD, ARRIVE, CONSORT)`;
+  }
+
+  /**
+   * Get EQUATOR Network research type guidelines
+   */
+  getResearchTypeGuidelines(): ResearchTypeGuideline[] {
+    return ECR_RESEARCH_TYPES;
+  }
+
+  /**
+   * Get guideline for specific research type
+   */
+  getGuidelineForResearchType(researchType: string): ResearchTypeGuideline | undefined {
+    return ECR_RESEARCH_TYPES.find((rt) => rt.type.toLowerCase() === researchType.toLowerCase());
+  }
+
+  /**
+   * Generate ECR-specific abstract
    */
   protected async generateConferenceSpecificAbstract(
     params: AbstractGenerationParams
   ): Promise<AbstractData> {
     try {
+      // Load guideline for context
+      const guideline = await this.loadGuideline();
+
       // Check if conference-specific LLM methods exist
       if (typeof llm.generateAbstractForConference === 'function') {
         return await llm.generateAbstractForConference(
@@ -57,10 +191,11 @@ export class ERModule extends BaseConferenceModule {
           params.abstractType,
           params.categories,
           params.keywords,
-          'ER'
+          'ER',
+          guideline
         );
       } else {
-        // Fallback to generic generation with ER-specific prompting
+        // Fallback to generic generation with ECR-specific prompting
         return await llm.generateFinalAbstract(
           params.inputText,
           params.abstractType,
@@ -72,75 +207,128 @@ export class ERModule extends BaseConferenceModule {
       }
     } catch (error) {
       throw new Error(
-        `ER abstract generation failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+        `ECR abstract generation failed: ${error instanceof Error ? error.message : 'Unknown error'}`
       );
     }
   }
 
   /**
-   * Get ER-specific categories
+   * Get ECR-specific categories based on ECR Congress topics
    */
   getCategories(): Category[] {
     return [
-      { name: 'Chest Radiology', type: 'main', probability: 1.0 },
-      { name: 'Abdominal Radiology', type: 'main', probability: 1.0 },
-      { name: 'Neuroradiology', type: 'main', probability: 1.0 },
-      { name: 'Musculoskeletal Radiology', type: 'main', probability: 1.0 },
-      { name: 'Breast Imaging', type: 'main', probability: 1.0 },
-      { name: 'Interventional Radiology', type: 'sub', probability: 1.0 },
-      { name: 'Pediatric Radiology', type: 'sub', probability: 1.0 },
-      { name: 'Emergency Radiology', type: 'sub', probability: 1.0 },
-      { name: 'Oncologic Imaging', type: 'sub', probability: 1.0 },
-      { name: 'CT', type: 'secondary', probability: 1.0 },
-      { name: 'MRI', type: 'secondary', probability: 1.0 },
-      { name: 'Ultrasound', type: 'secondary', probability: 1.0 },
-      { name: 'Nuclear Medicine', type: 'secondary', probability: 1.0 },
+      // Main Topics - Organ Systems
+      { name: 'Abdominal Viscera', type: 'main', probability: 1.0 },
+      { name: 'Breast', type: 'main', probability: 1.0 },
+      { name: 'Cardiac', type: 'main', probability: 1.0 },
+      { name: 'Chest', type: 'main', probability: 1.0 },
+      { name: 'Head and Neck', type: 'main', probability: 1.0 },
+      { name: 'Musculoskeletal', type: 'main', probability: 1.0 },
+      { name: 'Neuro', type: 'main', probability: 1.0 },
+      { name: 'Oncologic Imaging', type: 'main', probability: 1.0 },
+      { name: 'Paediatric', type: 'main', probability: 1.0 },
+      { name: 'Urogenital', type: 'main', probability: 1.0 },
+      { name: 'Vascular', type: 'main', probability: 1.0 },
+      // Sub Topics - Modalities
+      { name: 'CT', type: 'sub', probability: 1.0 },
+      { name: 'MRI', type: 'sub', probability: 1.0 },
+      { name: 'Ultrasound', type: 'sub', probability: 1.0 },
+      { name: 'Conventional Radiography', type: 'sub', probability: 1.0 },
+      { name: 'Mammography', type: 'sub', probability: 1.0 },
+      { name: 'Fluoroscopy', type: 'sub', probability: 1.0 },
+      { name: 'Hybrid Imaging (PET/CT, PET/MRI, SPECT/CT)', type: 'sub', probability: 1.0 },
+      // Secondary Topics - Techniques/Applications
+      { name: 'Artificial Intelligence/Machine Learning', type: 'secondary', probability: 1.0 },
+      { name: 'Contrast Media', type: 'secondary', probability: 1.0 },
+      { name: 'Emergency Radiology', type: 'secondary', probability: 1.0 },
+      { name: 'Image-Guided Interventions', type: 'secondary', probability: 1.0 },
+      { name: 'Radiation Protection/Radioprotection', type: 'secondary', probability: 1.0 },
+      { name: 'Radiomics/Quantitative Imaging', type: 'secondary', probability: 1.0 },
+      { name: 'Sustainability in Radiology', type: 'secondary', probability: 1.0 },
+      { name: 'Education and Training', type: 'secondary', probability: 1.0 },
     ];
   }
 
   /**
-   * Get ER-specific keywords
+   * Get ECR-specific keywords
    */
   getKeywords(): string[] {
     return [
-      'Radiology',
-      'Medical Imaging',
+      // Modalities
       'CT',
       'MRI',
       'Ultrasound',
       'X-ray',
       'Mammography',
-      'Nuclear Medicine',
       'PET/CT',
-      'SPECT',
-      'Interventional Radiology',
-      'Image-guided Therapy',
+      'PET/MRI',
+      'SPECT/CT',
+      'Fluoroscopy',
+      // Techniques
       'Artificial Intelligence',
       'Machine Learning',
+      'Deep Learning',
       'Radiomics',
-      'Computer-aided Diagnosis',
-      'Image Analysis',
+      'Texture Analysis',
+      'Computer-Aided Detection',
+      'Computer-Aided Diagnosis',
       'Quantitative Imaging',
-      'Contrast Media',
+      'Dual-Energy CT',
+      'Diffusion-Weighted Imaging',
+      'Perfusion Imaging',
+      'Contrast-Enhanced',
+      // Interventional
+      'Interventional Radiology',
+      'Image-Guided Biopsy',
+      'Ablation',
+      'Embolisation',
+      // Quality & Safety
+      'Radiation Dose',
       'Radiation Protection',
       'Image Quality',
-      'Diagnostic Performance',
-      'Inter-observer Agreement',
-      'Reproducibility',
+      'Quality Assurance',
+      'Patient Safety',
+      'Sustainability',
+      // Clinical
+      'Diagnostic Accuracy',
+      'Sensitivity',
+      'Specificity',
+      'Staging',
+      'Screening',
+      'Follow-up',
+      // Study Types (aligned with EQUATOR)
+      'Cohort Study',
+      'Case-Control Study',
+      'Cross-Sectional Study',
+      'Randomised Controlled Trial',
+      'Diagnostic Accuracy Study',
+      'Prognostic Study',
+      'Meta-Analysis',
+      'Systematic Review',
     ];
   }
 
   /**
-   * ER-specific validation
+   * ECR-specific validation
    */
   protected validateConferenceSpecific(abstract: AbstractData): ValidationResult {
     const errors: string[] = [];
     const warnings: string[] = [];
 
-    // Check for ER structured format
+    // Check word limit (280 words)
+    if (abstract.abstract) {
+      const wordCount = abstract.abstract.split(/\s+/).filter((w) => w.length > 0).length;
+      if (wordCount > 280) {
+        errors.push(`Abstract exceeds word limit: ${wordCount}/280 words`);
+      } else if (wordCount > 250) {
+        warnings.push(`Abstract is close to word limit: ${wordCount}/280 words`);
+      }
+    }
+
+    // Check for ECR structured format
     if (abstract.abstract) {
       const content = abstract.abstract.toLowerCase();
-      const requiredSections = ['objective', 'method', 'result', 'conclusion'];
+      const requiredSections = ['purpose', 'method', 'result', 'conclusion'];
       const missingSections = requiredSections.filter(
         (section) => !content.includes(section) && !content.includes(section + 's')
       );
@@ -161,42 +349,85 @@ export class ERModule extends BaseConferenceModule {
         'ultrasound',
         'x-ray',
         'radiologic',
+        'radiograph',
+        'scan',
       ];
       const hasRadiologyContent = radiologyTerms.some((term) => content.includes(term));
 
       if (!hasRadiologyContent) {
+        warnings.push('Abstract may not contain sufficient radiology-related content for ECR');
+      }
+    }
+
+    // Check for British English spelling (common differences)
+    if (abstract.abstract) {
+      const americanSpellings = [
+        { american: 'tumor', british: 'tumour' },
+        { american: 'color', british: 'colour' },
+        { american: 'center', british: 'centre' },
+        { american: 'analyze', british: 'analyse' },
+        { american: 'optimize', british: 'optimise' },
+        { american: 'utilize', british: 'utilise' },
+        { american: 'randomized', british: 'randomised' },
+        { american: 'characterized', british: 'characterised' },
+        { american: 'hemorrhage', british: 'haemorrhage' },
+        { american: 'anemia', british: 'anaemia' },
+        { american: 'pediatric', british: 'paediatric' },
+        { american: 'fetal', british: 'foetal' },
+      ];
+
+      const contentLower = abstract.abstract.toLowerCase();
+      const americanFound = americanSpellings.filter((s) => contentLower.includes(s.american));
+
+      if (americanFound.length > 0) {
+        const suggestions = americanFound.map((s) => `${s.american} -> ${s.british}`).join(', ');
+        warnings.push(`ECR requires British English spelling. Consider: ${suggestions}`);
+      }
+    }
+
+    // Check for prohibited content (trade names, symbols)
+    if (abstract.abstract) {
+      if (
+        abstract.abstract.includes('®') ||
+        abstract.abstract.includes('™') ||
+        abstract.abstract.includes('©')
+      ) {
+        errors.push('Trade symbols (®, ™, ©) are not allowed in ECR abstracts');
+      }
+    }
+
+    // Check title formatting
+    if (abstract.title) {
+      if (abstract.title.endsWith('.')) {
+        errors.push('Title should not end with a full stop');
+      }
+      if (abstract.title.length > 200) {
+        errors.push(`Title exceeds character limit: ${abstract.title.length}/200 characters`);
+      }
+    }
+
+    // Check for ethics/funding information mention
+    if (abstract.abstract) {
+      const content = abstract.abstract.toLowerCase();
+      const hasEthicsInfo =
+        content.includes('ethics') ||
+        content.includes('ethical') ||
+        content.includes('irb') ||
+        content.includes('institutional review');
+      const hasFundingInfo =
+        content.includes('funding') ||
+        content.includes('grant') ||
+        content.includes('supported by');
+
+      if (!hasEthicsInfo) {
         warnings.push(
-          'Abstract may not contain sufficient radiology-related content for European Radiology'
+          'Consider including ethics approval information (required for clinical studies)'
         );
       }
-    }
-
-    // Check for European standards compliance
-    if (abstract.abstract) {
-      const content = abstract.abstract.toLowerCase();
-      const europeanTerms = ['european', 'ethics', 'gdpr', 'consent', 'approval'];
-      const hasEuropeanContext = europeanTerms.some((term) => content.includes(term));
-
-      if (!hasEuropeanContext) {
-        warnings.push('Consider mentioning ethical approval or European regulatory compliance');
-      }
-    }
-
-    // Check for quantitative results
-    if (abstract.abstract) {
-      const content = abstract.abstract.toLowerCase();
-      const quantTerms = [
-        'sensitivity',
-        'specificity',
-        'accuracy',
-        'auc',
-        'confidence interval',
-        'p-value',
-      ];
-      const hasQuantResults = quantTerms.some((term) => content.includes(term));
-
-      if (!hasQuantResults) {
-        warnings.push('Consider including quantitative diagnostic performance metrics');
+      if (!hasFundingInfo) {
+        warnings.push(
+          'Consider including funding information or stating "No funding was received"'
+        );
       }
     }
 
@@ -204,16 +435,27 @@ export class ERModule extends BaseConferenceModule {
   }
 
   /**
-   * Get ER display name
+   * Get ECR color scheme (ESR blue)
    */
-  getDisplayName(): string {
-    return 'European Radiology';
+  getColorScheme(): { primary: string; secondary: string; accent: string } {
+    return {
+      primary: '#003366', // ESR dark blue
+      secondary: '#0066CC',
+      accent: '#00AAFF',
+    };
   }
 
   /**
-   * ER module is available (placeholder for future implementation status)
+   * Get ECR display name
+   */
+  getDisplayName(): string {
+    return 'European Congress of Radiology (ECR)';
+  }
+
+  /**
+   * ECR module is available
    */
   isAvailable(): boolean {
-    return true; // Set to false if module is not yet fully implemented
+    return true;
   }
 }

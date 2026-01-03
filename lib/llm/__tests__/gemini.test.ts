@@ -35,7 +35,7 @@ describe('Gemini LLM Service', () => {
       }));
 
       const { analyzeContent } = await import('@/lib/llm/gemini');
-      const result = await analyzeContent('Functional MRI study of brain connectivity', 'ISMRM');
+      const result = await analyzeContent('Functional MRI study of brain connectivity');
 
       expect(result.categories).toBeDefined();
       expect(result.keywords).toBeInstanceOf(Array);
@@ -73,7 +73,6 @@ describe('Gemini LLM Service', () => {
       const { generateFinalAbstract } = await import('@/lib/llm/gemini');
       const result = await generateFinalAbstract(
         'Research input',
-        'ISMRM',
         'Standard Abstract',
         [],
         [],

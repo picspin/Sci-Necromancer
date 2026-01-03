@@ -85,13 +85,49 @@
               >
                 Text Model
               </label>
-              <input
-                type="text"
-                id="google-text-model"
-                v-model="localSettings.model"
-                placeholder="gemini-2.5-flash"
-                class="w-full p-2 bg-base-200 border border-base-300 rounded-md text-sm focus:ring-2 focus:ring-brand-primary focus:outline-none transition"
-              />
+              <div class="flex items-center gap-2">
+                <template v-if="googleModelIds.length">
+                  <select
+                    id="google-text-model"
+                    v-model="localSettings.model"
+                    class="flex-1 p-2 bg-base-200 border border-base-300 rounded-md text-sm focus:ring-2 focus:ring-brand-primary focus:outline-none transition"
+                  >
+                    <option v-for="m in googleModelIds" :key="m" :value="m">{{ m }}</option>
+                  </select>
+                </template>
+                <template v-else>
+                  <select
+                    id="google-text-model"
+                    v-model="localSettings.model"
+                    class="flex-1 p-2 bg-base-200 border border-base-300 rounded-md text-sm focus:ring-2 focus:ring-brand-primary focus:outline-none transition"
+                  >
+                    <option value="gemini-2.5-flash">gemini-2.5-flash</option>
+                    <option value="gemini-2.5-pro">gemini-2.5-pro</option>
+                    <option value="gemini-2.5-flash-lite">gemini-2.5-flash-lite</option>
+                  </select>
+                </template>
+                <button
+                  type="button"
+                  @click="loadGoogleModels"
+                  class="p-2 bg-base-300 text-text-secondary rounded-md hover:bg-base-400 transition-colors flex items-center justify-center"
+                  :disabled="loadingGoogleModels"
+                  :title="t('model_manager.load_models')"
+                >
+                  <svg
+                    :class="['w-5 h-5', loadingGoogleModels ? 'animate-spin' : '']"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                    />
+                  </svg>
+                </button>
+              </div>
             </div>
 
             <div>
@@ -101,13 +137,47 @@
               >
                 Image Model
               </label>
-              <input
-                type="text"
-                id="google-image-model"
-                v-model="localSettings.openAIImageModel"
-                placeholder="imagen-3.0-generate-001"
-                class="w-full p-2 bg-base-200 border border-base-300 rounded-md text-sm focus:ring-2 focus:ring-brand-primary focus:outline-none transition"
-              />
+              <div class="flex items-center gap-2">
+                <template v-if="googleImageModelIds.length">
+                  <select
+                    id="google-image-model"
+                    v-model="localSettings.openAIImageModel"
+                    class="flex-1 p-2 bg-base-200 border border-base-300 rounded-md text-sm focus:ring-2 focus:ring-brand-primary focus:outline-none transition"
+                  >
+                    <option v-for="m in googleImageModelIds" :key="m" :value="m">{{ m }}</option>
+                  </select>
+                </template>
+                <template v-else>
+                  <select
+                    id="google-image-model"
+                    v-model="localSettings.openAIImageModel"
+                    class="flex-1 p-2 bg-base-200 border border-base-300 rounded-md text-sm focus:ring-2 focus:ring-brand-primary focus:outline-none transition"
+                  >
+                    <option value="imagen-3.0-generate-001">imagen-3.0-generate-001</option>
+                  </select>
+                </template>
+                <button
+                  type="button"
+                  @click="loadGoogleModels"
+                  class="p-2 bg-base-300 text-text-secondary rounded-md hover:bg-base-400 transition-colors flex items-center justify-center"
+                  :disabled="loadingGoogleModels"
+                  :title="t('model_manager.load_models')"
+                >
+                  <svg
+                    :class="['w-5 h-5', loadingGoogleModels ? 'animate-spin' : '']"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                    />
+                  </svg>
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -134,13 +204,23 @@
             <label for="openai-base-url" class="block text-sm font-medium text-text-secondary mb-1">
               Base URL
             </label>
-            <input
-              type="text"
-              id="openai-base-url"
-              v-model="localSettings.openAIBaseUrl"
-              placeholder="https://api.openai.com/v1"
-              class="w-full p-2 bg-base-200 border border-base-300 rounded-md text-sm focus:ring-2 focus:ring-brand-primary focus:outline-none transition"
-            />
+            <div class="flex items-center gap-2">
+              <input
+                type="text"
+                id="openai-base-url"
+                v-model="localSettings.openAIBaseUrl"
+                placeholder="https://api.openai.com/v1"
+                class="flex-1 p-2 bg-base-200 border border-base-300 rounded-md text-sm focus:ring-2 focus:ring-brand-primary focus:outline-none transition"
+              />
+              <button
+                type="button"
+                @click="loadOpenAIModels"
+                class="px-3 py-2 bg-brand-primary text-white rounded-md text-sm hover:bg-brand-secondary transition-colors"
+                :disabled="loadingModels"
+              >
+                {{ loadingModels ? 'Loading...' : t('model_manager.load_models') }}
+              </button>
+            </div>
             <p class="text-xs text-text-secondary mt-1">Support OpenAI API based Providers</p>
           </div>
 
@@ -149,26 +229,94 @@
               <label for="text-model" class="block text-sm font-medium text-text-secondary mb-1">
                 Text Model
               </label>
-              <input
-                type="text"
-                id="text-model"
-                v-model="localSettings.openAITextModel"
-                placeholder="gpt-4o"
-                class="w-full p-2 bg-base-200 border border-base-300 rounded-md text-sm focus:ring-2 focus:ring-brand-primary focus:outline-none transition"
-              />
+              <div class="flex items-center gap-2">
+                <template v-if="openAIModelIds.length">
+                  <select
+                    id="text-model"
+                    v-model="localSettings.openAITextModel"
+                    class="flex-1 p-2 bg-base-200 border border-base-300 rounded-md text-sm focus:ring-2 focus:ring-brand-primary focus:outline-none transition"
+                  >
+                    <option v-for="m in openAIModelIds" :key="m" :value="m">{{ m }}</option>
+                  </select>
+                </template>
+                <template v-else>
+                  <input
+                    type="text"
+                    id="text-model"
+                    v-model="localSettings.openAITextModel"
+                    placeholder="gpt-4o"
+                    class="flex-1 p-2 bg-base-200 border border-base-300 rounded-md text-sm focus:ring-2 focus:ring-brand-primary focus:outline-none transition"
+                  />
+                </template>
+                <button
+                  type="button"
+                  @click="loadOpenAIModels"
+                  class="p-2 bg-base-300 text-text-secondary rounded-md hover:bg-base-400 transition-colors flex items-center justify-center"
+                  :disabled="loadingModels"
+                  :title="t('model_manager.load_models')"
+                >
+                  <svg
+                    :class="['w-5 h-5', loadingModels ? 'animate-spin' : '']"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                    />
+                  </svg>
+                </button>
+              </div>
             </div>
 
             <div>
               <label for="vision-model" class="block text-sm font-medium text-text-secondary mb-1">
                 Vision Model
               </label>
-              <input
-                type="text"
-                id="vision-model"
-                v-model="localSettings.openAIVisionModel"
-                placeholder="gpt-4o, gpt-4-vision-preview"
-                class="w-full p-2 bg-base-200 border border-base-300 rounded-md text-sm focus:ring-2 focus:ring-brand-primary focus:outline-none transition"
-              />
+              <div class="flex items-center gap-2">
+                <template v-if="openAIModelIds.length">
+                  <select
+                    id="vision-model"
+                    v-model="localSettings.openAIVisionModel"
+                    class="flex-1 p-2 bg-base-200 border border-base-300 rounded-md text-sm focus:ring-2 focus:ring-brand-primary focus:outline-none transition"
+                  >
+                    <option v-for="m in openAIModelIds" :key="m" :value="m">{{ m }}</option>
+                  </select>
+                </template>
+                <template v-else>
+                  <input
+                    type="text"
+                    id="vision-model"
+                    v-model="localSettings.openAIVisionModel"
+                    placeholder="gpt-4o, gpt-4-vision-preview"
+                    class="flex-1 p-2 bg-base-200 border border-base-300 rounded-md text-sm focus:ring-2 focus:ring-brand-primary focus:outline-none transition"
+                  />
+                </template>
+                <button
+                  type="button"
+                  @click="loadOpenAIModels"
+                  class="p-2 bg-base-300 text-text-secondary rounded-md hover:bg-base-400 transition-colors flex items-center justify-center"
+                  :disabled="loadingModels"
+                  :title="t('model_manager.load_models')"
+                >
+                  <svg
+                    :class="['w-5 h-5', loadingModels ? 'animate-spin' : '']"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                    />
+                  </svg>
+                </button>
+              </div>
               <p class="text-xs text-text-secondary mt-1">For analyzing uploaded images</p>
             </div>
 
@@ -176,13 +324,47 @@
               <label for="image-model" class="block text-sm font-medium text-text-secondary mb-1">
                 Image Model
               </label>
-              <input
-                type="text"
-                id="image-model"
-                v-model="localSettings.openAIImageModel"
-                placeholder="dall-e-3, gpt-5"
-                class="w-full p-2 bg-base-200 border border-base-300 rounded-md text-sm focus:ring-2 focus:ring-brand-primary focus:outline-none transition"
-              />
+              <div class="flex items-center gap-2">
+                <template v-if="openAIModelIds.length">
+                  <select
+                    id="image-model"
+                    v-model="localSettings.openAIImageModel"
+                    class="flex-1 p-2 bg-base-200 border border-base-300 rounded-md text-sm focus:ring-2 focus:ring-brand-primary focus:outline-none transition"
+                  >
+                    <option v-for="m in openAIModelIds" :key="m" :value="m">{{ m }}</option>
+                  </select>
+                </template>
+                <template v-else>
+                  <input
+                    type="text"
+                    id="image-model"
+                    v-model="localSettings.openAIImageModel"
+                    placeholder="dall-e-3, gpt-5"
+                    class="flex-1 p-2 bg-base-200 border border-base-300 rounded-md text-sm focus:ring-2 focus:ring-brand-primary focus:outline-none transition"
+                  />
+                </template>
+                <button
+                  type="button"
+                  @click="loadOpenAIModels"
+                  class="p-2 bg-base-300 text-text-secondary rounded-md hover:bg-base-400 transition-colors flex items-center justify-center"
+                  :disabled="loadingModels"
+                  :title="t('model_manager.load_models')"
+                >
+                  <svg
+                    :class="['w-5 h-5', loadingModels ? 'animate-spin' : '']"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                    />
+                  </svg>
+                </button>
+              </div>
               <p class="text-xs text-text-secondary mt-1">For generating/editing images</p>
             </div>
           </div>
@@ -314,9 +496,12 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue';
+import { useI18n } from 'vue-i18n';
 import Modal from '@/components/ui/Modal.vue';
 import { useSettings } from '@/composables/useSettings';
 import type { AIProvider, Settings } from '@/types';
+
+const { t } = useI18n();
 
 const emit = defineEmits<{
   close: [];
@@ -379,6 +564,69 @@ const toggleImageGeneration = (e: Event) => {
       },
     },
   };
+};
+
+const loadingModels = ref(false);
+const openAIModelIds = ref<string[]>([]);
+const loadingGoogleModels = ref(false);
+const googleModelIds = ref<string[]>([]);
+const googleImageModelIds = ref<string[]>([]);
+
+const loadOpenAIModels = async () => {
+  try {
+    loadingModels.value = true;
+    const base = (localSettings.value.openAIBaseUrl || '').replace(/\/$/, '');
+    const url = `${base}/models`;
+    const res = await fetch(url, {
+      headers: {
+        Authorization: `Bearer ${localSettings.value.openAIApiKey || ''}`,
+      },
+    });
+    if (!res.ok) {
+      throw new Error(`Failed to load models: ${res.status} ${res.statusText}`);
+    }
+    const data = await res.json();
+    const list: string[] = Array.isArray(data?.data)
+      ? data.data.map((m: any) => m.id).filter((id: any) => typeof id === 'string')
+      : [];
+    openAIModelIds.value = list;
+  } catch (e) {
+    console.warn('Load models error:', e);
+    openAIModelIds.value = [];
+  } finally {
+    loadingModels.value = false;
+  }
+};
+
+const loadGoogleModels = async () => {
+  try {
+    loadingGoogleModels.value = true;
+    const apiKey = localSettings.value.googleApiKey;
+    if (!apiKey) {
+      console.warn('No Google API key provided');
+      return;
+    }
+    const url = `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`;
+    const res = await fetch(url);
+    if (!res.ok) {
+      throw new Error(`Failed to load Google models: ${res.status} ${res.statusText}`);
+    }
+    const data = await res.json();
+    const models: string[] = Array.isArray(data?.models)
+      ? data.models
+          .map((m: any) => m.name?.replace('models/', '') || '')
+          .filter((name: string) => name.length > 0)
+      : [];
+    // Separate text models (gemini) and image models (imagen)
+    googleModelIds.value = models.filter((m) => m.includes('gemini'));
+    googleImageModelIds.value = models.filter((m) => m.includes('imagen'));
+  } catch (e) {
+    console.warn('Load Google models error:', e);
+    googleModelIds.value = [];
+    googleImageModelIds.value = [];
+  } finally {
+    loadingGoogleModels.value = false;
+  }
 };
 
 const handleSave = () => {

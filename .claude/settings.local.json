@@ -1,18 +1,19 @@
 {
   "permissions": {
     "allow": [
-      "Bash(npm install:*)",
-      "Bash(npm view:*)",
-      "Bash(ls:*)",
-      "Bash(npm run dev)",
-      "Bash(chmod:*)",
-      "Bash(cat:*)",
-      "Bash(./scripts/test-hooks.sh:*)",
-      "Bash(npm run format)",
-      "Bash(npm run lint:fix)",
-      "Bash(npx eslint:*)",
-      "Bash(npm run lint)",
-      "Bash(npm run test:hooks)"
+      "WebSearch",
+      "WebFetch(domain:docs.siliconflow.cn)",
+      "WebFetch(domain:www.myesr.org)",
+      "WebFetch(domain:platform.minimaxi.com)",
+      "Bash(claude mcp add chrome-devtools npx chrome-devtools-mcp@latest)",
+      "WebFetch",
+      "Bash(mkdir -p /Users/hilbert/LLM/Sci-Necromancer/server/src/file /Users/hilbert/LLM/Sci-Necromancer/server/src/common)",
+      "mcp__chrome-devtools__list_console_messages",
+      "mcp__chrome-devtools__take_snapshot",
+      "mcp__chrome-devtools__take_screenshot"
     ]
+  },
+  "enabledPlugins": {
+    "sentry@claude-plugins-official": true
   }
 }
