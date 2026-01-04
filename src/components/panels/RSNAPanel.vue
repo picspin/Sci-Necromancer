@@ -13,6 +13,8 @@
         </div>
 
         <div v-if="activeTab === 'abstract'" class="space-y-4 animate-fade-in">
+          <ModeSelector :mode="abstractMode" @set-mode="setAbstractMode" />
+
           <div v-if="abstractMode === 'standard'" class="bg-base-100 p-4 rounded-lg">
             <label for="file-upload" class="block text-sm font-medium text-text-secondary mb-2">
               {{ t('forms.upload_file') }}
@@ -99,6 +101,27 @@
               <SvgIcon type="document" class="h-5 w-5" />
               {{ t('common.clear') }}
             </button>
+            <button
+              v-if="generatedAbstract && selectedAbstractType"
+              @click="handleDeepUpdate"
+              :disabled="isLoading"
+              class="flex items-center justify-center gap-2 bg-brand-secondary hover:bg-brand-primary text-white font-bold py-3 px-4 rounded-lg transition-all duration-300 disabled:bg-base-300/50 disabled:cursor-not-allowed"
+              :title="t('tooltips.deep_update')"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="currentColor"
+                class="w-5 h-5"
+              >
+                <path
+                  fill-rule="evenodd"
+                  d="M4.5 9.75a6 6 0 0111.573-2.226 3.75 3.75 0 014.133 6.614c.345.232.74.372 1.128.544l3.664-2.178a1.125 1.125 0 011.128.771l3.664 2.178a1.125 1.125 0 01-.035 2.1l-12.87 7.216a3.75 3.75 0 01-5.916-4.014A3.005 3.005 0 014.5 16.5v-6.75z"
+                  clip-rule="evenodd"
+                />
+              </svg>
+              {{ t('buttons.deep_update') }}
+            </button>
           </div>
         </div>
       </div>
@@ -107,7 +130,6 @@
         :abstract="generatedAbstract"
         :categories="selectedCategories"
         :keywords="selectedKeywords"
-        :image="generatedImage"
         :is-loading="isLoading"
         :error="error"
         :loading-message="loadingMessage"
@@ -409,6 +431,43 @@ const handleGenerateNanobana = () => {
   alert(
     'Nanobana Pro 3 enhanced generation is coming soon. This will require a premium API with payment gating.'
   );
+};
+
+const handleDeepUpdate = async () => {
+  if (!generatedAbstract.value || !selectedAbstractType.value) return;
+
+  isLoading.value = true;
+  loadingMessage.value = t('loading_messages.deep_diving');
+  error.value = null;
+
+  try {
+    const refinementPrompt = `Please refine and improve this abstract while maintaining its core message and structure. Focus on:
+1. Clarity and precision of language
+2. Stronger impact and significance statements
+3. Better flow and coherence
+4. More specific technical details where appropriate
+
+Current Abstract:
+${generatedAbstract.value.abstract}
+
+Impact: ${generatedAbstract.value.impact}
+Synopsis: ${generatedAbstract.value.synopsis}
+Keywords: ${generatedAbstract.value.keywords.join(', ')}`;
+
+    const result = await llm.generateFinalAbstract(
+      refinementPrompt,
+      selectedAbstractType.value,
+      selectedCategories.value,
+      selectedKeywords.value
+    );
+
+    result.categories = selectedCategories.value;
+    generatedAbstract.value = result;
+  } catch (e) {
+    error.value = e instanceof Error ? e.message : 'Failed to perform deep update';
+  } finally {
+    isLoading.value = false;
+  }
 };
 
 const openSaveModal = () => {

@@ -10,13 +10,6 @@
             icon="text"
             @set-active="setActiveTab"
           />
-          <TabButton
-            id="figure"
-            :active-tab="activeTab"
-            :label="t('tabs.figure_generation')"
-            icon="image"
-            @set-active="setActiveTab"
-          />
         </div>
 
         <div v-if="activeTab === 'abstract'" class="space-y-4 animate-fade-in">
@@ -166,69 +159,6 @@
             </button>
           </div>
         </div>
-
-        <div v-if="activeTab === 'figure'" class="space-y-4 animate-fade-in">
-          <ImageModeSelector
-            :mode="imageMode"
-            :creative-disabled="!generatedAbstract"
-            :creative-tooltip="t('tooltips.creative_mode_disabled')"
-            @set-mode="setImageMode"
-          />
-          <div v-if="imageMode === 'standard'" class="bg-base-100 p-4 rounded-lg">
-            <label for="image-upload" class="block text-sm font-medium text-text-secondary mb-2">
-              Upload Image
-            </label>
-            <input
-              id="image-upload"
-              type="file"
-              accept="image/*"
-              @change="handleImageFileChange"
-              class="block w-full text-sm text-text-secondary file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-brand-primary/20 file:text-brand-primary hover:file:bg-brand-primary/30"
-            />
-            <img
-              v-if="imageState.base64"
-              :src="`data:image/png;base64,${imageState.base64}`"
-              alt="Preview"
-              class="mt-4 rounded-lg max-h-40 object-contain mx-auto"
-            />
-          </div>
-          <div v-else class="p-4 bg-base-100/50 rounded-lg text-center">
-            <SvgIcon type="info" class="mx-auto h-8 w-8 text-brand-primary mb-2" />
-            <p class="text-text-secondary font-medium">
-              Creative mode will generate a figure based on the content of your generated abstract.
-            </p>
-          </div>
-          <div class="bg-base-100 p-4 rounded-lg">
-            <label for="image-specs" class="block text-sm font-medium text-text-secondary mb-2">
-              {{ t('forms.image_specs') }}
-            </label>
-            <textarea
-              id="image-specs"
-              v-model="imageState.specs"
-              placeholder="e.g., 'Make this a grayscale T1-weighted MRI scan', 'Add arrows pointing to the hippocampus', 'Format as a 3x3 grid'."
-              class="w-full h-32 p-3 bg-base-100 border border-base-300 rounded-md focus:ring-2 focus:ring-brand-primary focus:outline-none transition"
-            />
-          </div>
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <button
-              @click="handleGenerateImage"
-              :disabled="isLoading"
-              class="w-full flex items-center justify-center gap-2 bg-brand-primary hover:bg-brand-secondary text-white font-bold py-3 px-4 rounded-lg transition-all duration-300 disabled:bg-base-300/50 disabled:cursor-not-allowed focus:outline-none focus:ring-3 focus:ring-brand-primary"
-              aria-label="Generate figure based on specifications"
-            >
-              <SvgIcon type="image" class="h-5 w-5" />{{ t('buttons.generate_figure') }}
-            </button>
-            <button
-              @click="handleGenerateNanobana"
-              :disabled="isLoading"
-              class="w-full flex items-center justify-center gap-2 bg-orange-600 hover:bg-orange-700 text-white font-bold py-3 px-4 rounded-lg transition-all duration-300 disabled:bg-base-300/50 disabled:cursor-not-allowed focus:outline-none focus:ring-3 focus:ring-brand-primary"
-              aria-label="Nanobana enhanced figure generation"
-              title="Premium Nanobana Pro 3 (coming soon)"
-            >
-              🔥 Nanobana🍌
-            </button>
-          </div>
-        </div>
       </div>
 
       <OutputDisplay
@@ -237,7 +167,6 @@
         :synopsis="synopsis"
         :categories="selectedCategories"
         :keywords="selectedKeywords"
-        :image="generatedImage"
         :is-loading="isLoading"
         :error="error"
         :loading-message="loadingMessage"
@@ -265,7 +194,6 @@ import { useI18n } from 'vue-i18n';
 import type {
   AbstractData,
   GenerationMode,
-  ImageState,
   AnalysisResult,
   AbstractTypeSuggestion,
   AbstractType,
@@ -283,7 +211,6 @@ import { getMemeTranslation } from '@/lib/i18n';
 // Import sub-components
 import TabButton from './ISMRMPanelComponents/TabButton.vue';
 import ModeSelector from './ISMRMPanelComponents/ModeSelector.vue';
-import ImageModeSelector from './ISMRMPanelComponents/ImageModeSelector.vue';
 import AnalysisStep from './ISMRMPanelComponents/AnalysisStep.vue';
 import TypeSuggestionStep from './ISMRMPanelComponents/TypeSuggestionStep.vue';
 
@@ -295,7 +222,7 @@ const { abstractToLoad, clearLoadedAbstract } = useAbstract();
 const isLoading = ref<boolean>(false);
 const loadingMessage = ref<string>(t('output.generating'));
 const error = ref<string | null>(null);
-const activeTab = ref<'abstract' | 'figure'>('abstract');
+const activeTab = ref<'abstract'>('abstract');
 
 // Abstract State
 const abstractMode = ref<GenerationMode>('standard');
@@ -310,11 +237,6 @@ const selectedAbstractType = ref<AbstractType | null>(null);
 const isModalOpen = ref<boolean>(false);
 const modalStep = ref<'analysis' | 'impactSynopsis' | 'type'>('analysis');
 const generatedAbstract = ref<AbstractData | null>(null);
-
-// Image State
-const imageMode = ref<GenerationMode>('standard');
-const imageState = ref<ImageState>({ file: null, specs: '', base64: null });
-const generatedImage = ref<string | null>(null);
 
 const resetWorkflow = () => {
   analysisResult.value = null;
@@ -331,18 +253,6 @@ const handleTextChange = () => {
   if (analysisResult.value) {
     resetWorkflow();
   }
-};
-
-const fileToBase64 = (file: File): Promise<string> => {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
-    reader.onload = () => {
-      const result = reader.result as string;
-      resolve(result.split(',')[1]); // remove the data:mime/type;base64, part
-    };
-    reader.onerror = (err) => reject(err);
-  });
 };
 
 const handleFileChange = async (e: Event) => {
@@ -522,40 +432,6 @@ const handleGenerateCreative = async () => {
   }
 };
 
-const handleGenerateNanobana = () => {
-  alert(
-    'Nanobana Pro 3 enhanced generation is coming soon. This will require a premium API with payment gating.'
-  );
-};
-
-const handleGenerateImage = async () => {
-  let context = '';
-  if (imageMode.value === 'creative') {
-    if (!generatedAbstract.value) {
-      error.value =
-        'Please generate an abstract first to provide context for creative image generation.';
-      return;
-    }
-    context = `Impact: ${generatedAbstract.value.impact}\nSynopsis: ${generatedAbstract.value.synopsis}`;
-  } else if (!imageState.value.file) {
-    error.value = 'Please upload an image for standard mode editing.';
-    return;
-  }
-
-  isLoading.value = true;
-  loadingMessage.value = t('loading_messages.generating_figure');
-  error.value = null;
-  generatedImage.value = null;
-  try {
-    const result = await llm.generateImage(imageState.value, context);
-    generatedImage.value = `data:image/png;base64,${result}`;
-  } catch (e) {
-    error.value = e instanceof Error ? e.message : 'An unknown error during image generation.';
-  } finally {
-    isLoading.value = false;
-  }
-};
-
 const handleSaveAbstract = async () => {
   if (!generatedAbstract.value) return;
 
@@ -590,8 +466,6 @@ const handleClear = () => {
   if (confirm('Are you sure you want to clear all data? This will reset the workflow.')) {
     inputText.value = '';
     resetWorkflow();
-    generatedImage.value = null;
-    imageState.value = { file: null, specs: '', base64: null };
     error.value = null;
   }
 };
@@ -651,15 +525,11 @@ watch(abstractToLoad, (newAbstract) => {
 });
 
 // Setters for mode selectors
-const setActiveTab = (tab: 'abstract' | 'figure') => {
+const setActiveTab = (tab: 'abstract') => {
   activeTab.value = tab;
 };
 
 const setAbstractMode = (mode: GenerationMode) => {
   abstractMode.value = mode;
-};
-
-const setImageMode = (mode: GenerationMode) => {
-  imageMode.value = mode;
 };
 </script>

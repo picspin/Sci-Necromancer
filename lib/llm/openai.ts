@@ -345,7 +345,21 @@ async function generateImageViaSiliconFlow(
     return imageUrl;
   }
   const arrayBuffer = await (imgResponse as any).arrayBuffer();
-  return btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+  return arrayBufferToBase64(arrayBuffer);
+}
+
+/**
+ * Convert ArrayBuffer to base64 string using chunked approach
+ * to avoid Maximum call stack size exceeded error on large images
+ */
+function arrayBufferToBase64(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer);
+  let binary = '';
+  const chunkSize = 32768; // Process in 32KB chunks to avoid stack overflow
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+  }
+  return btoa(binary);
 }
 
 // Path 2: MCP Tool-based Generation (MyGenAssist, etc.)

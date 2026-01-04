@@ -161,7 +161,7 @@ interface Props {
   synopsis?: string;
   categories?: Category[];
   keywords?: string[];
-  image: string | null;
+  image?: string | null;
   isLoading: boolean;
   error: string | null;
   loadingMessage?: string;
@@ -171,6 +171,7 @@ interface Props {
 
 const props = withDefaults(defineProps<Props>(), {
   conference: 'ISMRM',
+  image: null,
 });
 
 const hasOutput = computed(() => props.abstract || props.image || props.impact || props.synopsis);
