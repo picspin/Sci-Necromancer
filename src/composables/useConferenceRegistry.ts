@@ -77,7 +77,7 @@ export function useConferenceRegistry() {
         },
         {
           id: 'ER' as Conference,
-          name: 'ER ECR',
+          name: 'ECR',
           submissionUrl: '#',
           available: false,
           colorScheme: defaultColorScheme,

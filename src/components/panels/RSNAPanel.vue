@@ -22,9 +22,10 @@
             <input
               id="file-upload"
               type="file"
-              accept=".txt,.pdf,.docx,text/plain,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+              accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
               @change="handleFileChange"
               class="block w-full text-sm text-text-secondary file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-brand-primary/20 file:text-brand-primary hover:file:bg-brand-primary/30"
+              aria-label="Upload PDF or DOCX file"
             />
             <div class="relative mt-2">
               <textarea
@@ -32,6 +33,7 @@
                 @input="handleTextChange"
                 :placeholder="t('forms.paste_text')"
                 class="w-full h-60 p-3 bg-base-100 border border-base-300 rounded-md focus:ring-2 focus:ring-brand-primary focus:outline-none transition"
+                aria-label="Input text for abstract generation"
               />
             </div>
           </div>
@@ -50,74 +52,83 @@
             />
           </div>
 
-          <div class="flex flex-col sm:flex-row gap-4">
-            <template v-if="abstractMode === 'standard'">
+          <div class="space-y-3">
+            <div class="flex flex-col sm:flex-row gap-4">
+              <template v-if="abstractMode === 'standard'">
+                <button
+                  @click="handleAnalyze"
+                  :disabled="isLoading || !inputText.trim()"
+                  class="flex-1 flex items-center justify-center gap-2 bg-base-300 hover:bg-opacity-80 text-white font-bold py-3 px-4 rounded-lg transition-all duration-300 disabled:bg-base-300/50 disabled:cursor-not-allowed"
+                  :aria-label="t('buttons.analyze_content')"
+                >
+                  <SvgIcon type="sparkles" class="h-5 w-5" />
+                  {{ t('buttons.analyze_content') }}
+                </button>
+                <button
+                  @click="handleGenerateAbstract"
+                  :disabled="isLoading || !selectedAbstractType"
+                  class="flex-1 flex items-center justify-center gap-2 bg-brand-primary hover:bg-brand-secondary text-white font-bold py-3 px-4 rounded-lg transition-all duration-300 disabled:bg-base-300/50 disabled:cursor-not-allowed"
+                  :aria-label="t('buttons.generate_abstract')"
+                >
+                  <SvgIcon type="document" class="h-5 w-5" />
+                  {{ t('buttons.generate_abstract') }}
+                </button>
+              </template>
               <button
-                @click="handleAnalyze"
+                v-else
+                @click="handleGenerateCreative"
                 :disabled="isLoading || !inputText.trim()"
-                class="flex-1 flex items-center justify-center gap-2 bg-base-300 hover:bg-opacity-80 text-white font-bold py-3 px-4 rounded-lg transition-all duration-300 disabled:bg-base-300/50 disabled:cursor-not-allowed"
+                class="w-full flex items-center justify-center gap-2 bg-brand-primary hover:bg-brand-secondary text-white font-bold py-3 px-4 rounded-lg transition-all duration-300 disabled:bg-base-300/50 disabled:cursor-not-allowed"
               >
                 <SvgIcon type="sparkles" class="h-5 w-5" />
-                {{ t('buttons.analyze_content') }}
+                {{
+                  getMemeTranslation('Generate Creatively', t) || t('buttons.generate_creatively')
+                }}
+              </button>
+            </div>
+
+            <!-- Save and Clear buttons -->
+            <div v-if="generatedAbstract" class="flex gap-3">
+              <button
+                @click="openSaveModal"
+                :disabled="isLoading"
+                class="flex-1 flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-lg transition-all duration-300 disabled:bg-base-300/50 disabled:cursor-not-allowed"
+                :title="t('tooltips.save_abstract')"
+              >
+                <SvgIcon type="download" class="h-5 w-5" />
+                {{ t('buttons.save_abstract') }}
               </button>
               <button
-                @click="handleGenerateAbstract"
-                :disabled="isLoading || !selectedAbstractType"
-                class="flex-1 flex items-center justify-center gap-2 bg-brand-primary hover:bg-brand-secondary text-white font-bold py-3 px-4 rounded-lg transition-all duration-300 disabled:bg-base-300/50 disabled:cursor-not-allowed"
+                @click="handleNewAbstract"
+                :disabled="isLoading"
+                class="flex-1 flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded-lg transition-all duration-300 disabled:bg-base-300/50 disabled:cursor-not-allowed"
+                :title="t('tooltips.clear_data')"
               >
                 <SvgIcon type="document" class="h-5 w-5" />
-                {{ t('buttons.generate_abstract') }}
+                {{ t('buttons.clear_all') }}
               </button>
-            </template>
-            <button
-              v-else
-              @click="handleGenerateCreative"
-              :disabled="isLoading || !inputText.trim()"
-              class="w-full flex items-center justify-center gap-2 bg-brand-primary hover:bg-brand-secondary text-white font-bold py-3 px-4 rounded-lg transition-all duration-300 disabled:bg-base-300/50 disabled:cursor-not-allowed"
-            >
-              <SvgIcon type="sparkles" class="h-5 w-5" />
-              {{ getMemeTranslation('Generate Creatively', t) || t('buttons.generate_creatively') }}
-            </button>
-          </div>
+            </div>
 
-          <div
-            v-if="generatedAbstract"
-            class="flex flex-col sm:flex-row gap-4 pt-4 border-t border-base-300"
-          >
+            <!-- Deep Update button - only show after abstract generation -->
             <button
-              @click="openSaveModal"
-              :disabled="isLoading"
-              class="flex-1 flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-lg transition-all duration-300 disabled:bg-base-300/50 disabled:cursor-not-allowed"
-            >
-              <SvgIcon type="download" class="h-5 w-5" />
-              {{ currentAbstractId ? t('common.edit') : t('common.save') }}
-              {{ t('tabs.abstract_generation').toLowerCase() }}
-            </button>
-            <button
-              @click="handleNewAbstract"
-              :disabled="isLoading"
-              class="flex-1 flex items-center justify-center gap-2 bg-gray-600 hover:bg-gray-700 text-white font-bold py-3 px-4 rounded-lg transition-all duration-300 disabled:bg-base-300/50 disabled:cursor-not-allowed"
-            >
-              <SvgIcon type="document" class="h-5 w-5" />
-              {{ t('common.clear') }}
-            </button>
-            <button
-              v-if="generatedAbstract && selectedAbstractType"
+              v-if="generatedAbstract?.abstract"
               @click="handleDeepUpdate"
               :disabled="isLoading"
-              class="flex items-center justify-center gap-2 bg-brand-secondary hover:bg-brand-primary text-white font-bold py-3 px-4 rounded-lg transition-all duration-300 disabled:bg-base-300/50 disabled:cursor-not-allowed"
+              class="w-full flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-700 text-white font-semibold py-2 px-4 rounded-lg transition-all duration-300 disabled:bg-base-300/50 disabled:cursor-not-allowed animate-fade-in"
               :title="t('tooltips.deep_update')"
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
+                fill="none"
                 viewBox="0 0 24 24"
-                fill="currentColor"
-                class="w-5 h-5"
+                stroke-width="1.5"
+                stroke="currentColor"
+                class="h-5 w-5"
               >
                 <path
-                  fill-rule="evenodd"
-                  d="M4.5 9.75a6 6 0 0111.573-2.226 3.75 3.75 0 014.133 6.614c.345.232.74.372 1.128.544l3.664-2.178a1.125 1.125 0 011.128.771l3.664 2.178a1.125 1.125 0 01-.035 2.1l-12.87 7.216a3.75 3.75 0 01-5.916-4.014A3.005 3.005 0 014.5 16.5v-6.75z"
-                  clip-rule="evenodd"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z"
                 />
               </svg>
               {{ t('buttons.deep_update') }}

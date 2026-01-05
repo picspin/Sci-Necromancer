@@ -132,22 +132,42 @@ export const getECRAbstractByTypePrompt = async (
 
   let specificInstructions = '';
 
+  // ECR Unified Structure - Required for all abstract types
+  const ecrStructure = `
+**ECR ABSTRACT STRUCTURE (REQUIRED):**
+Your abstract MUST include ALL of the following sections with headers in uppercase:
+
+1. **PURPOSE or LEARNING OBJECTIVE**: State the aim of the study / What the viewer will learn (1-2 sentences)
+
+2. **METHODS or BACKGROUND**: Describe study design, population, imaging protocol, and analysis methods OR provide context and importance of the topic (2-3 sentences)
+
+3. **RESULTS or FINDINGS**: Present key findings with quantitative data (statistics, p-values, confidence intervals) OR key educational content (2-3 sentences)
+
+4. **CONCLUSIONS**: Summarise implications for radiological practice OR summary of learning points (1-2 sentences)
+
+5. **LIMITATIONS**: State limitations of the study (1 sentence, mandatory for research, optional for educational)
+
+6. **FUNDING for this study**: Declare funding sources. If none, state "No funding was received for this study." (1 sentence, mandatory)
+
+**ECR WORD LIMIT:** STRICTLY MAXIMUM 280 WORDS (abstract body only, excluding title and keywords)
+
+**BRITISH ENGLISH SPELLING:** tumour, centre, analyse, colour, randomised, characterise, optimise
+
+**NUMBERS:** Spell out numbers less than 10; use numerals for 10 and above
+
+**TITLE REQUIREMENTS:** Maximum 200 characters, no full stop at end, no trade names or special symbols (®, ™, ©)
+`;
+
   switch (type) {
     case 'ECR Research Presentation':
       specificInstructions = `
 **Abstract Type: Research Presentation (RP)**
 
-Your abstract must follow this structure:
-- **PURPOSE**: State the aim of the study clearly
-- **METHODS AND MATERIALS**: Describe study design, population, imaging protocol, and analysis methods
-- **RESULTS**: Present key findings with quantitative data (statistics, p-values, confidence intervals)
-- **CONCLUSIONS**: Summarise implications for radiological practice
+${ecrStructure}
 
 **Presentation Format:**
 - 5-minute oral presentation followed by 2-minute discussion
 - May be considered for poster if not accepted for oral
-
-**Word Limit:** Maximum 280 words
 `;
       break;
 
@@ -155,20 +175,14 @@ Your abstract must follow this structure:
       specificInstructions = `
 **Abstract Type: Clinical Trials in Radiology (CTiR)**
 
-Your abstract must include:
-- **PURPOSE**: Clear statement of trial objectives
-- **METHODS AND MATERIALS**: Trial design, randomisation, blinding, endpoints
-- **RESULTS**: Primary and secondary outcomes with statistical analysis
-- **CONCLUSIONS**: Clinical implications and future directions
+${ecrStructure}
 
-**Eligibility Requirements:**
-- Multicentre studies (design/baseline/results)
-- Randomised single-centre studies with results
+**Clinical Trial Requirements:**
+- Emphasise trial design, randomisation, and statistical methodology
+- Report primary and secondary outcomes with statistical significance
 
 **Presentation Format:**
 - 8-minute presentation followed by 4-minute discussion
-
-**Word Limit:** Maximum 280 words
 `;
       break;
 
@@ -176,18 +190,12 @@ Your abstract must include:
       specificInstructions = `
 **Abstract Type: EPOS Scientific Poster**
 
-Your abstract must follow this structure:
-- **PURPOSE**: Research question and objectives
-- **METHODS AND MATERIALS**: Study design, patient selection, imaging technique
-- **RESULTS**: Key findings with supporting data
-- **CONCLUSIONS**: Clinical significance and take-home message
+${ecrStructure}
 
 **EPOS Features:**
 - Electronic Presentation Online System
 - Up to 10 images can be uploaded
-- Opportunity for EPOS on the GO/EPOS PULSE live presentation
-
-**Word Limit:** Maximum 280 words
+- Suitable for visual presentation with data
 `;
       break;
 
@@ -195,18 +203,18 @@ Your abstract must follow this structure:
       specificInstructions = `
 **Abstract Type: EPOS Educational Poster**
 
-Your abstract must focus on:
-- **LEARNING OBJECTIVES**: What the viewer will learn
-- **BACKGROUND**: Context and importance of the topic
-- **FINDINGS/PROCEDURE DETAILS**: Key educational content
-- **CONCLUSIONS**: Summary of learning points
+${ecrStructure}
 
 **Educational Focus:**
+- Emphasise LEARNING OBJECTIVES and CONCLUSIONS for teaching
+- BACKGROUND provides context and importance
+- FINDINGS/PROCEDURE DETAILS for key educational content
+- LIMITATIONS and FUNDING still required
+
+**Suitable Topics:**
 - Teaching cases and pictorial reviews
 - Technical aspects and protocols
 - Imaging patterns and differential diagnosis
-
-**Word Limit:** Maximum 280 words
 `;
       break;
 
@@ -214,19 +222,13 @@ Your abstract must focus on:
       specificInstructions = `
 **Abstract Type: Student Presentation**
 
-Suitable topics include:
+${ecrStructure}
+
+**Suitable Topics:**
 - University projects and research
 - AI-related papers
 - Sustainability in radiology
 - First imaging research papers
-
-Your abstract should:
-- **PURPOSE**: State the objective of your project
-- **METHODS**: Describe your approach
-- **RESULTS**: Present your findings
-- **CONCLUSIONS**: Summarise what you learned and implications
-
-**Word Limit:** Maximum 280 words
 `;
       break;
 
@@ -234,9 +236,7 @@ Your abstract should:
       specificInstructions = `
 **Abstract Type: ${type}**
 
-Generate a well-structured ECR abstract following standard scientific writing conventions.
-Use the Purpose, Methods/Materials, Results, Conclusions structure.
-**Word Limit:** Maximum 280 words
+${ecrStructure}
 `;
   }
 
@@ -305,42 +305,78 @@ export const getCreativeECRAbstractPrompt = async (
     : null;
 
   let typeInstructions = '';
+
+  // ECR Unified Structure - Required for all abstract types
+  const ecrStructure = `
+**ECR ABSTRACT STRUCTURE (REQUIRED):**
+Your abstract MUST include ALL of the following sections with headers in uppercase:
+
+1. **PURPOSE or LEARNING OBJECTIVE**
+2. **METHODS or BACKGROUND**
+3. **RESULTS or FINDINGS**
+4. **CONCLUSIONS**
+5. **LIMITATIONS** (mandatory for research)
+6. **FUNDING for this study** (mandatory, e.g., "No funding was received for this study.")
+
+**STRICT WORD LIMIT:** 280 words maximum
+
+**BRITISH ENGLISH:** tumour, centre, analyse, colour, randomised
+**NUMBERS:** <10 spelled out; >=10 numerals
+**TITLE:** max 200 characters, no full stop, no trade symbols
+`;
+
   switch (type) {
     case 'ECR Research Presentation':
       typeInstructions = `
-Generate an ECR Research Presentation abstract with:
-- PURPOSE, METHODS AND MATERIALS, RESULTS, CONCLUSIONS
-- 280 words maximum
-- Invent plausible imaging data and statistical results
+**Abstract Type: Research Presentation**
+
+${ecrStructure}
+
+Focus: 5-minute oral presentation suitable content
 `;
       break;
     case 'ECR Clinical Trials in Radiology':
       typeInstructions = `
-Generate an ECR Clinical Trials abstract with:
-- PURPOSE, METHODS AND MATERIALS (trial design), RESULTS, CONCLUSIONS
-- 280 words maximum
-- Multicentre or randomised design
-- Include primary/secondary endpoints
+**Abstract Type: Clinical Trials in Radiology**
+
+${ecrStructure}
+
+Focus: Trial design, randomisation, primary/secondary outcomes
 `;
       break;
     case 'ECR EPOS Scientific Poster':
       typeInstructions = `
-Generate an ECR EPOS Scientific Poster abstract with:
-- PURPOSE, METHODS AND MATERIALS, RESULTS, CONCLUSIONS
-- 280 words maximum
-- Suitable for visual presentation
+**Abstract Type: EPOS Scientific Poster**
+
+${ecrStructure}
+
+Focus: Visual presentation with data
 `;
       break;
     case 'ECR EPOS Educational Poster':
       typeInstructions = `
-Generate an ECR EPOS Educational Poster abstract with:
-- LEARNING OBJECTIVES, BACKGROUND, FINDINGS, CONCLUSIONS
-- 280 words maximum
-- Educational focus with clear teaching points
+**Abstract Type: EPOS Educational Poster**
+
+${ecrStructure}
+
+Focus: Learning objectives, teaching points, educational content
+`;
+      break;
+    case 'ECR Student Presentation':
+      typeInstructions = `
+**Abstract Type: Student Presentation**
+
+${ecrStructure}
+
+Focus: University projects, first research papers
 `;
       break;
     default:
-      typeInstructions = `Generate a well-structured ECR abstract with 280 words maximum`;
+      typeInstructions = `
+**Abstract Type: ${type}**
+
+${ecrStructure}
+`;
   }
 
   return `

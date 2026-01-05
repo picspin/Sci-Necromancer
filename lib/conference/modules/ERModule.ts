@@ -76,7 +76,7 @@ export const ECR_RESEARCH_TYPES: ResearchTypeGuideline[] = [
  */
 export class ERModule extends BaseConferenceModule {
   readonly id: Conference = 'ER';
-  readonly name: string = 'European Congress of Radiology (ECR)';
+  readonly name: string = 'ECR';
   readonly submissionUrl: string = 'https://www.myesr.org/abstractsubmission';
 
   readonly guidelines: ConferenceGuidelines = {
@@ -93,18 +93,26 @@ export class ERModule extends BaseConferenceModule {
       synopsis: 100,
       title: 200, // characters
     },
-    requiredSections: ['purpose', 'methods', 'results', 'conclusions'],
+    requiredSections: [
+      'PURPOSE or LEARNING OBJECTIVE',
+      'METHODS or BACKGROUND',
+      'RESULTS or FINDINGS',
+      'CONCLUSIONS',
+      'LIMITATIONS',
+      'FUNDING for this study',
+    ],
     formattingRules: [
       'Maximum 280 words for abstract body',
       'Title: no full stop at end, no trade names or special symbols',
-      'Use British English spelling throughout',
+      'Use British English spelling throughout (tumour, centre, analyse, colour, randomised)',
       'Numbers < 10 spelled out; numbers >= 10 written numerically',
-      'Dates in British format (day.month.year)',
       'Each section must be a complete paragraph ending with full stop',
       'Maximum 9 authors; up to 10 images for posters only',
       'Up to 3 keywords per column; one per category mandatory',
       'Declare conflicts of interest for all authors',
       'Include ethics approval information where applicable',
+      'LIMITATIONS section mandatory for research abstracts',
+      'FUNDING section mandatory - state "No funding was received" if none',
     ],
   };
 
@@ -449,7 +457,7 @@ export class ERModule extends BaseConferenceModule {
    * Get ECR display name
    */
   getDisplayName(): string {
-    return 'European Congress of Radiology (ECR)';
+    return 'ECR';
   }
 
   /**

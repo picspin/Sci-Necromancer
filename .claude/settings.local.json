@@ -11,7 +11,10 @@
       "mcp__chrome-devtools__list_console_messages",
       "mcp__chrome-devtools__take_snapshot",
       "mcp__chrome-devtools__take_screenshot",
-      "mcp__chrome-devtools__navigate_page"
+      "mcp__chrome-devtools__navigate_page",
+      "Bash(GIT_COMMAND=\"git push origin main --force\" timeout 120 bash -c 'eval \"\"$GIT_COMMAND\"\"')",
+      "mcp__chrome-devtools__list_pages",
+      "Bash(lsof -i :3000 -i :3002 -i :3003)"
     ]
   },
   "enabledPlugins": {
