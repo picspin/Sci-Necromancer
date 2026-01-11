@@ -2,7 +2,7 @@
   <div class="bg-base-100 rounded-lg p-4">
     <div class="flex items-center justify-between mb-3">
       <label class="block text-sm font-medium text-text-secondary">
-        Load Intent from Abstract Manager
+        {{ t('image_generation.load_abstract') }}
       </label>
     </div>
 
@@ -22,7 +22,7 @@
           <button
             @click="clearSelection"
             class="ml-2 p-1 text-text-secondary hover:text-red-500 transition-colors"
-            title="Clear selection"
+            :title="t('image_generation.clear_intent')"
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -58,7 +58,11 @@
           d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m.75 12 3 3m0 0 3-3m-3 3v-6m-1.5-9H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z"
         />
       </svg>
-      {{ selectedAbstract ? 'Change Selection' : 'Load from Abstract Manager' }}
+      {{
+        selectedAbstract
+          ? t('image_generation.select_abstract')
+          : t('image_generation.load_abstract')
+      }}
     </button>
 
     <!-- Abstract selection modal -->
@@ -71,7 +75,7 @@
         <div class="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[80vh] flex flex-col">
           <!-- Modal header -->
           <div class="flex items-center justify-between p-4 border-b">
-            <h3 class="text-lg font-semibold">Select Abstract for Intent</h3>
+            <h3 class="text-lg font-semibold">{{ t('image_generation.select_abstract') }}</h3>
             <button @click="showModal = false" class="text-text-secondary hover:text-text-primary">
               <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -91,7 +95,7 @@
             <input
               v-model="searchQuery"
               type="text"
-              placeholder="Search abstracts..."
+              :placeholder="t('common.search') + '...'"
               class="w-full px-3 py-2 border border-base-300 rounded-md focus:ring-2 focus:ring-brand-primary focus:outline-none"
             />
           </div>
@@ -99,15 +103,14 @@
           <!-- Abstract list -->
           <div class="flex-1 overflow-y-auto p-4">
             <div v-if="loading" class="text-center py-8 text-text-secondary">
-              Loading abstracts...
+              {{ t('common.loading') }}
             </div>
 
             <div
               v-else-if="filteredAbstracts.length === 0"
               class="text-center py-8 text-text-secondary"
             >
-              <p>No abstracts found</p>
-              <p class="text-sm mt-1">Generate some abstracts first to use as intent prompts</p>
+              <p>{{ t('image_generation.no_abstracts') }}</p>
             </div>
 
             <div v-else class="space-y-3">
@@ -148,8 +151,11 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue';
+import { useI18n } from 'vue-i18n';
 import type { SavedAbstract, Conference } from '@/types';
 import { useSettings } from '@/composables/useSettings';
+
+const { t } = useI18n();
 
 interface Props {
   selectedAbstract: SavedAbstract | null;

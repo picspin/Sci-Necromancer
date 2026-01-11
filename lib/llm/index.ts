@@ -123,6 +123,13 @@ export const generateImageNanobana = (
   return openai.generateImageNanobana(imageState, specsJson, apiKey);
 };
 
+export const generateImageNanobanaViaProxy = (
+  imageState: ImageState,
+  specsJson: string
+): Promise<string> => {
+  return openai.generateImageNanobanaViaProxy(imageState, specsJson);
+};
+
 // Conference-specific functions
 export const analyzeContentForConference = (
   text: string,

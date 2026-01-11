@@ -17,7 +17,7 @@
             d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z"
           />
         </svg>
-        Preview
+        {{ t('image_generation.preview') }}
       </h3>
 
       <!-- Zoom controls -->
@@ -25,7 +25,7 @@
         <button
           @click="$emit('zoom-out')"
           class="p-1.5 rounded hover:bg-base-200 transition-colors"
-          title="Zoom out"
+          :title="t('image_generation.zoom_out')"
           :disabled="zoomLevel <= 25"
         >
           <svg
@@ -47,7 +47,7 @@
         <button
           @click="$emit('zoom-in')"
           class="p-1.5 rounded hover:bg-base-200 transition-colors"
-          title="Zoom in"
+          :title="t('image_generation.zoom_in')"
           :disabled="zoomLevel >= 200"
         >
           <svg
@@ -68,9 +68,9 @@
         <button
           @click="$emit('reset-zoom')"
           class="p-1.5 rounded hover:bg-base-200 transition-colors text-xs text-text-secondary"
-          title="Reset zoom"
+          :title="t('image_generation.reset_zoom')"
         >
-          Reset
+          {{ t('image_generation.reset_zoom') }}
         </button>
       </div>
     </div>
@@ -96,8 +96,8 @@
             d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z"
           />
         </svg>
-        <p class="text-lg font-medium">No image generated yet</p>
-        <p class="text-sm mt-1">Configure your specifications and click Generate</p>
+        <p class="text-lg font-medium">{{ t('image_generation.no_image_yet') }}</p>
+        <p class="text-sm mt-1">{{ t('image_generation.click_generate') }}</p>
       </div>
 
       <!-- Loading state -->
@@ -105,7 +105,9 @@
         <div
           class="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-primary mx-auto mb-4"
         ></div>
-        <p class="text-text-secondary">{{ loadingMessage || 'Generating figure...' }}</p>
+        <p class="text-text-secondary">
+          {{ loadingMessage || t('image_generation.loading_generating') }}
+        </p>
       </div>
 
       <!-- Image display -->
@@ -139,13 +141,13 @@
             d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3"
           />
         </svg>
-        Download Image
+        {{ t('image_generation.download_image') }}
       </button>
     </div>
 
     <!-- Error display -->
     <div v-if="error" class="mt-4 p-4 bg-red-100 text-red-700 rounded-lg">
-      <p class="font-medium">Error</p>
+      <p class="font-medium">{{ t('common.error') }}</p>
       <p class="text-sm">{{ error }}</p>
     </div>
   </div>
@@ -153,6 +155,9 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue';
+import { useI18n } from 'vue-i18n';
+
+const { t } = useI18n();
 
 interface Props {
   image: string | null;
@@ -163,7 +168,7 @@ interface Props {
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  loadingMessage: 'Generating figure...',
+  loadingMessage: '',
   error: null,
 });
 

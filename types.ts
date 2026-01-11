@@ -31,7 +31,25 @@ export interface ImageState {
   file: File | null;
   specs: string;
   base64: string | null;
+  // Optional multi-image support for Image-to-Image mode
+  uploadedImages?: UploadedImage[];
 }
+
+// Multi-image support for Image-to-Image mode
+export interface UploadedImage {
+  id: string;
+  file: File;
+  base64: string;
+  previewUrl: string;
+  sizeInMB: number;
+}
+
+export const IMAGE_UPLOAD_CONSTRAINTS = {
+  maxFiles: 8,
+  maxFileSizeMB: 2,
+  maxFileSizeBytes: 2 * 1024 * 1024, // 2MB
+  acceptedTypes: ['image/jpeg', 'image/png', 'image/webp', 'image/gif'],
+} as const;
 
 // New types for the workflow
 export interface AnalysisResult {
@@ -93,6 +111,10 @@ export interface Settings {
   supabaseMCP?: SupabaseMCPConfig; // Legacy - moved to mcpConfig
   databaseEnabled?: boolean; // User preference for cloud storage
   mcpConfig?: MCPConfig; // New unified MCP configuration
+  // Nanobana Pro 3 (Google Gemini Image Generation) - API key from environment
+  nanobanaApiKey?: string;
+  nanobanaBaseUrl?: string;
+  nanobanaModel?: string;
 }
 
 // Database types
@@ -245,8 +267,9 @@ export interface ImageSpecsState {
 // Main state for the Image Generation panel
 export interface ImageGenerationState {
   mode: ImageGenerationMode;
-  imageFile: File | null;
-  imageBase64: string | null;
+  imageFile: File | null; // Legacy single file (kept for backwards compatibility)
+  imageBase64: string | null; // Legacy single base64
+  uploadedImages: UploadedImage[]; // Multi-image support (max 8, each ≤2MB)
   specsState: ImageSpecsState;
   abstractIntent: SavedAbstract | null; // Selected from Abstract Manager for text-to-image
   generatedImage: string | null;

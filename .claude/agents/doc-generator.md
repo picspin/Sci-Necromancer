@@ -1,8 +1,8 @@
 ---
 name: doc-generator
-description: Generates and updates documentation. Use for creating README, API docs, or updating existing documentation.
+description: 'Generates and updates documentation. Use for creating README, API docs, or updating existing documentation.'
 tools: Read, Edit, Glob
-model: inherit
+model: haiku
 ---
 
 # Doc Generator

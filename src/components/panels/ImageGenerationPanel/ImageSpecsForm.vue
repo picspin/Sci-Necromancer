@@ -1,13 +1,15 @@
 <template>
   <div class="bg-base-100 rounded-lg p-4">
     <div class="flex items-center justify-between mb-3">
-      <label class="block text-sm font-medium text-text-secondary"> Image Specifications </label>
+      <label class="block text-sm font-medium text-text-secondary">
+        {{ t('image_generation.image_specs') }}
+      </label>
       <button
         v-if="parsedFields.length > 0"
         @click="toggleJsonPreview"
         class="text-xs text-brand-primary hover:underline"
       >
-        {{ showJsonPreview ? 'Hide' : 'Show' }} JSON
+        {{ showJsonPreview ? t('common.close') : t('image_generation.json_output') }}
       </button>
     </div>
 
@@ -84,7 +86,10 @@
 
 <script setup lang="ts">
 import { ref, computed, nextTick } from 'vue';
+import { useI18n } from 'vue-i18n';
 import type { ImageSpecField, CompletionSuggestion, ImageSpecCategory } from '@/types';
+
+const { t } = useI18n();
 
 interface Props {
   rawInput: string;

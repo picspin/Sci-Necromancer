@@ -12,21 +12,6 @@ export interface FileProcessingResult {
   warnings?: string[];
 }
 
-export interface PdfParseError extends Error {
-  code: 'PDF_CORRUPTED' | 'PDF_ENCRYPTED' | 'PDF_INVALID' | 'PDF_NO_TEXT' | 'PDF_PARSE_FAILED';
-  originalError?: Error;
-}
-
-export interface DocxParseError extends Error {
-  code:
-    | 'DOCX_CORRUPTED'
-    | 'DOCX_INVALID'
-    | 'DOCX_NO_TEXT'
-    | 'DOCX_PARSE_FAILED'
-    | 'DOCX_UNSUPPORTED';
-  originalError?: Error;
-}
-
 /**
  * File Processing Service
  * Node.js-based PDF and DOCX text extraction
@@ -145,7 +130,7 @@ export class FileService {
    */
   private async parsePdf(buffer: Buffer): Promise<string> {
     try {
-      const data = await pdfParse(buffer);
+      const data = await (pdfParse as any)(buffer);
 
       if (!data || !data.text) {
         throw new PdfParseError('No text content could be extracted from the PDF.', 'PDF_NO_TEXT');

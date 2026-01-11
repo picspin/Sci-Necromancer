@@ -2,6 +2,14 @@ node_modules
 .history
 .vscode-history
 
+# Environment files (contain secrets)
+.env
+.env.local
+.env.*.local
+server/.env
+!.env.example
+!server/.env.example
+
 # Claude hooks generated files
 .claude/test-errors.json
 .claude/fix-report.md

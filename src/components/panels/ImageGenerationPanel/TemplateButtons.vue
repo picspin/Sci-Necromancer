@@ -1,6 +1,8 @@
 <template>
   <div class="bg-base-100 rounded-lg p-4">
-    <label class="block text-sm font-medium text-text-secondary mb-3"> Quick Templates </label>
+    <label class="block text-sm font-medium text-text-secondary mb-3">
+      {{ t('image_generation.quick_templates') }}
+    </label>
 
     <div class="grid grid-cols-2 gap-2">
       <button
@@ -19,13 +21,14 @@
         <span class="text-xs font-medium text-text-primary">{{ template.name }}</span>
       </button>
     </div>
-
-    <p class="text-xs text-text-secondary mt-3">Click a template to auto-fill specifications</p>
   </div>
 </template>
 
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n';
 import type { ImageTemplate } from '@/types';
+
+const { t } = useI18n();
 
 interface Props {
   templates: ImageTemplate[];

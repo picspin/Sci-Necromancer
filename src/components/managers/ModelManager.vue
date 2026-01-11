@@ -397,7 +397,7 @@
         <div class="p-4 bg-base-100 rounded-lg">
           <div class="flex items-center justify-between mb-3">
             <div>
-              <h4 class="text-sm font-medium text-text-primary">Image Generation</h4>
+              <h4 class="text-sm font-medium text-text-primary">Image Generation (MCP)</h4>
               <p class="text-xs text-text-secondary mt-0.5">Generate images via MCP tool calls</p>
             </div>
             <label class="relative inline-flex items-center cursor-pointer">
@@ -472,6 +472,28 @@
               </p>
             </div>
           </div>
+        </div>
+
+        <!-- Nanobana Pro 3 Info (Environment-based) -->
+        <div class="p-4 bg-base-100 rounded-lg">
+          <div class="flex items-center gap-2 mb-2">
+            <span class="text-orange-500 text-lg">🍌</span>
+            <h4 class="text-sm font-medium text-text-primary">Nanobana Pro 3</h4>
+          </div>
+          <p class="text-xs text-text-secondary">
+            Google Gemini image generation is configured via environment variables. Set
+            <code class="bg-base-300 px-1 rounded">VITE_NANOBANA_API_KEY</code> in your
+            <code class="bg-base-300 px-1 rounded">.env</code> file.
+          </p>
+          <p class="text-xs text-text-secondary mt-1">
+            Get your API key from
+            <a
+              href="https://aistudio.google.com/apikey"
+              target="_blank"
+              class="text-brand-primary hover:underline"
+              >Google AI Studio</a
+            >
+          </p>
         </div>
       </div>
 

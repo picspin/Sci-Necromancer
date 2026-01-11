@@ -2,15 +2,16 @@
  * Composable for Image Generation Panel state management
  */
 
-import { ref, computed, watch } from 'vue';
+import { ref, computed } from 'vue';
 import type {
   ImageGenerationState,
   ImageGenerationMode,
   ImageSpecsState,
-  ImageSpecField,
   SavedAbstract,
   CompletionSuggestion,
+  UploadedImage,
 } from '@/types';
+import { IMAGE_UPLOAD_CONSTRAINTS } from '@/types';
 import { imageSpecsEngine, IMAGE_TEMPLATES } from '@/src/services/imageSpecsEngine';
 import * as llm from '@/lib/llm';
 
@@ -32,6 +33,7 @@ const createInitialState = (): ImageGenerationState => ({
   mode: 'standard',
   imageFile: null,
   imageBase64: null,
+  uploadedImages: [], // Multi-image support
   specsState: createInitialSpecsState(),
   abstractIntent: null,
   generatedImage: null,
@@ -57,8 +59,10 @@ export function useImageGeneration() {
     if (state.value.isLoading) return false;
 
     if (state.value.mode === 'standard') {
-      // Need image file OR some specs for standard mode
-      return state.value.imageFile !== null || state.value.specsState.rawInput.trim().length > 0;
+      // Need at least one uploaded image OR some specs for standard mode
+      return (
+        state.value.uploadedImages.length > 0 || state.value.specsState.rawInput.trim().length > 0
+      );
     } else {
       // Text-to-image needs either abstract intent or raw input
       return (
@@ -66,6 +70,11 @@ export function useImageGeneration() {
       );
     }
   });
+
+  const uploadedImagesCount = computed(() => state.value.uploadedImages.length);
+  const canUploadMore = computed(
+    () => state.value.uploadedImages.length < IMAGE_UPLOAD_CONSTRAINTS.maxFiles
+  );
 
   const finalPrompt = computed(() => {
     let prompt = '';
@@ -114,31 +123,122 @@ export function useImageGeneration() {
     if (mode === 'standard') {
       state.value.abstractIntent = null;
     } else {
-      state.value.imageFile = null;
-      state.value.imageBase64 = null;
+      // Clear multi-image state when switching to text-to-image
+      clearAllImages();
     }
   };
 
   // ============================================================================
-  // IMAGE FILE ACTIONS
+  // IMAGE FILE ACTIONS (Multi-image support)
   // ============================================================================
 
-  const uploadImage = async (file: File) => {
-    state.value.imageFile = file;
+  /**
+   * Upload multiple images (max 8, each ≤2MB)
+   * Returns an object with success count and any errors
+   */
+  const uploadImages = async (
+    files: FileList | File[]
+  ): Promise<{ success: number; errors: string[] }> => {
     state.value.error = null;
+    const errors: string[] = [];
+    let successCount = 0;
 
-    try {
-      const base64 = await fileToBase64(file);
-      state.value.imageBase64 = base64;
-    } catch (err) {
-      state.value.error = 'Failed to read image file';
-      console.error('Error reading image file:', err);
+    const fileArray = Array.from(files);
+
+    for (const file of fileArray) {
+      // Check if we've reached the limit
+      if (state.value.uploadedImages.length >= IMAGE_UPLOAD_CONSTRAINTS.maxFiles) {
+        errors.push(`Maximum ${IMAGE_UPLOAD_CONSTRAINTS.maxFiles} images allowed`);
+        break;
+      }
+
+      // Validate file type
+      if (!IMAGE_UPLOAD_CONSTRAINTS.acceptedTypes.includes(file.type as any)) {
+        errors.push(`${file.name}: Invalid file type. Accepted: JPEG, PNG, WebP, GIF`);
+        continue;
+      }
+
+      // Validate file size
+      if (file.size > IMAGE_UPLOAD_CONSTRAINTS.maxFileSizeBytes) {
+        errors.push(
+          `${file.name}: File too large (max ${IMAGE_UPLOAD_CONSTRAINTS.maxFileSizeMB}MB)`
+        );
+        continue;
+      }
+
+      try {
+        const base64 = await fileToBase64(file);
+        const previewUrl = URL.createObjectURL(file);
+
+        const uploadedImage: UploadedImage = {
+          id: `img_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          file,
+          base64,
+          previewUrl,
+          sizeInMB: parseFloat((file.size / (1024 * 1024)).toFixed(2)),
+        };
+
+        state.value.uploadedImages.push(uploadedImage);
+
+        // Also set legacy single-image state for backwards compatibility (use first image)
+        if (state.value.uploadedImages.length === 1) {
+          state.value.imageFile = file;
+          state.value.imageBase64 = base64;
+        }
+
+        successCount++;
+      } catch (err) {
+        errors.push(`${file.name}: Failed to read file`);
+        console.error('Error reading image file:', err);
+      }
     }
+
+    if (errors.length > 0) {
+      state.value.error = errors.join('\n');
+    }
+
+    return { success: successCount, errors };
+  };
+
+  /**
+   * Remove a single image by ID
+   */
+  const removeImage = (imageId: string) => {
+    const index = state.value.uploadedImages.findIndex((img) => img.id === imageId);
+    if (index !== -1) {
+      // Revoke object URL to free memory
+      URL.revokeObjectURL(state.value.uploadedImages[index].previewUrl);
+      state.value.uploadedImages.splice(index, 1);
+
+      // Update legacy single-image state
+      if (state.value.uploadedImages.length > 0) {
+        state.value.imageFile = state.value.uploadedImages[0].file;
+        state.value.imageBase64 = state.value.uploadedImages[0].base64;
+      } else {
+        state.value.imageFile = null;
+        state.value.imageBase64 = null;
+      }
+    }
+  };
+
+  /**
+   * Clear all uploaded images
+   */
+  const clearAllImages = () => {
+    // Revoke all object URLs
+    state.value.uploadedImages.forEach((img) => URL.revokeObjectURL(img.previewUrl));
+    state.value.uploadedImages = [];
+    state.value.imageFile = null;
+    state.value.imageBase64 = null;
+  };
+
+  // Legacy single-image upload (kept for backwards compatibility)
+  const uploadImage = async (file: File) => {
+    await uploadImages([file]);
   };
 
   const clearImage = () => {
-    state.value.imageFile = null;
-    state.value.imageBase64 = null;
+    clearAllImages();
   };
 
   // ============================================================================
@@ -237,6 +337,8 @@ export function useImageGeneration() {
         file: state.value.imageFile,
         specs: state.value.specsState.jsonOutput || state.value.specsState.rawInput,
         base64: state.value.imageBase64,
+        // Pass all uploaded images for multi-image support
+        uploadedImages: state.value.uploadedImages,
       };
 
       // Build creative context from abstract intent
@@ -263,17 +365,31 @@ export function useImageGeneration() {
     state.value.isLoading = true;
     state.value.loadingMessage = 'Nanobana Pro 3 generation...';
     state.value.error = null;
+    state.value.generatedImage = null;
 
     try {
-      // Placeholder - call the Nanobana API when implemented
-      await llm.generateImageNanobana(
-        {
-          file: state.value.imageFile,
-          specs: state.value.specsState.jsonOutput || state.value.specsState.rawInput,
-          base64: state.value.imageBase64,
-        },
-        state.value.specsState.jsonOutput
-      );
+      const imageState = {
+        file: state.value.imageFile,
+        specs: state.value.specsState.jsonOutput || state.value.specsState.rawInput,
+        base64: state.value.imageBase64,
+        // Pass all uploaded images for multi-image support
+        uploadedImages: state.value.uploadedImages,
+      };
+
+      // Try backend proxy first, fall back to direct API
+      let result: string;
+      try {
+        result = await llm.generateImageNanobanaViaProxy(
+          imageState,
+          state.value.specsState.jsonOutput
+        );
+      } catch (proxyError) {
+        console.warn('Backend proxy failed, falling back to direct API:', proxyError);
+        // Fall back to direct API call
+        result = await llm.generateImageNanobana(imageState, state.value.specsState.jsonOutput);
+      }
+
+      state.value.generatedImage = `data:image/png;base64,${result}`;
     } catch (err) {
       state.value.error = err instanceof Error ? err.message : 'Nanobana generation failed';
       console.error('Nanobana generation error:', err);
@@ -352,6 +468,11 @@ export function useImageGeneration() {
     parsedFieldsCount,
     hasImage,
     zoomStyle,
+    uploadedImagesCount,
+    canUploadMore,
+
+    // Constants
+    imageConstraints: IMAGE_UPLOAD_CONSTRAINTS,
 
     // Templates
     templates: IMAGE_TEMPLATES,
@@ -359,9 +480,12 @@ export function useImageGeneration() {
     // Mode actions
     setMode,
 
-    // Image actions
-    uploadImage,
-    clearImage,
+    // Image actions (multi-image)
+    uploadImages,
+    uploadImage, // Legacy single-image
+    removeImage,
+    clearAllImages,
+    clearImage, // Legacy alias
 
     // Abstract actions
     loadAbstract,

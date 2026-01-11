@@ -8,6 +8,8 @@ AI-powered academic abstract generator for medical imaging and scientific resear
 
 Sci-Necromancer streamlines the process of preparing conference abstracts by leveraging large language models to analyze research content, generate impact statements, suggest appropriate submission categories, and produce polished abstracts that conform to conference guidelines.
 
+> **Migration Status**: This project has been migrated from React 19 to **Vue 3 + Composition API** with a **Nest.js serverless backend** for file processing.
+
 ### Supported Conferences
 
 - **ISMRM** - International Society for Magnetic Resonance in Medicine
@@ -53,13 +55,16 @@ Sci-Necromancer streamlines the process of preparing conference abstracts by lev
 
 | Category         | Technologies                               |
 | ---------------- | ------------------------------------------ |
-| Frontend         | Vue 3 (Composition API), TypeScript        |
-| State Management | Pinia, Vue Composables                     |
-| Styling          | Tailwind CSS                               |
-| Build Tool       | Vite                                       |
+| Frontend         | Vue 3 (Composition API, `<script setup>`)  |
+| State Management | Pinia (with persisted state)               |
+| Styling          | Tailwind CSS (JIT mode)                    |
+| Build Tool       | Vite 6                                     |
+| Backend          | Nest.js (Serverless Functions)             |
 | AI Integration   | Google AI (Gemini), OpenAI-compatible APIs |
-| File Processing  | pdf-parse, mammoth (DOCX)                  |
-| Testing          | Vitest                                     |
+| File Processing  | pdf-parse, mammoth (DOCX), pdfjs-dist      |
+| Testing          | Vitest, Vue Test Utils, Testing Library    |
+| i18n             | vue-i18n                                   |
+| Code Quality     | ESLint, Prettier, Husky, lint-staged       |
 
 ## Quick Start
 
@@ -177,25 +182,45 @@ For more information, visit the [EQUATOR Network](http://equator-network.org/).
 sci-necromancer/
 ├── src/
 │   ├── main.ts                 # Application entry point
-│   ├── App.vue                 # Root component
+│   ├── App.vue                 # Root component with error boundary
 │   ├── components/
-│   │   ├── panels/             # Conference-specific panels
-│   │   ├── managers/           # Abstract and Model managers
+│   │   ├── panels/             # Conference-specific panels (ISMRM, RSNA, ESC, ECR)
+│   │   │   ├── ConferencePanel.vue
+│   │   │   ├── ISMRMPanel.vue
+│   │   │   ├── RSNAPanel.vue
+│   │   │   ├── ESCPanel.vue
+│   │   │   ├── ERPanel.vue
+│   │   │   └── ImageGenerationPanel/
+│   │   ├── managers/           # Abstract and Model configuration
 │   │   ├── ui/                 # Reusable UI components
 │   │   └── export/             # Export functionality
-│   ├── composables/            # Vue composables (hooks)
-│   └── plugins/                # Vue plugins (i18n, etc.)
+│   ├── composables/            # Vue composables (useLLM, useSettings, etc.)
+│   ├── plugins/                # Vue plugins (i18n, errorHandler)
+│   └── services/               # Frontend services
 ├── lib/
 │   ├── llm/                    # LLM provider integrations
 │   │   ├── index.ts            # Unified API facade
 │   │   ├── gemini.ts           # Google AI integration
-│   │   └── openai.ts           # OpenAI-compatible integration
+│   │   ├── openai.ts           # OpenAI-compatible integration
+│   │   └── prompts/            # Conference-specific prompts
 │   ├── conference/             # Conference module system
 │   │   ├── modules/            # Per-conference implementations
+│   │   ├── BaseConferenceModule.ts
 │   │   ├── ConferenceRegistry.ts
 │   │   └── ConferenceRouter.ts
 │   ├── file/                   # File processing utilities
+│   ├── hooks/                  # Shared hooks (theme, keyboard nav)
+│   ├── i18n/                   # Internationalization config
 │   └── utils/                  # Shared utilities
+├── server/                     # Nest.js serverless backend
+│   └── src/
+│       ├── main.ts             # Serverless entry point
+│       ├── app.module.ts       # Root module
+│       └── file/               # File processing module
+│           ├── file.controller.ts
+│           ├── file.service.ts
+│           └── dto/
+├── services/                   # Legacy services (being migrated)
 ├── public/
 │   ├── locales/                # i18n translation files
 │   └── *.md                    # Conference guidelines
@@ -208,16 +233,28 @@ sci-necromancer/
 
 ### Available Scripts
 
-| Command            | Description                  |
-| ------------------ | ---------------------------- |
-| `npm run dev`      | Start development server     |
-| `npm run build`    | Build for production         |
-| `npm run preview`  | Preview production build     |
-| `npm run lint`     | Run TypeScript type checking |
-| `npm run lint:fix` | Fix ESLint issues            |
-| `npm run format`   | Format code with Prettier    |
-| `npm run test`     | Run tests with Vitest        |
-| `npm run test:ui`  | Run tests with UI            |
+| Command                 | Description                    |
+| ----------------------- | ------------------------------ |
+| `npm run dev`           | Start development server       |
+| `npm run build`         | Build for production           |
+| `npm run preview`       | Preview production build       |
+| `npm run lint`          | Run TypeScript type checking   |
+| `npm run lint:fix`      | Fix ESLint issues              |
+| `npm run format`        | Format code with Prettier      |
+| `npm run test`          | Run tests with Vitest          |
+| `npm run test:ui`       | Run tests with Vitest UI       |
+| `npm run test:coverage` | Run tests with coverage report |
+| `npm run prepare`       | Setup Husky git hooks          |
+
+### Backend Development
+
+The Nest.js backend is located in the `server/` directory:
+
+```bash
+cd server
+npm install
+npm run start:dev
+```
 
 ### Path Aliases
 
@@ -230,11 +267,18 @@ import { analyzeContent } from '@/lib/llm';
 
 ### Adding a New Conference
 
-1. Create a new module in `lib/conference/modules/`
-2. Extend `BaseConferenceModule` with conference-specific guidelines and types
+1. Create a new module in `lib/conference/modules/` extending `BaseConferenceModule`
+2. Define conference-specific guidelines, types, and prompts
 3. Register the module in `ConferenceRegistry`
 4. Create a corresponding panel component in `src/components/panels/`
 5. Add translations in `public/locales/`
+
+### Architecture Notes
+
+- **State Management**: Uses Pinia stores with `pinia-plugin-persistedstate` for localStorage persistence
+- **Error Handling**: Global error boundary via `onErrorCaptured` hook in `App.vue`
+- **LLM Integration**: Unified facade in `lib/llm/index.ts` handles provider selection
+- **File Processing**: Heavy parsing (PDF/DOCX) delegated to Nest.js backend, avoiding browser-side overhead
 
 ## Deployment
 
@@ -246,29 +290,49 @@ import { analyzeContent } from '@/lib/llm';
    - Framework preset: **Vite**
    - Build command: `npm run build`
    - Output directory: `dist`
-4. Deploy
+4. For serverless backend, configure the `server/` directory as a separate Vercel Function
+5. Deploy
 
 No environment variables are required; API keys are entered via UI and stored locally.
 
+### Serverless Backend Deployment
+
+The Nest.js backend in `server/` supports deployment to:
+
+- **Vercel Serverless Functions**
+- **AWS Lambda** (via `@nestjs/platform-aws-lambda`)
+- **Other serverless platforms** with appropriate adapters
+
 ### Other Platforms
 
-The build output is a static site in `dist/`. Deploy to any static hosting service (Netlify, GitHub Pages, Cloudflare Pages, etc.).
+The frontend build output is a static site in `dist/`. Deploy to any static hosting service (Netlify, GitHub Pages, Cloudflare Pages, etc.).
 
 ## Security
 
 - API keys are stored in browser localStorage only
 - No server-side storage or transmission of credentials
-- File processing runs entirely in-browser
+- File processing delegated to serverless backend (sandboxed execution)
 - Avoid uploading sensitive or confidential research data
+
+## MCP Tools Integration
+
+Sci-Necromancer supports optional MCP (Model Context Protocol) integrations:
+
+- **Supabase MCP**: Cloud persistence for abstracts and settings (configure via Model Manager)
+- **Image Generation MCP**: Alternative image generation via MCP-enabled tools
+- **Chrome DevTools MCP**: UI comparison during development
+
+See `MCP_TOOLS_GUIDE.md` for detailed configuration.
 
 ## Troubleshooting
 
-| Issue             | Solution                                               |
-| ----------------- | ------------------------------------------------------ |
-| API errors        | Verify API key is correct and has sufficient quota     |
-| PDF parsing fails | Try a smaller file or paste text directly              |
-| Port 3000 in use  | Vite auto-selects another port (check terminal output) |
-| Build type errors | Run `npm run lint` to identify TypeScript issues       |
+| Issue                  | Solution                                                            |
+| ---------------------- | ------------------------------------------------------------------- |
+| API errors             | Verify API key is correct and has sufficient quota                  |
+| PDF parsing fails      | Try a smaller file or use the serverless backend                    |
+| Port 3000 in use       | Vite auto-selects another port (check terminal output)              |
+| Build type errors      | Run `npm run lint` to identify TypeScript issues                    |
+| Backend not responding | Ensure Nest.js server is running (`cd server && npm run start:dev`) |
 
 ## Contributing
 
@@ -278,6 +342,18 @@ The build output is a static site in `dist/`. Deploy to any static hosting servi
 4. Push to branch (`git push origin feature/your-feature`)
 5. Open a Pull Request
 
+Please run `npm run lint` before submitting PRs to ensure type safety.
+
+## Documentation
+
+- `README.md` - This file (quick start and overview)
+- `QUICK_REFERENCE.md` - Common user tasks and shortcuts
+- `WORKFLOW.md` - Overall workflow documentation
+- `MODEL_CONFIGURATION_GUIDE.md` - Provider setup details
+- `MCP_TOOLS_GUIDE.md` - MCP integration guide
+- `IMAGE_GENERATION_ARCHITECTURE.md` - Figure generation technical details
+- `lib/llm/WRITING_STYLE_GUIDE.md` - Writing style enforcement guidance
+
 ## Acknowledgments
 
 - [ISMRM](https://www.ismrm.org/), [RSNA](https://www.rsna.org/), [ESC](https://www.escardio.org/), [ESR](https://www.myesr.org/) for public abstract guidelines
@@ -285,6 +361,12 @@ The build output is a static site in `dist/`. Deploy to any static hosting servi
 - [OpenAI](https://openai.com/) for API compatibility standards
 - [SiliconFlow](https://siliconflow.cn/) for image generation APIs
 - [EQUATOR Network](http://equator-network.org/) for research reporting guidelines
+- [Vue.js](https://vuejs.org/) and [Pinia](https://pinia.vuejs.org/) for the frontend framework
+- [Nest.js](https://nestjs.com/) for the serverless backend framework
+
+## License
+
+MIT
 
 ---
 

@@ -25,7 +25,7 @@
             d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z"
           />
         </svg>
-        Standard (Image-to-Image)
+        {{ t('image_generation.mode_standard') }}
       </button>
       <button
         @click="setMode('text-to-image')"
@@ -50,7 +50,7 @@
             d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09ZM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 0 0-2.456 2.456Z"
           />
         </svg>
-        Text-to-Image (Creative)
+        {{ t('image_generation.mode_text_to_image') }}
       </button>
     </div>
 
@@ -58,24 +58,56 @@
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
       <!-- Left Column - Controls -->
       <div class="space-y-4">
-        <!-- Image Upload (Standard mode) -->
+        <!-- Multi-Image Upload (Standard mode) -->
         <div v-if="state.mode === 'standard'" class="bg-base-100 rounded-lg p-4">
-          <label class="block text-sm font-medium text-text-secondary mb-3">
-            Upload Reference Image
-          </label>
+          <div class="flex items-center justify-between mb-3">
+            <label class="block text-sm font-medium text-text-secondary">
+              {{ t('image_generation.upload_reference') }}
+            </label>
+            <span class="text-xs text-text-secondary">
+              {{ uploadedImagesCount }}/{{ imageConstraints.maxFiles }} ({{
+                t('image_generation.max_size', { size: imageConstraints.maxFileSizeMB })
+              }})
+            </span>
+          </div>
+
           <div class="space-y-3">
+            <!-- File Input -->
             <input
+              ref="fileInputRef"
               type="file"
-              accept="image/*"
+              accept="image/jpeg,image/png,image/webp,image/gif"
+              multiple
+              :disabled="!canUploadMore"
               @change="handleImageUpload"
-              class="block w-full text-sm text-text-secondary file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-brand-primary/20 file:text-brand-primary hover:file:bg-brand-primary/30"
+              class="block w-full text-sm text-text-secondary file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-brand-primary/20 file:text-brand-primary hover:file:bg-brand-primary/30 disabled:opacity-50 disabled:cursor-not-allowed"
             />
-            <img
-              v-if="state.imageBase64"
-              :src="`data:image/png;base64,${state.imageBase64}`"
-              alt="Reference image preview"
-              class="max-h-40 rounded-lg object-contain mx-auto"
+
+            <!-- Stacked Preview -->
+            <StackedImagePreview
+              :images="state.uploadedImages"
+              :max-images="imageConstraints.maxFiles"
+              @remove="removeImage"
             />
+
+            <!-- Clear All Images Button -->
+            <button
+              v-if="uploadedImagesCount > 0"
+              @click="clearAllImages"
+              class="text-xs text-red-500 hover:text-red-600 flex items-center gap-1"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke-width="2"
+                stroke="currentColor"
+                class="w-3 h-3"
+              >
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+              {{ t('image_generation.clear_images') }}
+            </button>
           </div>
         </div>
 
@@ -127,16 +159,16 @@
                 d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z"
               />
             </svg>
-            Generate Figure
+            {{ t('image_generation.generate_figure') }}
           </button>
           <button
             @click="generateNanobana"
             :disabled="!canGenerate || state.isLoading"
             class="w-full flex items-center justify-center gap-2 bg-orange-600 hover:bg-orange-700 text-white font-bold py-3 px-4 rounded-lg transition-all duration-300 disabled:bg-base-300/50 disabled:cursor-not-allowed"
-            title="Premium Nanobana Pro 3 (coming soon)"
+            title="Nanobana Pro 3"
           >
             <span class="text-lg">🔥</span>
-            Nanobana 🍌
+            {{ t('image_generation.nanobana_button') }} 🍌
           </button>
         </div>
 
@@ -160,7 +192,7 @@
               d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0"
             />
           </svg>
-          Clear All
+          {{ t('image_generation.clear_all') }}
         </button>
       </div>
 
@@ -183,20 +215,31 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
-import type { CompletionSuggestion, SavedAbstract, ImageGenerationMode } from '@/types';
+import { ref, computed } from 'vue';
+import { useI18n } from 'vue-i18n';
+import type { CompletionSuggestion } from '@/types';
 import { useImageGeneration } from '@/composables/useImageGeneration';
 import ImageCanvas from './ImageCanvas.vue';
 import ImageSpecsForm from './ImageSpecsForm.vue';
 import AbstractSelector from './AbstractSelector.vue';
 import TemplateButtons from './TemplateButtons.vue';
+import StackedImagePreview from './StackedImagePreview.vue';
+
+const { t } = useI18n();
+
+const fileInputRef = ref<HTMLInputElement | null>(null);
 
 const {
   state,
   canGenerate,
   templates,
+  uploadedImagesCount,
+  canUploadMore,
+  imageConstraints,
   setMode,
-  uploadImage,
+  uploadImages,
+  removeImage,
+  clearAllImages,
   loadAbstract,
   clearAbstract,
   updateSpecs,
@@ -218,12 +261,12 @@ const currentSuggestions = computed((): CompletionSuggestion[] => {
   return getSuggestions(state.value.specsState.rawInput, state.value.specsState.cursorPosition);
 });
 
-// Handle image file upload
+// Handle multiple image file upload
 const handleImageUpload = async (event: Event) => {
   const target = event.target as HTMLInputElement;
-  if (target.files && target.files[0]) {
-    await uploadImage(target.files[0]);
-    target.value = ''; // Reset input to allow re-uploading same file
+  if (target.files && target.files.length > 0) {
+    await uploadImages(target.files);
+    target.value = ''; // Reset input to allow re-uploading same files
   }
 };
 
@@ -239,7 +282,7 @@ const handleSuggestionSelect = (suggestion: CompletionSuggestion) => {
 
 // Handle clear all
 const handleClear = () => {
-  if (confirm('Are you sure you want to clear all data?')) {
+  if (confirm(t('image_generation.confirm_clear'))) {
     resetAll();
   }
 };
