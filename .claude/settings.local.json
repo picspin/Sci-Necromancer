@@ -20,7 +20,9 @@
       "Bash(brew list:*)",
       "Bash(shellcheck:*)",
       "Bash(npx prettier --check:*)",
-      "Bash(npx prettier:*)"
+      "Bash(npx prettier:*)",
+      "Bash(find:*)",
+      "Bash(grep:*)"
     ]
   },
   "hooks": {
@@ -32,28 +34,6 @@
             "type": "command",
             "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/intelligent-pr-guard.sh\"",
             "timeout": 180
-          }
-        ]
-      }
-    ],
-    "Stop": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/wechat-notify.sh\"",
-            "timeout": 10
-          }
-        ]
-      }
-    ],
-    "SubagentStop": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/wechat-notify.sh\"",
-            "timeout": 10
           }
         ]
       }
