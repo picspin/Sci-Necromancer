@@ -3,10 +3,20 @@
   "buildCommand": "cd server && npm install && npm run build",
   "outputDirectory": "server/dist",
   "framework": "nestjs",
-  "regions": ["iad1"],
+  "regions": ["iad1", "hkg1"],
   "env": {
     "NANOBANA_API_KEY": "@nanobana-api-key"
   },
+  "headers": [
+    {
+      "source": "/api/(.*)",
+      "headers": [
+        { "key": "Access-Control-Allow-Origin", "value": "*" },
+        { "key": "Access-Control-Allow-Methods", "value": "GET, POST, PUT, DELETE, OPTIONS" },
+        { "key": "Access-Control-Allow-Headers", "value": "Content-Type, Authorization" }
+      ]
+    }
+  ],
   "functions": {
     "server/dist/vercel.js": {
       "maxDuration": 60

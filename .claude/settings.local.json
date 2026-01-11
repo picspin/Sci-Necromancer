@@ -22,7 +22,9 @@
       "Bash(npx prettier --check:*)",
       "Bash(npx prettier:*)",
       "Bash(find:*)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(du:*)",
+      "Bash(npx eslint:*)"
     ]
   },
   "hooks": {
