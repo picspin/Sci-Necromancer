@@ -16,7 +16,11 @@
       "mcp__chrome-devtools__list_pages",
       "Bash(lsof -i :3000 -i :3002 -i :3003)",
       "Bash(ls:*)",
-      "Bash(code .claude/hookify.pre-push-check.local.md)"
+      "Bash(code .claude/hookify.pre-push-check.local.md)",
+      "Bash(brew list:*)",
+      "Bash(shellcheck:*)",
+      "Bash(npx prettier --check:*)",
+      "Bash(npx prettier:*)"
     ]
   },
   "hooks": {

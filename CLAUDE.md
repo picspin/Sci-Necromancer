@@ -48,6 +48,47 @@
 - **CI/CD Awareness**: 每次重构 Nest.js 模块后，运行 `npm run lint` 确保类型安全。
 - **Subagents**: 复杂重构任务（如 PDF 处理流水线）建议通过 `/agents` 启动子 Agent 独立执行。
 
+## 🚀 Git Push 工作流 (MANDATORY)
+
+**在执行 `git push` 之前，必须先运行质量检查。** 这是强制性的工作流程。
+
+### 推送前必须执行的步骤
+
+当用户要求推送代码到远程仓库时，**必须**按以下顺序执行：
+
+1. **运行 lint 子代理进行质量检查**：
+
+   ```
+   使用 Task 工具启动 compound-engineering:workflow:lint 子代理
+   ```
+
+   这会自动执行：
+   - Prettier 格式化
+   - ESLint 检查与自动修复
+   - TypeScript 类型检查
+   - 构建验证
+
+2. **等待质量检查通过后**，再执行 git push
+
+3. **如果质量检查失败**，先修复问题再重新检查
+
+### 示例工作流
+
+```
+用户: "提交代码到远程"
+
+Agent 执行顺序:
+1. git add -A && git commit -m "..."  ← 先提交
+2. Task(subagent_type="compound-engineering:workflow:lint")  ← 运行质量检查
+3. [等待检查通过]
+4. git push origin main  ← 最后推送
+```
+
+### Hook 行为说明
+
+- `Intelligent-pr-guard.sh`: 仅输出警告信息，**不阻止**推送
+- 质量检查应在 hook 触发**之前**由 agent 主动完成
+
 Notes:
 
 - No test framework is present (no jest/vitest config, no test scripts). To smoke-test a single component/page, run the dev server and navigate to UI paths.

@@ -1,9 +1,9 @@
 ---
-name: block-pre-push-check
+name: warn-pre-push-check
 enabled: true
 event: bash
 pattern: (git\s+push|gh\s+pr\s+create)
-action: block
+action: warn
 ---
 
 🛡️ **Pre-push Quality Gate - AUTOMATED**
