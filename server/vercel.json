@@ -1,5 +1,8 @@
 {
   "version": 2,
+  "buildCommand": "",
+  "installCommand": "npm install",
+  "outputDirectory": "",
   "regions": ["sin1"],
   "functions": {
     "api/index.ts": {
