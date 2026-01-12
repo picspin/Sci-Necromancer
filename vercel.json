@@ -4,9 +4,6 @@
   "outputDirectory": "server/dist",
   "framework": "nestjs",
   "regions": ["sin1"],
-  "env": {
-    "NANOBANA_API_KEY": "@nanobana-api-key"
-  },
   "headers": [
     {
       "source": "/api/(.*)",
