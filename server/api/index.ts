@@ -43,9 +43,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(400).json({ success: false, error: 'Missing prompt' });
     }
 
-    if (!image && (!images || images.length === 0)) {
-      return res.status(400).json({ success: false, error: 'Missing image data' });
-    }
+    // Allow text-only generation (some models support it)
+    const hasImages = image || (images && images.length > 0);
 
     const apiKey = NANOBANA_API_KEY.split(',')[0]?.trim();
     if (!apiKey) {
@@ -70,6 +69,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     parts.push({ text: prompt });
+
+    // Log for debugging
+    console.log('Image generation request:', {
+      hasImages,
+      imageCount: images?.length || (image ? 1 : 0),
+      model: selectedModel,
+      promptLength: prompt.length,
+    });
 
     try {
       const apiRes = await fetch(

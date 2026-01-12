@@ -912,6 +912,12 @@ export async function generateImageNanobanaViaProxy(
 
   try {
     console.log('Calling Nanobanana via backend proxy:', `${backendUrl}/api/image/generate`);
+    console.log('Request body:', {
+      hasImages: !!requestBody.images || !!requestBody.image,
+      imageCount: requestBody.images?.length || (requestBody.image ? 1 : 0),
+      promptLength: requestBody.prompt?.length,
+      model: requestBody.model,
+    });
 
     const response = await fetch(`${backendUrl}/api/image/generate`, {
       method: 'POST',
