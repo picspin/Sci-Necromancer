@@ -3,15 +3,10 @@
   "buildCommand": "npm install && npm run build",
   "outputDirectory": "dist",
   "regions": ["sin1"],
-  "functions": {
-    "dist/vercel.js": {
-      "maxDuration": 60
-    }
-  },
-  "routes": [
+  "rewrites": [
     {
-      "src": "/(.*)",
-      "dest": "dist/vercel.js"
+      "source": "/(.*)",
+      "destination": "/api/index"
     }
   ]
 }
