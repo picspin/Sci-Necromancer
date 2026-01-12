@@ -828,6 +828,11 @@ export async function generateImageNanobana(
 // ============================================================================
 
 const getBackendUrl = (): string => {
+  // Check for environment variable first (set in Cloudflare Pages)
+  if (import.meta.env.VITE_API_BASE_URL) {
+    return import.meta.env.VITE_API_BASE_URL.replace(/\/$/, '');
+  }
+
   // Check for custom backend URL in settings
   try {
     const saved = localStorage.getItem('app-settings');
@@ -841,14 +846,14 @@ const getBackendUrl = (): string => {
     console.error('Failed to read backend URL:', e);
   }
 
-  // Use Vercel deployment in production, localhost for development
-  if (import.meta.env.PROD || !window.location.hostname.includes('localhost')) {
-    // Get base URL from current deployment, removing /api suffix if present
-    const baseUrl = window.location.origin.replace(/\/api$/, '');
-    return baseUrl;
+  // Use localhost for development
+  if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+    return 'http://localhost:3001';
   }
 
-  return 'http://localhost:3001';
+  // Fallback: assume API is on same origin (won't work for cross-origin deployments)
+  console.warn('VITE_API_BASE_URL not set. API calls may fail for cross-origin deployments.');
+  return window.location.origin;
 };
 
 /**
@@ -906,9 +911,9 @@ export async function generateImageNanobanaViaProxy(
   }
 
   try {
-    console.log('Calling Nanobanana via backend proxy:', `${backendUrl}/api/image/nanobana`);
+    console.log('Calling Nanobanana via backend proxy:', `${backendUrl}/api/image/generate`);
 
-    const response = await fetch(`${backendUrl}/api/image/nanobana`, {
+    const response = await fetch(`${backendUrl}/api/image/generate`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
