@@ -3,7 +3,7 @@
   "buildCommand": "cd server && npm install && npm run build",
   "outputDirectory": "server/dist",
   "framework": "nestjs",
-  "regions": ["iad1", "hkg1"],
+  "regions": ["hkg1"],
   "env": {
     "NANOBANA_API_KEY": "@nanobana-api-key"
   },
