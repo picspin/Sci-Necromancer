@@ -47,9 +47,16 @@ export default async function handler(request: VercelRequest, response: VercelRe
     return response.status(400).json({ success: false, error: 'Missing prompt' });
   }
 
-  if (!image && (!images || images.length === 0)) {
-    return response.status(400).json({ success: false, error: 'Missing image data' });
-  }
+  // Allow text-only generation (some models support text-to-image)
+  const hasImages = image || (images && images.length > 0);
+
+  // Log for debugging
+  console.log('Image generation request:', {
+    hasImages,
+    imageCount: images?.length || (image ? 1 : 0),
+    model: model || MODEL,
+    promptLength: prompt.length,
+  });
 
   const apiKey = getNextAvailableKey();
   if (!apiKey) {
