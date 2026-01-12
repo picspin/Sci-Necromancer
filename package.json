@@ -49,6 +49,7 @@
     "@types/react-dom": "^19.2.2",
     "@typescript-eslint/eslint-plugin": "^8.50.0",
     "@typescript-eslint/parser": "^8.50.0",
+    "@vercel/node": "^5.5.16",
     "@vitejs/plugin-react": "^5.0.0",
     "@vitest/ui": "^4.0.15",
     "@vue/test-utils": "^2.4.6",
