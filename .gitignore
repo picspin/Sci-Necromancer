@@ -10,12 +10,13 @@ server/.env
 !.env.example
 !server/.env.example
 
+# Claude Code configuration (local development only)
+.claude/
+CLAUDE.md
+CLAUDE_HOOKS_GUIDE.md
+CLAUDE_HOOKS_QUICK_REF.md
+
 # Claude hooks generated files
-.claude/test-errors.json
-.claude/fix-report.md
-.claude/typescript-errors.txt
-.claude/eslint-errors.json
-.claude/claude-fix-output.txt
 test-errors.log
 CLAUDE_FIX_REQUEST.md
 .vscode
