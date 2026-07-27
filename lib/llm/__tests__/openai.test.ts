@@ -166,7 +166,7 @@ describe('OpenAI LLM Service', () => {
 
       expect(result.rsna.contentType).toBe('science');
       expect(result.rsna.reportingGuidelines).toContain('TRIPOD+AI for Abstracts');
-      expect(result.keywords).toContain('Artificial Intelligence');
+      expect(result.keywords).toContain('Artificial Intelligence/Machine Learning');
     });
 
     it('uses the RSNA factual-integrity prompt for generation', async () => {
@@ -175,10 +175,11 @@ describe('OpenAI LLM Service', () => {
           {
             message: {
               content: JSON.stringify({
+                title: 'MRI evaluation',
                 abstract: 'PURPOSE: To evaluate MRI.',
                 impact: 'MRI may improve care.',
                 synopsis: 'Factual synopsis.',
-                keywords: ['MRI'],
+                keywords: ['MRI', 'Invented Keyword'],
                 presentationGuidance: ['Prepare a concise oral results slide.'],
                 complianceWarnings: ['Verify the provisional character limit.'],
               }),
@@ -212,11 +213,58 @@ describe('OpenAI LLM Service', () => {
       expect(String(request.body)).toContain('Do not invent');
       expect(result.rsna).toEqual(classification);
       expect(result.presentationGuidance).toHaveLength(1);
+      expect(result.keywords).toEqual(['MRI']);
       expect(result.aiAssistance).toMatchObject({
         provider: 'openai',
         mode: 'standard',
         authorVerificationRequired: true,
       });
     });
+
+    it.each(['standard', 'creative'] as const)(
+      'replaces unsupported numeric claims in %s mode',
+      async (mode) => {
+        global.fetch = vi.fn().mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({
+            choices: [
+              {
+                message: {
+                  content: JSON.stringify({
+                    title: 'MRI evaluation',
+                    abstract:
+                      'PURPOSE: Test. MATERIALS AND METHODS: Test. RESULTS: Accuracy was 97%. CONCLUSION: Test.',
+                    impact: 'Test.',
+                    synopsis: 'Test.',
+                    keywords: ['MRI'],
+                  }),
+                },
+              },
+            ],
+          }),
+        });
+        const { generateRSNAAbstract } = await import('@/lib/llm/openai');
+        const result = await generateRSNAAbstract({
+          inputText: 'The source describes an MRI evaluation without quantitative results.',
+          category: 'Neuroradiology',
+          keywords: ['MRI'],
+          classification: {
+            track: 'regular',
+            contentType: 'science',
+            primaryPresentationFormat: 'scientific-paper',
+            alternativePresentationFormats: [],
+            reportingGuidelines: [],
+            confidence: 1,
+            rationale: [],
+            warnings: [],
+            ruleVersion: 'RSNA-2026-provisional-2023-fallback',
+          },
+          mode,
+        });
+
+        expect(result.abstract).toContain('[INSERT verified value]');
+        expect(result.abstract).not.toContain('97%');
+      }
+    );
   });
 });

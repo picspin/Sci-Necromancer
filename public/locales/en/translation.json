@@ -90,6 +90,8 @@
     "synopsis": "Synopsis (100 words)",
     "categories": "Categories (sorted by probability)",
     "keywords": "Keywords",
+    "add_keyword": "Add a controlled RSNA keyword…",
+    "keyword_constraint": "select 3–7",
     "confirm_selections": "Confirm & View Abstract Types",
     "word_count": "{{count}} / {{max}} words"
   },
@@ -278,6 +280,7 @@
     "confirmed_route": "Confirmed RSNA route",
     "rule_version": "Rule version",
     "topic": "Topic",
+    "title_label": "Title",
     "output_route": "RSNA route",
     "output_provisional": "detailed 2026 rules remain provisional.",
     "submission_checks": "Submission checks required",
@@ -307,6 +310,7 @@
     "output_title": "AI-assisted draft — verification required",
     "output_body": "Accuracy, compliance, originality and acceptance are not guaranteed. Verify all facts, statistics, citations, privacy, disclosures and current submission rules.",
     "record_title": "AI Assistance Record",
+    "record_operations": "RSNA classification-aware language editing; structure and compliance review",
     "record_verify": "Independent author verification is required.",
     "copy_reminder": "Copy excludes the product disclaimer; author verification is still required before use."
   }

@@ -144,6 +144,13 @@ class ExportService {
 
     let yPosition = 30;
     const pageWidth = doc.internal.pageSize.getWidth();
+    const pageBottom = doc.internal.pageSize.getHeight() - 20;
+    const ensurePageSpace = (requiredHeight = 12) => {
+      if (yPosition + requiredHeight > pageBottom) {
+        doc.addPage();
+        yPosition = 25;
+      }
+    };
     const margins = template.formatting.margins;
     const textWidth = pageWidth - margins.left / 2.83 - margins.right / 2.83; // Convert points to mm
 
@@ -153,6 +160,16 @@ class ExportService {
       doc.text(options.customTitle, pageWidth / 2, yPosition, { align: 'center' });
       yPosition += 15;
       doc.setFontSize(template.formatting.fontSize);
+    }
+
+    if (data.title) {
+      doc.setFont(pdfFontFamily, 'bold');
+      doc.text('TITLE', 20, yPosition);
+      yPosition += 10;
+      doc.setFont(pdfFontFamily, 'normal');
+      const titleLines = doc.splitTextToSize(data.title, textWidth);
+      doc.text(titleLines, 20, yPosition);
+      yPosition += titleLines.length * 6 + 10;
     }
 
     // Impact Section
@@ -182,28 +199,40 @@ class ExportService {
     yPosition += synopsisLines.length * 6 + 10;
 
     if (data.abstract) {
-      if (yPosition > 245) {
-        doc.addPage();
-        yPosition = 25;
-      }
+      ensurePageSpace(25);
       doc.setFont(pdfFontFamily, 'bold');
       doc.text('ABSTRACT', 20, yPosition);
       yPosition += 10;
       doc.setFont(pdfFontFamily, 'normal');
       const abstractLines = doc.splitTextToSize(data.abstract, textWidth) as string[];
       for (const line of abstractLines) {
-        if (yPosition > 275) {
-          doc.addPage();
-          yPosition = 25;
-        }
+        ensurePageSpace(6);
         doc.text(line, 20, yPosition);
         yPosition += 6;
       }
       yPosition += 10;
     }
 
+    if (data.presentationGuidance?.length) {
+      ensurePageSpace(25);
+      doc.setFont(pdfFontFamily, 'bold');
+      doc.text('PRESENTATION GUIDANCE / REVIEW PDF PLAN', 20, yPosition);
+      yPosition += 10;
+      doc.setFont(pdfFontFamily, 'normal');
+      for (const item of data.presentationGuidance) {
+        const itemLines = doc.splitTextToSize(`- ${item}`, textWidth) as string[];
+        for (const line of itemLines) {
+          ensurePageSpace(6);
+          doc.text(line, 20, yPosition);
+          yPosition += 6;
+        }
+      }
+      yPosition += 10;
+    }
+
     // Keywords Section
     if (template.structure.includeKeywords && data.keywords.length > 0) {
+      ensurePageSpace(25);
       if (template.structure.sectionSeparator) {
         doc.text(template.structure.sectionSeparator, 20, yPosition);
         yPosition += 10;
@@ -217,21 +246,23 @@ class ExportService {
 
       if (template.structure.keywordFormat === 'list') {
         data.keywords.forEach((keyword) => {
+          ensurePageSpace(6);
           doc.text(`- ${keyword}`, 25, yPosition);
           yPosition += 6;
         });
       } else {
         const keywordText = data.keywords.join(', ');
-        const keywordLines = doc.splitTextToSize(keywordText, textWidth);
-        doc.text(keywordLines, 20, yPosition);
-        yPosition += keywordLines.length * 6 + 10;
+        const keywordLines = doc.splitTextToSize(keywordText, textWidth) as string[];
+        for (const line of keywordLines) {
+          ensurePageSpace(6);
+          doc.text(line, 20, yPosition);
+          yPosition += 6;
+        }
+        yPosition += 10;
       }
     }
 
-    if (yPosition > 235) {
-      doc.addPage();
-      yPosition = 25;
-    }
+    ensurePageSpace(35);
     doc.setFont(pdfFontFamily, 'bold');
     doc.text('GENERATIVE AI NOTICE', 20, yPosition);
     yPosition += 8;
@@ -267,6 +298,22 @@ class ExportService {
             }),
           ],
           alignment: AlignmentType.CENTER,
+          spacing: { after: 240 },
+        })
+      );
+    }
+
+    if (data.title) {
+      children.push(
+        new Paragraph({
+          children: [
+            new TextRun({ text: 'TITLE', bold: true, size: template.formatting.fontSize * 2 }),
+          ],
+          heading: HeadingLevel.HEADING_2,
+          spacing: { before: 240, after: 120 },
+        }),
+        new Paragraph({
+          children: [new TextRun({ text: data.title, size: template.formatting.fontSize * 2 })],
           spacing: { after: 240 },
         })
       );
@@ -343,6 +390,31 @@ class ExportService {
           children: [new TextRun({ text: data.abstract, size: template.formatting.fontSize * 2 })],
           spacing: { after: 240 },
         })
+      );
+    }
+
+    if (data.presentationGuidance?.length) {
+      children.push(
+        new Paragraph({
+          children: [
+            new TextRun({
+              text: 'PRESENTATION GUIDANCE / REVIEW PDF PLAN',
+              bold: true,
+              size: template.formatting.fontSize * 2,
+            }),
+          ],
+          heading: HeadingLevel.HEADING_2,
+          spacing: { before: 240, after: 120 },
+        }),
+        ...data.presentationGuidance.map(
+          (item) =>
+            new Paragraph({
+              children: [
+                new TextRun({ text: `- ${item}`, size: template.formatting.fontSize * 2 }),
+              ],
+              spacing: { after: 60 },
+            })
+        )
       );
     }
 
@@ -448,6 +520,30 @@ class ExportService {
 
     const jsonString = JSON.stringify(exportData, null, 2);
     return new Blob([jsonString], { type: 'application/json;charset=utf-8' });
+  }
+
+  public exportToMarkdown(
+    data: AbstractData,
+    abstractType: AbstractType = 'Standard Abstract'
+  ): Blob {
+    const sections = [
+      `# ${abstractType}`,
+      data.title ? `## TITLE\n\n${data.title}` : '',
+      `## IMPACT\n\n${data.impact}`,
+      `## SYNOPSIS\n\n${data.synopsis}`,
+      data.abstract ? `## ABSTRACT\n\n${data.abstract}` : '',
+      data.presentationGuidance?.length
+        ? `## PRESENTATION GUIDANCE / REVIEW PDF PLAN\n\n${data.presentationGuidance.map((item) => `- ${item}`).join('\n')}`
+        : '',
+      `## KEYWORDS\n\n${data.keywords.map((keyword) => `- ${keyword}`).join('\n')}`,
+      data.categories?.length
+        ? `## CATEGORIES\n\n${data.categories.map((category) => `- ${category.name} (${category.type})`).join('\n')}`
+        : '',
+      `## GENERATIVE AI NOTICE\n\n${AI_EXPORT_DISCLAIMER}`,
+    ].filter(Boolean);
+    return new Blob([sections.join('\n\n---\n\n')], {
+      type: 'text/markdown;charset=utf-8',
+    });
   }
 
   private countWords(text: string): number {

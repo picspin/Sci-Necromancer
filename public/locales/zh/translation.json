@@ -90,6 +90,8 @@
     "synopsis": "概要 (100词)",
     "categories": "类别 (按概率排序)",
     "keywords": "关键词",
+    "add_keyword": "添加一个 RSNA 受控关键词…",
+    "keyword_constraint": "请选择 3–7 个",
     "confirm_selections": "确认选择并查看摘要类型",
     "word_count": "{{count}} / {{max}} 词"
   },
@@ -279,6 +281,7 @@
     "confirmed_route": "已确认的 RSNA 投稿路径",
     "rule_version": "规则版本",
     "topic": "主题",
+    "title_label": "标题",
     "output_route": "RSNA 投稿路径",
     "output_provisional": "2026 年详细规则仍为临时状态。",
     "submission_checks": "投稿前必须核查",
@@ -308,6 +311,7 @@
     "output_title": "AI 辅助草稿——必须核验",
     "output_body": "本服务不保证准确性、合规性、原创性或录用。请核验全部事实、统计、引文、隐私、披露及当前投稿规则。",
     "record_title": "AI 辅助记录",
+    "record_operations": "基于 RSNA 分类的语言润色；结构与合规审查",
     "record_verify": "必须由作者独立核验。",
     "copy_reminder": "复制内容不含产品免责声明；使用前仍须由作者核验。"
   }

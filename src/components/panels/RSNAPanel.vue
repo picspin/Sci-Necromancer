@@ -133,7 +133,7 @@
             <button
               v-if="generatedAbstract?.abstract"
               @click="handleDeepUpdate"
-              :disabled="isLoading"
+              :disabled="isLoading || !selectedClassification"
               class="w-full flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-700 text-white font-semibold py-2 px-4 rounded-lg transition-all duration-300 disabled:bg-base-300/50 disabled:cursor-not-allowed animate-fade-in"
               :title="t('tooltips.deep_update')"
             >
@@ -294,7 +294,7 @@ const resetWorkflow = () => {
 };
 
 const handleTextChange = () => {
-  if (analysisResult.value) {
+  if (analysisResult.value || selectedClassification.value || generatedAbstract.value) {
     resetWorkflow();
   }
 };
@@ -331,13 +331,13 @@ const handleFileChange = async (e: Event) => {
           reader.readAsText(file);
         });
         inputText.value = text;
-        if (analysisResult.value) resetWorkflow();
+        handleTextChange();
       } else {
         const result = await fileProcessingService.processFile(file);
 
         if (result.success && result.content) {
           inputText.value = result.content;
-          if (analysisResult.value) resetWorkflow();
+          handleTextChange();
         } else if (result.error) {
           error.value = fileProcessingService.getErrorMessage(result.error);
         } else {
@@ -457,6 +457,11 @@ const handleGenerateNanobana = () => {
 
 const handleDeepUpdate = async () => {
   if (!generatedAbstract.value || !selectedAbstractType.value) return;
+  if (!selectedClassification.value) {
+    error.value =
+      'This saved abstract uses legacy RSNA metadata. Run RSNA analysis before deep update.';
+    return;
+  }
 
   isLoading.value = true;
   loadingMessage.value = t('loading_messages.deep_diving');
@@ -482,7 +487,7 @@ Keywords: ${generatedAbstract.value.keywords.join(', ')}`;
       selectedCategories.value,
       selectedKeywords.value,
       'RSNA',
-      selectedClassification.value ?? undefined
+      selectedClassification.value
     );
 
     result.categories = selectedCategories.value;

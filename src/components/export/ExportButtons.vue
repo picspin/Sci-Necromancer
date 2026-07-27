@@ -43,7 +43,6 @@ import { ref } from 'vue';
 import type { AbstractData, Conference, AbstractType } from '@/types';
 import SvgIcon from '@/components/ui/SvgIcon.vue';
 import exportService from '@/services/exportService';
-import { AI_EXPORT_DISCLAIMER } from '@/lib/compliance/aiDisclosure';
 
 interface Props {
   abstract: AbstractData | null;
@@ -73,53 +72,7 @@ const downloadBlob = (blob: Blob, filename: string) => {
 const handleExportMd = () => {
   if (!props.abstract) return;
 
-  const content = `# ${props.abstractType}
-
-## IMPACT
-
-${props.abstract.impact}
-
----
-
-## SYNOPSIS
-
-${props.abstract.synopsis}
-
-${
-  props.abstract.abstract
-    ? `---
-
-## ABSTRACT
-
-${props.abstract.abstract}
-
----`
-    : ''
-}
-
-## KEYWORDS
-
-${props.abstract.keywords.map((k) => `- ${k}`).join('\n')}
-
-${
-  props.abstract.categories
-    ? `
----
-
-## CATEGORIES
-
-${props.abstract.categories.map((c) => `- ${c.name} (${c.type})`).join('\n')}
-`
-    : ''
-}
-
----
-
-## GENERATIVE AI NOTICE
-
-${AI_EXPORT_DISCLAIMER}
-  `;
-  const blob = new Blob([content.trim()], { type: 'text/markdown;charset=utf-8' });
+  const blob = exportService.exportToMarkdown(props.abstract, props.abstractType);
   downloadBlob(blob, `${props.conference.toLowerCase()}_abstract.md`);
 };
 

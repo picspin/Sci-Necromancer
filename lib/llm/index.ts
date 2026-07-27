@@ -9,7 +9,11 @@ import {
   AbstractTypeSuggestion,
   RSNAClassification,
 } from '../../types';
-import { normalizeRSNAAnalysis } from '../conference/rsnaRules';
+import {
+  normalizeRSNAAnalysis,
+  normalizeRSNAKeywords,
+  RSNA_CATEGORIES,
+} from '../conference/rsnaRules';
 import { requireAIDisclosureAcceptance } from '../compliance/aiDisclosure';
 
 // Export writing style utilities
@@ -64,6 +68,9 @@ const getService = () => {
   }
   return gemini;
 };
+
+const getAuxiliaryLocale = (): 'en' | 'zh' =>
+  localStorage.getItem('i18nextLng')?.toLowerCase().startsWith('zh') ? 'zh' : 'en';
 
 export const analyzeContent = (text: string): Promise<AnalysisResult> => {
   requireAIDisclosureAcceptance();
@@ -150,7 +157,7 @@ export const analyzeContentForConference = (
   const apiKey = getApiKey();
   const service = getService();
   if (conference === 'RSNA') {
-    return service.analyzeRSNAContent(text, apiKey);
+    return service.analyzeRSNAContent(text, apiKey, getAuxiliaryLocale());
   }
   if ('analyzeContentForConference' in service) {
     return (service as any).analyzeContentForConference(text, conference);
@@ -171,16 +178,47 @@ export const generateAbstractForConference = (
   const apiKey = getApiKey();
   const service = getService();
   if (conference === 'RSNA') {
-    const classification =
-      (typeof conferenceContext === 'object' ? conferenceContext : undefined) ??
-      normalizeRSNAAnalysis({ categories, keywords }).rsna;
+    const auxiliaryLocale = getAuxiliaryLocale();
+    const category = categories[0]?.name;
+    if (!category || !(RSNA_CATEGORIES as readonly string[]).includes(category)) {
+      throw new Error(
+        'RSNA_CATEGORY_REQUIRED: run RSNA analysis and choose one controlled category.'
+      );
+    }
+    const controlledKeywords = normalizeRSNAKeywords(keywords);
+    if (controlledKeywords.length < 3) {
+      throw new Error('RSNA_KEYWORDS_REQUIRED: choose 3-7 controlled RSNA keywords.');
+    }
+    const suppliedClassification =
+      typeof conferenceContext === 'object' ? conferenceContext : undefined;
+    const provisionalClassification =
+      suppliedClassification ??
+      (type === 'RSNA Education Exhibit'
+        ? {
+            ...normalizeRSNAAnalysis(
+              { categories, keywords: controlledKeywords },
+              text,
+              auxiliaryLocale
+            ).rsna,
+            contentType: 'education' as const,
+            primaryPresentationFormat: 'digital-presentation' as const,
+            alternativePresentationFormats: ['standalone-education-exhibit' as const],
+          }
+        : normalizeRSNAAnalysis({ categories, keywords: controlledKeywords }, text, auxiliaryLocale)
+            .rsna);
+    const classification = normalizeRSNAAnalysis(
+      { categories, keywords: controlledKeywords, rsna: provisionalClassification },
+      text,
+      auxiliaryLocale
+    ).rsna;
     return service.generateRSNAAbstract(
       {
         inputText: text,
-        category: categories[0]?.name ?? 'Unclassified',
-        keywords,
+        category,
+        keywords: controlledKeywords,
         classification,
         mode: 'standard',
+        auxiliaryLocale,
       },
       apiKey
     );
@@ -210,16 +248,47 @@ export const generateCreativeAbstractForConference = (
   const service = getService();
   if (conference === 'RSNA') {
     return (async () => {
-      const analysis = rsna ? null : await service.analyzeRSNAContent(coreIdea, apiKey);
-      const classification =
-        rsna ?? analysis?.rsna ?? normalizeRSNAAnalysis({ categories: [], keywords }).rsna;
+      const auxiliaryLocale = getAuxiliaryLocale();
+      const analysis = rsna
+        ? null
+        : await service.analyzeRSNAContent(coreIdea, apiKey, auxiliaryLocale);
+      const provisionalClassification =
+        rsna ??
+        analysis?.rsna ??
+        normalizeRSNAAnalysis({ categories: [], keywords }, coreIdea, auxiliaryLocale).rsna;
+      const classification = normalizeRSNAAnalysis(
+        {
+          categories:
+            analysis?.categories ??
+            (category ? [{ name: category, type: 'main', probability: 1 }] : []),
+          keywords: keywords.length ? keywords : (analysis?.keywords ?? []),
+          rsna: provisionalClassification,
+        },
+        coreIdea,
+        auxiliaryLocale
+      ).rsna;
+      const selectedCategory = category ?? analysis?.categories[0]?.name;
+      if (!selectedCategory || !(RSNA_CATEGORIES as readonly string[]).includes(selectedCategory)) {
+        throw new Error(
+          'RSNA_CATEGORY_REQUIRED: automatic classification did not return a controlled category; run standard analysis and choose one category.'
+        );
+      }
+      const controlledKeywords = normalizeRSNAKeywords(
+        keywords.length ? keywords : (analysis?.keywords ?? [])
+      );
+      if (controlledKeywords.length < 3) {
+        throw new Error(
+          'RSNA_KEYWORDS_REQUIRED: automatic classification did not return 3-7 controlled keywords; run standard analysis and complete the keyword selection.'
+        );
+      }
       return service.generateRSNAAbstract(
         {
           inputText: coreIdea,
-          category: category ?? analysis?.categories[0]?.name ?? 'Unclassified',
-          keywords: keywords.length ? keywords : (analysis?.keywords ?? []),
+          category: selectedCategory,
+          keywords: controlledKeywords,
           classification,
           mode: 'creative',
+          auxiliaryLocale,
         },
         apiKey
       );

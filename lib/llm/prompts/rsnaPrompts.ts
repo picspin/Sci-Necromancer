@@ -2,6 +2,7 @@ import type { GenerationMode, RSNAClassification } from '@/types';
 import {
   RSNA_CATEGORIES,
   RSNA_CUTTING_EDGE_TOPICS,
+  RSNA_KEYWORDS,
   RSNA_RULESET,
 } from '@/lib/conference/rsnaRules';
 
@@ -11,14 +12,19 @@ export interface RSNAPromptInput {
   keywords: string[];
   classification: RSNAClassification;
   mode: GenerationMode;
+  auxiliaryLocale?: 'en' | 'zh';
 }
 
 const cuttingEdgeRules = RSNA_CUTTING_EDGE_TOPICS.map(
   (topic) => `- ${topic.name}: ${topic.eligibility}`
 ).join('\n');
 
-export const getRSNAAnalysisPrompt = (text: string): string => `
+export const getRSNAAnalysisPrompt = (
+  text: string,
+  auxiliaryLocale: 'en' | 'zh' = 'en'
+): string => `
 You are an RSNA submission classifier. Analyze only the supplied facts and return valid JSON.
+Keep categories, keywords and enum values in English. Write rationale and warnings in ${auxiliaryLocale === 'zh' ? 'Simplified Chinese' : 'English'}.
 
 Classify the submission using three distinct layers:
 1. submission track: "regular" or "cutting-edge". Use cutting-edge only when the work clearly satisfies one of the five eligibility descriptions below; otherwise use regular.
@@ -34,6 +40,9 @@ Presentation eligibility:
 
 Choose up to three category candidates from this controlled vocabulary, ranked by probability, but identify exactly one primary RSNA category through the highest probability:
 ${RSNA_CATEGORIES.join(', ')}
+
+Choose 3-7 keywords only from this controlled RSNA reference vocabulary:
+${RSNA_KEYWORDS.join(', ')}
 
 Detect reporting guidance conditionally:
 - STARD for Abstracts only for diagnostic accuracy studies.
@@ -91,10 +100,11 @@ const outputContract = (classification: RSNAClassification): string =>
 - Teaching Points
 - Table of Contents/Outline
 - Abstract maximum ${RSNA_RULESET.education.abstractCharacters} characters
-- Five-slide Review PDF Plan describing the original image/chart/teaching material the author must provide; do not create or claim ownership of source material.`;
+- Five-slide Review PDF Plan: return exactly five presentationGuidance items prefixed Slide 1 through Slide 5, describing the original image/chart/teaching material the author must provide; do not create or claim ownership of source material.`;
 
 export const getRSNAGenerationPrompt = (input: RSNAPromptInput): string => `
 You are an expert RSNA abstract editor. Produce a submission-oriented English draft as valid JSON.
+Write title, abstract, impact, synopsis, and keywords in English. Write presentationGuidance and complianceWarnings in ${input.auxiliaryLocale === 'zh' ? 'Simplified Chinese' : 'English'}.
 
 MODE: ${input.mode === 'creative' ? 'Aggressive rhetorical polishing (一键炼丹)' : 'Standards-based editing'}
 TRACK: ${input.classification.track}
@@ -125,6 +135,7 @@ FACTUAL INTEGRITY — NON-NEGOTIABLE:
 
 Return JSON:
 {
+  "title":"concise anonymized English title",
   "abstract":"complete structured submission content",
   "impact":"Clinical Relevance for science, or concise educational impact for education",
   "synopsis":"brief factual synopsis",

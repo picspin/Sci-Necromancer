@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import JSZip from 'jszip';
 import exportService from '../exportService';
 
 describe('ExportService AI provenance', () => {
@@ -30,6 +31,13 @@ describe('ExportService AI provenance', () => {
       synopsis: 'Synopsis.',
       abstract: 'PURPOSE: Test. MATERIALS AND METHODS: Test. RESULTS: Test. CONCLUSION: Test.',
       keywords: ['MRI'],
+      presentationGuidance: [
+        'Slide 1: Overview',
+        'Slide 2: Images',
+        'Slide 3: Approach',
+        'Slide 4: Pitfalls',
+        'Slide 5: Summary',
+      ],
       aiAssistance: {
         generatedAt: '2026-07-28T00:00:00.000Z',
         provider: 'openai' as const,
@@ -48,5 +56,27 @@ describe('ExportService AI provenance', () => {
     expect(pdf.type).toBe('application/pdf');
     expect(pdf.size).toBeGreaterThan(0);
     expect(docx.size).toBeGreaterThan(0);
+    const docxBuffer = await new Promise<ArrayBuffer>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as ArrayBuffer);
+      reader.onerror = () => reject(reader.error);
+      reader.readAsArrayBuffer(docx);
+    });
+    const archive = await JSZip.loadAsync(docxBuffer);
+    const documentXml = await archive.file('word/document.xml')?.async('text');
+    expect(documentXml).toContain('Slide 1: Overview');
+    expect(documentXml).toContain('Slide 5: Summary');
+    expect(documentXml).toContain('GENERATIVE AI NOTICE');
+
+    const markdown = exportService.exportToMarkdown(data, 'RSNA Education Exhibit');
+    const markdownText = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result));
+      reader.onerror = () => reject(reader.error);
+      reader.readAsText(markdown);
+    });
+    expect(markdownText).toContain('Slide 1: Overview');
+    expect(markdownText).toContain('Slide 5: Summary');
+    expect(markdownText).toContain('GENERATIVE AI NOTICE');
   });
 });

@@ -79,7 +79,10 @@
     </fieldset>
 
     <fieldset>
-      <legend class="mb-2 font-semibold text-text-primary">{{ t('rsna.keywords') }}</legend>
+      <legend class="mb-2 font-semibold text-text-primary">
+        {{ t('rsna.keywords') }} · {{ selectedKeywords.length }}/7 ·
+        {{ t('rsna.keyword_constraint') }}
+      </legend>
       <div class="flex flex-wrap gap-2">
         <button
           v-for="keyword in result.keywords"
@@ -96,6 +99,16 @@
           {{ keyword }}
         </button>
       </div>
+      <select
+        v-model="keywordToAdd"
+        class="mt-3 w-full rounded border border-base-300 bg-base-100 p-2 text-sm"
+        @change="addKeyword"
+      >
+        <option value="">{{ t('rsna.add_keyword') }}</option>
+        <option v-for="keyword in availableKeywords" :key="keyword" :value="keyword">
+          {{ keyword }}
+        </option>
+      </select>
     </fieldset>
 
     <fieldset>
@@ -127,7 +140,12 @@
     <button
       data-test="confirm-rsna-analysis"
       type="button"
-      :disabled="!selectedCategory || (track === 'cutting-edge' && !cuttingEdgeTopic)"
+      :disabled="
+        !selectedCategory ||
+        selectedKeywords.length < 3 ||
+        selectedKeywords.length > 7 ||
+        (track === 'cutting-edge' && !cuttingEdgeTopic)
+      "
       @click="handleConfirm"
       class="w-full rounded-lg bg-brand-primary px-4 py-3 font-bold text-white hover:bg-brand-secondary disabled:cursor-not-allowed disabled:opacity-50"
     >
@@ -151,17 +169,24 @@ import type {
 } from '@/types';
 import {
   RSNA_CUTTING_EDGE_TOPICS,
+  RSNA_KEYWORDS,
   getAllowedPresentationFormats,
   normalizeRSNAAnalysis,
 } from '@/lib/conference/rsnaRules';
 
 const props = defineProps<{ result: AnalysisResult }>();
-const { t } = useI18n();
+const { t, locale } = useI18n();
 const emit = defineEmits<{
   confirm: [category: Category, keywords: string[], classification: RSNAClassification];
 }>();
 
-const normalized = normalizeRSNAAnalysis(props.result);
+const normalized = props.result.rsna
+  ? (props.result as AnalysisResult & { rsna: RSNAClassification })
+  : normalizeRSNAAnalysis(
+      props.result,
+      '',
+      locale.value.toLowerCase().startsWith('zh') ? 'zh' : 'en'
+    );
 const analysis = normalized.rsna;
 const categoryCandidates = normalized.categories;
 const track = ref<RSNASubmissionTrack>(analysis.track);
@@ -170,6 +195,7 @@ const cuttingEdgeTopic = ref<RSNACuttingEdgeTopic | ''>(analysis.cuttingEdgeTopi
 const primaryPresentationFormat = ref<RSNAPresentationFormat>(analysis.primaryPresentationFormat);
 const selectedCategoryName = ref(categoryCandidates[0]?.name ?? '');
 const selectedKeywords = ref([...normalized.keywords]);
+const keywordToAdd = ref('');
 const reportingGuidelines = ref<RSNAReportingGuideline[]>([...analysis.reportingGuidelines]);
 const reportingOptions: RSNAReportingGuideline[] = [
   'STARD for Abstracts',
@@ -180,6 +206,11 @@ const cuttingEdgeTopics = RSNA_CUTTING_EDGE_TOPICS;
 const allowedFormats = computed(() => getAllowedPresentationFormats(contentType.value));
 const selectedCategory = computed(() =>
   categoryCandidates.find((category) => category.name === selectedCategoryName.value)
+);
+const availableKeywords = computed(() =>
+  selectedKeywords.value.length >= 7
+    ? []
+    : RSNA_KEYWORDS.filter((keyword) => !selectedKeywords.value.includes(keyword))
 );
 
 watch(contentType, () => {
@@ -202,9 +233,18 @@ const presentationLabel = (format: RSNAPresentationFormat): string =>
   })[format];
 
 const toggleKeyword = (keyword: string) => {
-  selectedKeywords.value = selectedKeywords.value.includes(keyword)
-    ? selectedKeywords.value.filter((candidate) => candidate !== keyword)
-    : [...selectedKeywords.value, keyword];
+  if (selectedKeywords.value.includes(keyword)) {
+    selectedKeywords.value = selectedKeywords.value.filter((candidate) => candidate !== keyword);
+  } else if (selectedKeywords.value.length < 7) {
+    selectedKeywords.value = [...selectedKeywords.value, keyword];
+  }
+};
+
+const addKeyword = () => {
+  if (keywordToAdd.value && !selectedKeywords.value.includes(keywordToAdd.value)) {
+    selectedKeywords.value.push(keywordToAdd.value);
+  }
+  keywordToAdd.value = '';
 };
 
 const handleConfirm = () => {

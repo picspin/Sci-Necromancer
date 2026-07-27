@@ -8,7 +8,7 @@ import {
   Category,
 } from '../../../types';
 import { BaseConferenceModule } from '../BaseConferenceModule';
-import { RSNA_CATEGORIES, RSNA_RULESET, validateRSNADraft } from '../rsnaRules';
+import { RSNA_CATEGORIES, RSNA_KEYWORDS, RSNA_RULESET, validateRSNADraft } from '../rsnaRules';
 import * as llm from '../../llm';
 
 /**
@@ -97,89 +97,14 @@ export class RSNAModule extends BaseConferenceModule {
    * Get RSNA-specific keywords
    */
   getKeywords(): string[] {
-    return [
-      'CT',
-      'MRI',
-      'Ultrasound',
-      'X-ray',
-      'Mammography',
-      'PET/CT',
-      'Interventional Radiology',
-      'Nuclear Medicine',
-      'Radiomics',
-      'Artificial Intelligence',
-      'Machine Learning',
-      'Deep Learning',
-      'Image Analysis',
-      'Computer-Aided Detection',
-      'Quantitative Imaging',
-      'Contrast Enhancement',
-      'Radiation Dose',
-      'Image Quality',
-      'Diagnostic Accuracy',
-      'Sensitivity',
-      'Specificity',
-      'ROC Analysis',
-    ];
+    return [...RSNA_KEYWORDS];
   }
 
   /**
    * RSNA-specific validation
    */
   protected validateConferenceSpecific(abstract: AbstractData): ValidationResult {
-    const errors: string[] = [];
-    const warnings: string[] = [];
-
-    // Check for RSNA structured format
-    if (abstract.abstract) {
-      const content = abstract.abstract.toLowerCase();
-      const requiredSections = ['purpose', 'method', 'result', 'conclusion'];
-      const missingSections = requiredSections.filter(
-        (section) => !content.includes(section) && !content.includes(section + 's')
-      );
-
-      if (missingSections.length > 0) {
-        warnings.push(`Consider including these sections: ${missingSections.join(', ')}`);
-      }
-    }
-
-    // Check for radiology-related content
-    if (abstract.abstract) {
-      const content = abstract.abstract.toLowerCase();
-      const radiologyTerms = [
-        'ct',
-        'mri',
-        'ultrasound',
-        'x-ray',
-        'imaging',
-        'radiology',
-        'radiologic',
-      ];
-      const hasRadiologyContent = radiologyTerms.some((term) => content.includes(term));
-
-      if (!hasRadiologyContent) {
-        warnings.push('Abstract may not contain sufficient radiology-related content for RSNA');
-      }
-    }
-
-    // Check for statistical analysis mention
-    if (abstract.abstract) {
-      const content = abstract.abstract.toLowerCase();
-      const statsTerms = [
-        'statistical',
-        'p-value',
-        'confidence interval',
-        'significance',
-        'analysis',
-      ];
-      const hasStats = statsTerms.some((term) => content.includes(term));
-
-      if (!hasStats) {
-        warnings.push('Consider including statistical analysis information');
-      }
-    }
-
-    return { isValid: errors.length === 0, errors, warnings };
+    return validateRSNADraft(abstract);
   }
 
   /**

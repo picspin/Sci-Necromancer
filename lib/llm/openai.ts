@@ -13,7 +13,12 @@ import {
   getRSNAGenerationPrompt,
   type RSNAPromptInput,
 } from './prompts/rsnaPrompts';
-import { normalizeRSNAAnalysis, validateRSNADraft } from '../conference/rsnaRules';
+import {
+  enforceRSNASourceFidelity,
+  normalizeRSNAAnalysis,
+  normalizeRSNAKeywords,
+  validateRSNADraft,
+} from '../conference/rsnaRules';
 
 // Get settings from localStorage
 const getSettings = () => {
@@ -225,15 +230,21 @@ export async function generateCreativeAbstract(
 
 export async function analyzeRSNAContent(
   text: string,
-  apiKey?: string
+  apiKey?: string,
+  auxiliaryLocale: 'en' | 'zh' = 'en'
 ): Promise<AnalysisResult & { rsna: NonNullable<AnalysisResult['rsna']> }> {
   const settings = getSettings();
   const finalApiKey = apiKey || settings.openAIApiKey;
   if (!finalApiKey) throw new Error('OpenAI API key is required');
   const baseUrl = settings.openAIBaseUrl || 'https://api.openai.com/v1';
   const model = settings.openAITextModel || 'gpt-4o';
-  const raw = await callOpenAIAPI(getRSNAAnalysisPrompt(text), finalApiKey, baseUrl, model);
-  return normalizeRSNAAnalysis(raw, text);
+  const raw = await callOpenAIAPI(
+    getRSNAAnalysisPrompt(text, auxiliaryLocale),
+    finalApiKey,
+    baseUrl,
+    model
+  );
+  return normalizeRSNAAnalysis(raw, text, auxiliaryLocale);
 }
 
 export async function generateRSNAAbstract(
@@ -249,10 +260,11 @@ export async function generateRSNAAbstract(
     input.mode === 'creative' ? getRSNACreativePrompt(input) : getRSNAGenerationPrompt(input);
   const raw = await callOpenAIAPI(prompt, finalApiKey, baseUrl, model);
   const result = typeof raw === 'string' ? { abstract: raw } : raw;
-  const draft: AbstractData = {
+  let draft: AbstractData = {
+    title: result.title ?? '',
     impact: result.impact ?? '',
     synopsis: result.synopsis ?? '',
-    keywords: Array.isArray(result.keywords) ? result.keywords : input.keywords,
+    keywords: normalizeRSNAKeywords(input.keywords),
     abstract: result.abstract ?? '',
     categories: [{ name: input.category, type: 'main', probability: 1 }],
     presentationGuidance: Array.isArray(result.presentationGuidance)
@@ -269,7 +281,8 @@ export async function generateRSNAAbstract(
       authorVerificationRequired: true,
     },
   };
-  const validation = validateRSNADraft(draft);
+  draft = enforceRSNASourceFidelity(draft, input.inputText, input.auxiliaryLocale);
+  const validation = validateRSNADraft(draft, input.auxiliaryLocale);
   draft.complianceWarnings = [
     ...(draft.complianceWarnings ?? []),
     ...validation.errors,

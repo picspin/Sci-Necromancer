@@ -16,7 +16,12 @@ import {
   getRSNAGenerationPrompt,
   type RSNAPromptInput,
 } from './prompts/rsnaPrompts';
-import { normalizeRSNAAnalysis, validateRSNADraft } from '../conference/rsnaRules';
+import {
+  enforceRSNASourceFidelity,
+  normalizeRSNAAnalysis,
+  normalizeRSNAKeywords,
+  validateRSNADraft,
+} from '../conference/rsnaRules';
 
 // Initialize AI client lazily with API key from settings
 let aiClient: any | null = null;
@@ -244,14 +249,15 @@ export const generateCreativeAbstract = async (
 
 export const analyzeRSNAContent = async (
   text: string,
-  apiKey?: string
+  apiKey?: string,
+  auxiliaryLocale: 'en' | 'zh' = 'en'
 ): Promise<AnalysisResult & { rsna: NonNullable<AnalysisResult['rsna']> }> => {
   const raw = await callGeminiAPI<AnalysisResult>(
-    getRSNAAnalysisPrompt(text),
+    getRSNAAnalysisPrompt(text, auxiliaryLocale),
     analysisSchema,
     apiKey
   );
-  return normalizeRSNAAnalysis(raw, text);
+  return normalizeRSNAAnalysis(raw, text, auxiliaryLocale);
 };
 
 export const generateRSNAAbstract = async (
@@ -261,10 +267,11 @@ export const generateRSNAAbstract = async (
   const prompt =
     input.mode === 'creative' ? getRSNACreativePrompt(input) : getRSNAGenerationPrompt(input);
   const raw = await callGeminiAPI<AbstractData>(prompt, finalAbstractSchema, apiKey);
-  const draft: AbstractData = {
+  let draft: AbstractData = {
+    title: raw.title ?? '',
     impact: raw.impact ?? '',
     synopsis: raw.synopsis ?? '',
-    keywords: Array.isArray(raw.keywords) ? raw.keywords : input.keywords,
+    keywords: normalizeRSNAKeywords(input.keywords),
     abstract: raw.abstract ?? '',
     categories: [{ name: input.category, type: 'main', probability: 1 }],
     presentationGuidance: Array.isArray(raw.presentationGuidance) ? raw.presentationGuidance : [],
@@ -279,7 +286,8 @@ export const generateRSNAAbstract = async (
       authorVerificationRequired: true,
     },
   };
-  const validation = validateRSNADraft(draft);
+  draft = enforceRSNASourceFidelity(draft, input.inputText, input.auxiliaryLocale);
+  const validation = validateRSNADraft(draft, input.auxiliaryLocale);
   draft.complianceWarnings = [
     ...(draft.complianceWarnings ?? []),
     ...validation.errors,

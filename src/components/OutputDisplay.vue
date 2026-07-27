@@ -36,6 +36,13 @@
           <p class="mt-1">{{ t('ai_disclosure.output_body') }}</p>
         </div>
 
+        <div v-if="abstract?.title" class="animate-fade-in">
+          <h3 class="text-md mb-2 font-semibold text-brand-primary">{{ t('rsna.title_label') }}</h3>
+          <div class="rounded-lg bg-base-100 p-4 text-sm text-text-secondary">
+            {{ abstract.title }}
+          </div>
+        </div>
+
         <div v-if="abstract?.rsna" class="animate-fade-in rounded-lg bg-base-100 p-4 text-sm">
           <h3 class="font-semibold text-brand-primary">{{ t('rsna.output_route') }}</h3>
           <p class="mt-1 text-text-secondary">{{ rsnaRoute }}</p>
@@ -78,7 +85,7 @@
             {{ formatTimestamp(abstract.aiAssistance.generatedAt) }}
           </p>
           <p class="mt-1 text-xs text-text-secondary">
-            {{ abstract.aiAssistance.operations.join('; ') }}.
+            {{ t('ai_disclosure.record_operations') }}.
             {{ t('ai_disclosure.record_verify') }}
           </p>
         </div>
@@ -240,8 +247,18 @@ const displaySynopsis = computed(() => props.synopsis || props.abstract?.synopsi
 const rsnaRoute = computed(() => {
   const route = props.abstract?.rsna;
   if (!route) return '';
-  const format = route.primaryPresentationFormat.replaceAll('-', ' ');
-  return `${route.track} → ${route.contentType} → ${format}`;
+  const labels: Record<string, string> = {
+    regular: t('rsna.regular'),
+    'cutting-edge': t('rsna.cutting_edge'),
+    science: t('rsna.science'),
+    education: t('rsna.education'),
+    'scientific-paper': t('rsna.formats.scientific_paper'),
+    'digital-presentation': t('rsna.formats.digital_presentation'),
+    'standalone-education-exhibit': t('rsna.formats.standalone_education'),
+    'hardcopy-presentation': t('rsna.formats.hardcopy'),
+    'learning-center-theater': t('rsna.formats.learning_center'),
+  };
+  return `${labels[route.track]} → ${labels[route.contentType]} → ${labels[route.primaryPresentationFormat]}`;
 });
 
 const liveRegionMessage = computed(() => {
