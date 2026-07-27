@@ -1,5 +1,4 @@
-import { PDFParse } from 'pdf-parse';
-import * as pdfjsLib from 'pdfjs-dist/build/pdf';
+import * as pdfjsLib from 'pdfjs-dist';
 import workerUrl from 'pdfjs-dist/build/pdf.worker.mjs?url';
 (pdfjsLib as any).GlobalWorkerOptions.workerSrc = workerUrl;
 

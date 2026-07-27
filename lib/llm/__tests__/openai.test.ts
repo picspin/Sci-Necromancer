@@ -131,4 +131,92 @@ describe('OpenAI LLM Service', () => {
       );
     });
   });
+
+  describe('RSNA workflow', () => {
+    it('normalizes RSNA analysis into the three-layer classification', async () => {
+      const mockResponse = {
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                categories: [
+                  { name: 'Neuroradiology', type: 'main', probability: 0.91 },
+                  { name: 'Physics', type: 'main', probability: 0.62 },
+                ],
+                keywords: ['AI', 'MRI'],
+                rsna: {
+                  track: 'regular',
+                  contentType: 'science',
+                  primaryPresentationFormat: 'scientific-paper',
+                  alternativePresentationFormats: ['digital-presentation'],
+                  reportingGuidelines: ['TRIPOD+AI for Abstracts'],
+                  confidence: 0.84,
+                  rationale: ['Prediction model study'],
+                  warnings: [],
+                },
+              }),
+            },
+          },
+        ],
+      };
+      global.fetch = vi.fn().mockResolvedValueOnce({ ok: true, json: async () => mockResponse });
+
+      const { analyzeRSNAContent } = await import('@/lib/llm/openai');
+      const result = await analyzeRSNAContent('We externally validated an MRI prediction model.');
+
+      expect(result.rsna.contentType).toBe('science');
+      expect(result.rsna.reportingGuidelines).toContain('TRIPOD+AI for Abstracts');
+      expect(result.keywords).toContain('Artificial Intelligence');
+    });
+
+    it('uses the RSNA factual-integrity prompt for generation', async () => {
+      const mockResponse = {
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                abstract: 'PURPOSE: To evaluate MRI.',
+                impact: 'MRI may improve care.',
+                synopsis: 'Factual synopsis.',
+                keywords: ['MRI'],
+                presentationGuidance: ['Prepare a concise oral results slide.'],
+                complianceWarnings: ['Verify the provisional character limit.'],
+              }),
+            },
+          },
+        ],
+      };
+      global.fetch = vi.fn().mockResolvedValueOnce({ ok: true, json: async () => mockResponse });
+
+      const { generateRSNAAbstract } = await import('@/lib/llm/openai');
+      const classification = {
+        track: 'regular',
+        contentType: 'science',
+        primaryPresentationFormat: 'scientific-paper',
+        alternativePresentationFormats: ['digital-presentation'],
+        reportingGuidelines: [],
+        confidence: 0.8,
+        rationale: ['Research'],
+        warnings: [],
+        ruleVersion: 'RSNA-2026-provisional-2023-fallback',
+      } as const;
+      const result = await generateRSNAAbstract({
+        inputText: 'Source facts',
+        category: 'Neuroradiology',
+        keywords: ['MRI'],
+        classification,
+        mode: 'standard',
+      });
+
+      const request = vi.mocked(global.fetch).mock.calls[0]?.[1] as RequestInit;
+      expect(String(request.body)).toContain('Do not invent');
+      expect(result.rsna).toEqual(classification);
+      expect(result.presentationGuidance).toHaveLength(1);
+      expect(result.aiAssistance).toMatchObject({
+        provider: 'openai',
+        mode: 'standard',
+        authorVerificationRequired: true,
+      });
+    });
+  });
 });

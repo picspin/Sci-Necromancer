@@ -8,6 +8,7 @@ import {
   Category,
 } from '../../../types';
 import { BaseConferenceModule } from '../BaseConferenceModule';
+import { RSNA_CATEGORIES, RSNA_RULESET, validateRSNADraft } from '../rsnaRules';
 import * as llm from '../../llm';
 
 /**
@@ -20,10 +21,10 @@ export class RSNAModule extends BaseConferenceModule {
   readonly submissionUrl: string = 'https://mc.manuscriptcentral.com/rad';
 
   readonly guidelines: ConferenceGuidelines = {
-    abstractTypes: ['RSNA Scientific Abstract'],
+    abstractTypes: ['RSNA Science Abstract', 'RSNA Education Exhibit'],
     wordLimits: {
-      abstract: 300,
-      impact: 50,
+      abstract: RSNA_RULESET.science.abstractCharactersExcludingSpaces,
+      impact: RSNA_RULESET.science.clinicalRelevanceCharacters,
       synopsis: 100,
     },
     requiredSections: ['purpose', 'methods', 'results', 'conclusion'],
@@ -34,7 +35,7 @@ export class RSNAModule extends BaseConferenceModule {
     ],
   };
 
-  readonly abstractTypes: AbstractType[] = ['RSNA Scientific Abstract'];
+  readonly abstractTypes: AbstractType[] = ['RSNA Science Abstract', 'RSNA Education Exhibit'];
 
   /**
    * RSNA has conference-specific generation methods
@@ -81,20 +82,15 @@ export class RSNAModule extends BaseConferenceModule {
    * Get RSNA-specific categories
    */
   getCategories(): Category[] {
-    return [
-      { name: 'Chest Imaging', type: 'main', probability: 1.0 },
-      { name: 'Abdominal Imaging', type: 'main', probability: 1.0 },
-      { name: 'Neuroradiology', type: 'main', probability: 1.0 },
-      { name: 'Musculoskeletal Imaging', type: 'main', probability: 1.0 },
-      { name: 'Breast Imaging', type: 'main', probability: 1.0 },
-      { name: 'Interventional Radiology', type: 'sub', probability: 1.0 },
-      { name: 'Nuclear Medicine', type: 'sub', probability: 1.0 },
-      { name: 'Ultrasound', type: 'sub', probability: 1.0 },
-      { name: 'CT', type: 'secondary', probability: 1.0 },
-      { name: 'MRI', type: 'secondary', probability: 1.0 },
-      { name: 'PET/CT', type: 'secondary', probability: 1.0 },
-      { name: 'Mammography', type: 'secondary', probability: 1.0 },
-    ];
+    return RSNA_CATEGORIES.map((name) => ({ name, type: 'main', probability: 1 }));
+  }
+
+  /**
+   * RSNA 2023 fallback rules use character limits and distinct science/education contracts,
+   * so the generic word-count validator is intentionally bypassed.
+   */
+  override validateAbstract(abstract: AbstractData): ValidationResult {
+    return validateRSNADraft(abstract);
   }
 
   /**

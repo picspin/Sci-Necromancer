@@ -43,6 +43,7 @@ import { ref } from 'vue';
 import type { AbstractData, Conference, AbstractType } from '@/types';
 import SvgIcon from '@/components/ui/SvgIcon.vue';
 import exportService from '@/services/exportService';
+import { AI_EXPORT_DISCLAIMER } from '@/lib/compliance/aiDisclosure';
 
 interface Props {
   abstract: AbstractData | null;
@@ -111,6 +112,12 @@ ${props.abstract.categories.map((c) => `- ${c.name} (${c.type})`).join('\n')}
 `
     : ''
 }
+
+---
+
+## GENERATIVE AI NOTICE
+
+${AI_EXPORT_DISCLAIMER}
   `;
   const blob = new Blob([content.trim()], { type: 'text/markdown;charset=utf-8' });
   downloadBlob(blob, `${props.conference.toLowerCase()}_abstract.md`);

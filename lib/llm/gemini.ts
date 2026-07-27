@@ -1,7 +1,6 @@
-import * as GenAI from '@google/genai';
+import { GoogleGenAI } from '@google/genai';
 // Local schema/enum fallbacks for test environments
 const TypeRef: any = { OBJECT: 'OBJECT', ARRAY: 'ARRAY', STRING: 'STRING', NUMBER: 'NUMBER' };
-const ModalityRef: any = { IMAGE: 'IMAGE' };
 import {
   AbstractData,
   ImageState,
@@ -11,6 +10,13 @@ import {
   AbstractTypeSuggestion,
 } from '../../types';
 import * as prompts from './prompts/ismrmPrompts';
+import {
+  getRSNAAnalysisPrompt,
+  getRSNACreativePrompt,
+  getRSNAGenerationPrompt,
+  type RSNAPromptInput,
+} from './prompts/rsnaPrompts';
+import { normalizeRSNAAnalysis, validateRSNADraft } from '../conference/rsnaRules';
 
 // Initialize AI client lazily with API key from settings
 let aiClient: any | null = null;
@@ -33,16 +39,7 @@ const getAIClient = (apiKey?: string): any => {
     throw new Error('Google API key not configured. Please add your API key in settings.');
   }
   if (!aiClient) {
-    try {
-      aiClient = new (GenAI as any).GoogleGenerativeAI({ apiKey: key });
-    } catch (err) {
-      // Support function-mocked GoogleGenerativeAI in tests
-      try {
-        aiClient = ((GenAI as any).GoogleGenerativeAI as any)({ apiKey: key });
-      } catch (err2) {
-        throw err;
-      }
-    }
+    aiClient = new GoogleGenAI({ apiKey: key });
   }
   return aiClient;
 };
@@ -142,13 +139,15 @@ const finalAbstractSchema = {
 async function callGeminiAPI<T>(prompt: string, _schema: object, apiKey?: string): Promise<T> {
   try {
     const client = getAIClient(apiKey);
-    const model = client.getGenerativeModel({ model: 'gemini-2.5-pro' });
-    const response = await model.generateContent(prompt);
+    const response = await client.models.generateContent({
+      model: 'gemini-2.5-pro',
+      contents: prompt,
+    });
 
     const jsonString =
-      typeof response.response?.text === 'function'
-        ? response.response.text().trim()
-        : (response.text ?? '').trim();
+      typeof response.text === 'function'
+        ? response.text().trim()
+        : (response.text ?? response.response?.text?.() ?? '').trim();
     if (!jsonString) {
       throw new Error('Empty response from AI model');
     }
@@ -187,7 +186,7 @@ export const analyzeContent = async (text: string, _apiKey?: string): Promise<An
   return {
     categories: Array.isArray(parsed?.categories) ? parsed.categories : [],
     keywords: Array.isArray(parsed?.keywords) ? parsed.keywords : [],
-  } as AnalysisResult;
+  };
 };
 
 export const suggestAbstractType = async (
@@ -243,6 +242,52 @@ export const generateCreativeAbstract = async (
   return await callGeminiAPI<AbstractData>(prompt, finalAbstractSchema);
 };
 
+export const analyzeRSNAContent = async (
+  text: string,
+  apiKey?: string
+): Promise<AnalysisResult & { rsna: NonNullable<AnalysisResult['rsna']> }> => {
+  const raw = await callGeminiAPI<AnalysisResult>(
+    getRSNAAnalysisPrompt(text),
+    analysisSchema,
+    apiKey
+  );
+  return normalizeRSNAAnalysis(raw, text);
+};
+
+export const generateRSNAAbstract = async (
+  input: RSNAPromptInput,
+  apiKey?: string
+): Promise<AbstractData> => {
+  const prompt =
+    input.mode === 'creative' ? getRSNACreativePrompt(input) : getRSNAGenerationPrompt(input);
+  const raw = await callGeminiAPI<AbstractData>(prompt, finalAbstractSchema, apiKey);
+  const draft: AbstractData = {
+    impact: raw.impact ?? '',
+    synopsis: raw.synopsis ?? '',
+    keywords: Array.isArray(raw.keywords) ? raw.keywords : input.keywords,
+    abstract: raw.abstract ?? '',
+    categories: [{ name: input.category, type: 'main', probability: 1 }],
+    presentationGuidance: Array.isArray(raw.presentationGuidance) ? raw.presentationGuidance : [],
+    complianceWarnings: Array.isArray(raw.complianceWarnings) ? raw.complianceWarnings : [],
+    rsna: input.classification,
+    aiAssistance: {
+      generatedAt: new Date().toISOString(),
+      provider: 'google',
+      model: 'gemini-2.5-pro',
+      mode: input.mode,
+      operations: ['RSNA classification-aware language editing', 'structure and compliance review'],
+      authorVerificationRequired: true,
+    },
+  };
+  const validation = validateRSNADraft(draft);
+  draft.complianceWarnings = [
+    ...(draft.complianceWarnings ?? []),
+    ...validation.errors,
+    ...validation.warnings,
+  ];
+  return draft;
+};
+
 export const generateImage = async (
   imageState: ImageState,
   creativeContext: string,
@@ -250,23 +295,27 @@ export const generateImage = async (
 ): Promise<string> => {
   try {
     const client = getAIClient(apiKey);
-    const model = client.getGenerativeModel({ model: 'gemini-2.5-flash-image' });
-    let response;
+    let contents;
     if (imageState.base64 && imageState.file) {
       // Standard mode
-      response = await model.generateContent([
+      contents = [
         { inlineData: { data: imageState.base64, mimeType: imageState.file.type } },
         {
           text: `Optimize and edit this scientific/medical image based on the following specifications: ${imageState.specs}. Ensure the output is professional and clear for an academic publication.`,
         },
-      ]);
+      ];
     } else {
       // Creative mode
       const prompt = `Generate a scientific or medical imaging figure based on this context: ${creativeContext}. Specifications: ${imageState.specs}. The image should be publication-quality.`;
-      response = await model.generateContent([{ text: prompt }]);
+      contents = [{ text: prompt }];
     }
 
-    const part = response.response?.candidates?.[0]?.content?.parts?.find(
+    const response = await client.models.generateContent({
+      model: 'gemini-2.5-flash-image',
+      contents,
+    });
+
+    const part = (response.candidates ?? response.response?.candidates)?.[0]?.content?.parts?.find(
       (p: any) => p.inlineData?.data
     );
     if (part && part.inlineData && part.inlineData.data) {

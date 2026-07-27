@@ -1,5 +1,42 @@
 export type GenerationMode = 'standard' | 'creative';
-export type Conference = 'ISMRM' | 'RSNA' | 'ER' | 'ESC' | 'IMAGE';
+export type Conference = 'ISMRM' | 'RSNA' | 'JACC' | 'ER' | 'ESC' | 'IMAGE';
+export type RSNASubmissionTrack = 'regular' | 'cutting-edge';
+export type RSNAContentType = 'science' | 'education';
+export type RSNAPresentationFormat =
+  | 'scientific-paper'
+  | 'digital-presentation'
+  | 'standalone-education-exhibit'
+  | 'hardcopy-presentation'
+  | 'learning-center-theater';
+export type RSNAReportingGuideline = 'STARD for Abstracts' | 'TRIPOD+AI for Abstracts';
+export type RSNACuttingEdgeTopic =
+  | 'Cancer Screening with Imaging in the Era of Precision Medicine'
+  | 'Imaging of Early Chronic and Metabolic Diseases'
+  | 'Imaging Biomarkers for Next-Generation Immune, Cellular, and Gene Therapies'
+  | 'Novel Applications of Photon Counting CT Not Currently Possible with “Standard” Spectral Energy Integrating Detectors (EID)'
+  | 'High-Impact Clinical Trials in Radiology';
+
+export interface RSNAClassification {
+  track: RSNASubmissionTrack;
+  contentType: RSNAContentType;
+  cuttingEdgeTopic?: RSNACuttingEdgeTopic;
+  primaryPresentationFormat: RSNAPresentationFormat;
+  alternativePresentationFormats: RSNAPresentationFormat[];
+  reportingGuidelines: RSNAReportingGuideline[];
+  confidence: number;
+  rationale: string[];
+  warnings: string[];
+  ruleVersion: string;
+}
+
+export interface AIAssistanceRecord {
+  generatedAt: string;
+  provider: AIProvider;
+  model: string;
+  mode: GenerationMode;
+  operations: string[];
+  authorVerificationRequired: true;
+}
 export type AbstractType =
   // ISMRM Types
   | 'Standard Abstract'
@@ -8,6 +45,9 @@ export type AbstractType =
   | 'Registered Abstract'
   // RSNA Types
   | 'RSNA Scientific Abstract'
+  | 'RSNA Science Abstract'
+  | 'RSNA Education Exhibit'
+  | 'JACC Scientific Abstract'
   // ESC Types
   | 'ESC Scientific Abstract'
   | 'ESC Young Investigator Award'
@@ -20,11 +60,16 @@ export type AbstractType =
   | 'ECR Student Presentation';
 
 export interface AbstractData {
+  title?: string;
   impact: string;
   synopsis: string;
   keywords: string[];
   abstract?: string; // Full abstract body with structured sections
   categories?: Category[]; // Categories selected during generation
+  rsna?: RSNAClassification;
+  presentationGuidance?: string[];
+  complianceWarnings?: string[];
+  aiAssistance?: AIAssistanceRecord;
 }
 
 export interface ImageState {
@@ -55,6 +100,7 @@ export const IMAGE_UPLOAD_CONSTRAINTS = {
 export interface AnalysisResult {
   categories: Category[];
   keywords: string[];
+  rsna?: RSNAClassification;
 }
 
 export interface Category {
@@ -128,6 +174,7 @@ export interface SavedAbstract {
   categories?: Category[];
   keywords: string[];
   generationParameters?: GenerationParameters;
+  rsna?: RSNAClassification;
   createdAt: Date;
   updatedAt: Date;
   userId?: string;
@@ -165,6 +212,7 @@ export interface GenerationParameters {
   abstractType?: AbstractType;
   temperature?: number;
   maxTokens?: number;
+  rsna?: RSNAClassification;
 }
 
 // Writing Style Configuration

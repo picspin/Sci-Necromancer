@@ -81,7 +81,7 @@ export class GuidelineService {
   /**
    * Load guideline from backend API (placeholder for future implementation)
    */
-  private static async loadFromAPI(conference: Conference): Promise<string | null> {
+  private static async loadFromAPI(_conference: Conference): Promise<string | null> {
     // Future implementation: Fetch from backend database
     // Example:
     // const response = await fetch(`/api/guidelines/${conference}`);

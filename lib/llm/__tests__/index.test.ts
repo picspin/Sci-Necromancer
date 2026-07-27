@@ -1,9 +1,12 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import type { Settings } from '@/types';
+import { acceptAIDisclosure } from '@/lib/compliance/aiDisclosure';
 
 describe('LLM Index - Provider Selection', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    localStorage.clear();
+    acceptAIDisclosure();
   });
 
   it('should route to Google provider when configured', async () => {

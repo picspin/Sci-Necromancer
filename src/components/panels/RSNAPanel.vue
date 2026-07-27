@@ -15,6 +15,12 @@
         <div v-if="activeTab === 'abstract'" class="space-y-4 animate-fade-in">
           <ModeSelector :mode="abstractMode" @set-mode="setAbstractMode" />
 
+          <div
+            class="rounded-lg border border-amber-500/50 bg-amber-500/10 p-3 text-sm text-amber-100"
+          >
+            <strong>{{ t('rsna.provisional_title') }}</strong> {{ t('rsna.provisional_body') }}
+          </div>
+
           <div v-if="abstractMode === 'standard'" class="bg-base-100 p-4 rounded-lg">
             <label for="file-upload" class="block text-sm font-medium text-text-secondary mb-2">
               {{ t('forms.upload_file') }}
@@ -66,7 +72,7 @@
                 </button>
                 <button
                   @click="handleGenerateAbstract"
-                  :disabled="isLoading || !selectedAbstractType"
+                  :disabled="isLoading || !selectedClassification"
                   class="flex-1 flex items-center justify-center gap-2 bg-brand-primary hover:bg-brand-secondary text-white font-bold py-3 px-4 rounded-lg transition-all duration-300 disabled:bg-base-300/50 disabled:cursor-not-allowed"
                   :aria-label="t('buttons.generate_abstract')"
                 >
@@ -85,6 +91,20 @@
                   getMemeTranslation('Generate Creatively', t) || t('buttons.generate_creatively')
                 }}
               </button>
+            </div>
+
+            <div
+              v-if="selectedClassification"
+              class="rounded-lg border border-base-300 bg-base-100 p-3 text-sm text-text-secondary"
+            >
+              <p class="font-semibold text-text-primary">{{ t('rsna.confirmed_route') }}</p>
+              <p>
+                {{ routeSummary }} · {{ t('rsna.rule_version') }}:
+                {{ selectedClassification.ruleVersion }}
+              </p>
+              <p v-if="selectedClassification.cuttingEdgeTopic" class="mt-1">
+                {{ t('rsna.topic') }}: {{ selectedClassification.cuttingEdgeTopic }}
+              </p>
             </div>
 
             <!-- Save and Clear buttons -->
@@ -145,18 +165,13 @@
         :error="error"
         :loading-message="loadingMessage"
         conference="RSNA"
-        :abstract-type="selectedAbstractType || 'RSNA Scientific Abstract'"
+        :abstract-type="selectedAbstractType || 'RSNA Science Abstract'"
       />
     </div>
 
     <!-- Analysis Modal -->
     <Modal v-if="isModalOpen && analysisResult" @close="isModalOpen = false">
-      <RSNAAnalysisStep
-        v-if="modalStep === 'analysis'"
-        :result="analysisResult"
-        @confirm="handleAnalysisConfirmation"
-      />
-      <TypeSuggestionStep v-else :suggestions="typeSuggestions" @select="handleTypeSelection" />
+      <RSNAAnalysisStep :result="analysisResult" @confirm="handleAnalysisConfirmation" />
     </Modal>
 
     <!-- Save Modal -->
@@ -218,16 +233,16 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, nextTick } from 'vue';
+import { computed, ref, watch, nextTick } from 'vue';
 import { useI18n } from 'vue-i18n';
 import type {
   AbstractData,
   GenerationMode,
   AnalysisResult,
-  AbstractTypeSuggestion,
   AbstractType,
   Category,
   SavedAbstract,
+  RSNAClassification,
 } from '@/types';
 import * as llm from '@/lib/llm';
 import SvgIcon from '@/components/ui/SvgIcon.vue';
@@ -244,7 +259,6 @@ const { t } = useI18n();
 import TabButton from './ISMRMPanelComponents/TabButton.vue';
 import ModeSelector from './ISMRMPanelComponents/ModeSelector.vue';
 import RSNAAnalysisStep from './RSNAPanelComponents/RSNAAnalysisStep.vue';
-import TypeSuggestionStep from './ISMRMPanelComponents/TypeSuggestionStep.vue';
 
 const { settings, databaseService } = useSettings();
 const { abstractToLoad, clearLoadedAbstract } = useAbstract();
@@ -265,18 +279,17 @@ const inputText = ref<string>('');
 const analysisResult = ref<AnalysisResult | null>(null);
 const selectedCategories = ref<Category[]>([]);
 const selectedKeywords = ref<string[]>([]);
-const typeSuggestions = ref<AbstractTypeSuggestion[]>([]);
 const selectedAbstractType = ref<AbstractType | null>(null);
+const selectedClassification = ref<RSNAClassification | null>(null);
 const isModalOpen = ref<boolean>(false);
-const modalStep = ref<'analysis' | 'type'>('analysis');
 const generatedAbstract = ref<AbstractData | null>(null);
 
 const resetWorkflow = () => {
   analysisResult.value = null;
   selectedCategories.value = [];
   selectedKeywords.value = [];
-  typeSuggestions.value = [];
   selectedAbstractType.value = null;
+  selectedClassification.value = null;
   generatedAbstract.value = null;
 };
 
@@ -354,7 +367,6 @@ const handleAnalyze = async () => {
     const result = await llm.analyzeContentForConference(inputText.value, 'RSNA');
     analysisResult.value = result;
     selectedKeywords.value = result.keywords;
-    modalStep.value = 'analysis';
     isModalOpen.value = true;
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'An unknown error occurred during analysis.';
@@ -363,28 +375,16 @@ const handleAnalyze = async () => {
   }
 };
 
-const handleAnalysisConfirmation = async (cats: Category[], keys: string[]) => {
-  selectedCategories.value = cats;
+const handleAnalysisConfirmation = (
+  category: Category,
+  keys: string[],
+  classification: RSNAClassification
+) => {
+  selectedCategories.value = [category];
   selectedKeywords.value = keys;
-  isLoading.value = true;
-  loadingMessage.value = 'Suggesting RSNA abstract types...';
-  try {
-    // For RSNA, we typically use Scientific Abstract type
-    const suggestions: AbstractTypeSuggestion[] = [
-      { type: 'RSNA Scientific Abstract', probability: 1.0 },
-    ];
-    typeSuggestions.value = suggestions;
-    modalStep.value = 'type';
-  } catch (e) {
-    error.value = e instanceof Error ? e.message : 'Failed to get abstract type suggestions.';
-    isModalOpen.value = false;
-  } finally {
-    isLoading.value = false;
-  }
-};
-
-const handleTypeSelection = (type: AbstractType) => {
-  selectedAbstractType.value = type;
+  selectedClassification.value = classification;
+  selectedAbstractType.value =
+    classification.contentType === 'education' ? 'RSNA Education Exhibit' : 'RSNA Science Abstract';
   isModalOpen.value = false;
 };
 
@@ -392,6 +392,7 @@ const handleGenerateAbstract = async () => {
   if (
     !inputText.value ||
     !selectedAbstractType.value ||
+    !selectedClassification.value ||
     selectedCategories.value.length === 0 ||
     selectedKeywords.value.length === 0
   ) {
@@ -408,7 +409,8 @@ const handleGenerateAbstract = async () => {
       selectedAbstractType.value,
       selectedCategories.value,
       selectedKeywords.value,
-      'RSNA'
+      'RSNA',
+      selectedClassification.value
     );
     generatedAbstract.value = result;
   } catch (e) {
@@ -426,11 +428,20 @@ const handleGenerateCreative = async () => {
   isLoading.value = true;
   loadingMessage.value = 'Creatively generating RSNA abstract...';
   error.value = null;
-  resetWorkflow();
   try {
-    const result = await llm.generateCreativeAbstractForConference(inputText.value, 'RSNA');
+    const result = await llm.generateCreativeAbstractForConference(
+      inputText.value,
+      'RSNA',
+      selectedClassification.value ?? undefined,
+      selectedCategories.value[0]?.name,
+      selectedKeywords.value
+    );
     generatedAbstract.value = result;
     selectedKeywords.value = result.keywords;
+    selectedCategories.value = result.categories ?? [];
+    selectedClassification.value = result.rsna ?? null;
+    selectedAbstractType.value =
+      result.rsna?.contentType === 'education' ? 'RSNA Education Exhibit' : 'RSNA Science Abstract';
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'An unknown error during creative generation.';
   } finally {
@@ -465,11 +476,13 @@ Impact: ${generatedAbstract.value.impact}
 Synopsis: ${generatedAbstract.value.synopsis}
 Keywords: ${generatedAbstract.value.keywords.join(', ')}`;
 
-    const result = await llm.generateFinalAbstract(
+    const result = await llm.generateAbstractForConference(
       refinementPrompt,
       selectedAbstractType.value,
       selectedCategories.value,
-      selectedKeywords.value
+      selectedKeywords.value,
+      'RSNA',
+      selectedClassification.value ?? undefined
     );
 
     result.categories = selectedCategories.value;
@@ -514,6 +527,7 @@ const handleSaveAbstract = async () => {
       originalText: inputText.value,
       categories: selectedCategories.value,
       keywords: selectedKeywords.value,
+      rsna: selectedClassification.value ?? undefined,
     };
 
     if (currentAbstractId.value) {
@@ -539,12 +553,14 @@ const loadAbstractData = (abstract: SavedAbstract) => {
   selectedCategories.value = abstract.categories || [];
   selectedKeywords.value = abstract.keywords;
   selectedAbstractType.value = abstract.abstractType;
+  selectedClassification.value = abstract.rsna ?? abstract.abstractData.rsna ?? null;
   currentAbstractId.value = abstract.id;
   saveTitle.value = abstract.title;
 
   analysisResult.value = {
     categories: abstract.categories || [],
     keywords: abstract.keywords,
+    rsna: selectedClassification.value ?? undefined,
   };
 };
 
@@ -571,4 +587,25 @@ const setActiveTab = (tab: 'abstract' | 'figure') => {
 const setAbstractMode = (mode: GenerationMode) => {
   abstractMode.value = mode;
 };
+
+const routeSummary = computed(() => {
+  if (!selectedClassification.value) return '';
+  const route = selectedClassification.value;
+  const labels: Record<string, string> = {
+    regular: t('rsna.regular'),
+    'cutting-edge': t('rsna.cutting_edge'),
+    science: t('rsna.science'),
+    education: t('rsna.education'),
+    'scientific-paper': t('rsna.formats.scientific_paper'),
+    'digital-presentation': t('rsna.formats.digital_presentation'),
+    'standalone-education-exhibit': t('rsna.formats.standalone_education'),
+    'hardcopy-presentation': t('rsna.formats.hardcopy'),
+    'learning-center-theater': t('rsna.formats.learning_center'),
+  };
+  return [
+    labels[route.track],
+    labels[route.contentType],
+    labels[route.primaryPresentationFormat],
+  ].join(' → ');
+});
 </script>

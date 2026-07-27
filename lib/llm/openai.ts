@@ -7,6 +7,13 @@ import {
   AbstractTypeSuggestion,
 } from '../../types';
 import * as prompts from './prompts/ismrmPrompts';
+import {
+  getRSNAAnalysisPrompt,
+  getRSNACreativePrompt,
+  getRSNAGenerationPrompt,
+  type RSNAPromptInput,
+} from './prompts/rsnaPrompts';
+import { normalizeRSNAAnalysis, validateRSNADraft } from '../conference/rsnaRules';
 
 // Get settings from localStorage
 const getSettings = () => {
@@ -42,7 +49,7 @@ async function callOpenAIAPI(
         {
           role: 'system',
           content:
-            'You are an expert academic writer specializing in ISMRM conference submissions. Always respond with valid JSON.',
+            'You are an expert academic medical submission editor. Follow the conference-specific user instructions and always respond with valid JSON.',
         },
         {
           role: 'user',
@@ -214,6 +221,61 @@ export async function generateCreativeAbstract(
 
   const prompt = await prompts.getCreativeAbstractPrompt(coreIdea);
   return await callOpenAIAPI(prompt, finalApiKey, baseUrl, model);
+}
+
+export async function analyzeRSNAContent(
+  text: string,
+  apiKey?: string
+): Promise<AnalysisResult & { rsna: NonNullable<AnalysisResult['rsna']> }> {
+  const settings = getSettings();
+  const finalApiKey = apiKey || settings.openAIApiKey;
+  if (!finalApiKey) throw new Error('OpenAI API key is required');
+  const baseUrl = settings.openAIBaseUrl || 'https://api.openai.com/v1';
+  const model = settings.openAITextModel || 'gpt-4o';
+  const raw = await callOpenAIAPI(getRSNAAnalysisPrompt(text), finalApiKey, baseUrl, model);
+  return normalizeRSNAAnalysis(raw, text);
+}
+
+export async function generateRSNAAbstract(
+  input: RSNAPromptInput,
+  apiKey?: string
+): Promise<AbstractData> {
+  const settings = getSettings();
+  const finalApiKey = apiKey || settings.openAIApiKey;
+  if (!finalApiKey) throw new Error('OpenAI API key is required');
+  const baseUrl = settings.openAIBaseUrl || 'https://api.openai.com/v1';
+  const model = settings.openAITextModel || 'gpt-4o';
+  const prompt =
+    input.mode === 'creative' ? getRSNACreativePrompt(input) : getRSNAGenerationPrompt(input);
+  const raw = await callOpenAIAPI(prompt, finalApiKey, baseUrl, model);
+  const result = typeof raw === 'string' ? { abstract: raw } : raw;
+  const draft: AbstractData = {
+    impact: result.impact ?? '',
+    synopsis: result.synopsis ?? '',
+    keywords: Array.isArray(result.keywords) ? result.keywords : input.keywords,
+    abstract: result.abstract ?? '',
+    categories: [{ name: input.category, type: 'main', probability: 1 }],
+    presentationGuidance: Array.isArray(result.presentationGuidance)
+      ? result.presentationGuidance
+      : [],
+    complianceWarnings: Array.isArray(result.complianceWarnings) ? result.complianceWarnings : [],
+    rsna: input.classification,
+    aiAssistance: {
+      generatedAt: new Date().toISOString(),
+      provider: 'openai',
+      model,
+      mode: input.mode,
+      operations: ['RSNA classification-aware language editing', 'structure and compliance review'],
+      authorVerificationRequired: true,
+    },
+  };
+  const validation = validateRSNADraft(draft);
+  draft.complianceWarnings = [
+    ...(draft.complianceWarnings ?? []),
+    ...validation.errors,
+    ...validation.warnings,
+  ];
+  return draft;
 }
 
 // ============================================================================

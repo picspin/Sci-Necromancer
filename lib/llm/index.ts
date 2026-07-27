@@ -7,7 +7,10 @@ import {
   Category,
   AbstractType,
   AbstractTypeSuggestion,
+  RSNAClassification,
 } from '../../types';
+import { normalizeRSNAAnalysis } from '../conference/rsnaRules';
+import { requireAIDisclosureAcceptance } from '../compliance/aiDisclosure';
 
 // Export writing style utilities
 export {
@@ -63,6 +66,7 @@ const getService = () => {
 };
 
 export const analyzeContent = (text: string): Promise<AnalysisResult> => {
+  requireAIDisclosureAcceptance();
   const apiKey = getApiKey();
   return getService().analyzeContent(text, apiKey);
 };
@@ -72,6 +76,7 @@ export const suggestAbstractType = (
   categories: Category[],
   keywords: string[]
 ): Promise<AbstractTypeSuggestion[]> => {
+  requireAIDisclosureAcceptance();
   const apiKey = getApiKey();
   return getService().suggestAbstractType(text, categories, keywords, apiKey);
 };
@@ -81,6 +86,7 @@ export const generateImpactSynopsis = (
   categories: Category[],
   keywords: string[]
 ): Promise<{ impact: string; synopsis: string }> => {
+  requireAIDisclosureAcceptance();
   const apiKey = getApiKey();
   return getService().generateImpactSynopsis(text, categories, keywords, apiKey);
 };
@@ -93,6 +99,7 @@ export const generateFinalAbstract = (
   impact: string,
   synopsis: string
 ): Promise<AbstractData> => {
+  requireAIDisclosureAcceptance();
   const apiKey = getApiKey();
   return getService().generateFinalAbstract(
     text,
@@ -106,11 +113,13 @@ export const generateFinalAbstract = (
 };
 
 export const generateCreativeAbstract = (coreIdea: string): Promise<AbstractData> => {
+  requireAIDisclosureAcceptance();
   const apiKey = getApiKey();
   return getService().generateCreativeAbstract(coreIdea, apiKey);
 };
 
 export const generateImage = (imageState: ImageState, creativeContext: string): Promise<string> => {
+  requireAIDisclosureAcceptance();
   const apiKey = getApiKey();
   return getService().generateImage(imageState, creativeContext, apiKey);
 };
@@ -119,6 +128,7 @@ export const generateImageNanobana = (
   imageState: ImageState,
   specsJson: string
 ): Promise<string> => {
+  requireAIDisclosureAcceptance();
   const apiKey = getApiKey();
   return openai.generateImageNanobana(imageState, specsJson, apiKey);
 };
@@ -127,6 +137,7 @@ export const generateImageNanobanaViaProxy = (
   imageState: ImageState,
   specsJson: string
 ): Promise<string> => {
+  requireAIDisclosureAcceptance();
   return openai.generateImageNanobanaViaProxy(imageState, specsJson);
 };
 
@@ -135,8 +146,12 @@ export const analyzeContentForConference = (
   text: string,
   conference: string
 ): Promise<AnalysisResult> => {
+  requireAIDisclosureAcceptance();
   const apiKey = getApiKey();
   const service = getService();
+  if (conference === 'RSNA') {
+    return service.analyzeRSNAContent(text, apiKey);
+  }
   if ('analyzeContentForConference' in service) {
     return (service as any).analyzeContentForConference(text, conference);
   }
@@ -149,10 +164,27 @@ export const generateAbstractForConference = (
   type: AbstractType,
   categories: Category[],
   keywords: string[],
-  conference: string
+  conference: string,
+  conferenceContext?: RSNAClassification | string
 ): Promise<AbstractData> => {
+  requireAIDisclosureAcceptance();
   const apiKey = getApiKey();
   const service = getService();
+  if (conference === 'RSNA') {
+    const classification =
+      (typeof conferenceContext === 'object' ? conferenceContext : undefined) ??
+      normalizeRSNAAnalysis({ categories, keywords }).rsna;
+    return service.generateRSNAAbstract(
+      {
+        inputText: text,
+        category: categories[0]?.name ?? 'Unclassified',
+        keywords,
+        classification,
+        mode: 'standard',
+      },
+      apiKey
+    );
+  }
   if ('generateAbstractForConference' in service) {
     return (service as any).generateAbstractForConference(
       text,
@@ -168,10 +200,31 @@ export const generateAbstractForConference = (
 
 export const generateCreativeAbstractForConference = (
   coreIdea: string,
-  conference: string
+  conference: string,
+  rsna?: RSNAClassification,
+  category?: string,
+  keywords: string[] = []
 ): Promise<AbstractData> => {
+  requireAIDisclosureAcceptance();
   const apiKey = getApiKey();
   const service = getService();
+  if (conference === 'RSNA') {
+    return (async () => {
+      const analysis = rsna ? null : await service.analyzeRSNAContent(coreIdea, apiKey);
+      const classification =
+        rsna ?? analysis?.rsna ?? normalizeRSNAAnalysis({ categories: [], keywords }).rsna;
+      return service.generateRSNAAbstract(
+        {
+          inputText: coreIdea,
+          category: category ?? analysis?.categories[0]?.name ?? 'Unclassified',
+          keywords: keywords.length ? keywords : (analysis?.keywords ?? []),
+          classification,
+          mode: 'creative',
+        },
+        apiKey
+      );
+    })();
+  }
   if ('generateCreativeAbstractForConference' in service) {
     return (service as any).generateCreativeAbstractForConference(coreIdea, conference, apiKey);
   }

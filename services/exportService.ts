@@ -1,6 +1,7 @@
 import jsPDF from 'jspdf';
 import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } from 'docx';
 import { AbstractData, Conference, AbstractType } from '../types';
+import { AI_EXPORT_DISCLAIMER } from '../lib/compliance/aiDisclosure';
 
 export interface ConferenceTemplate {
   name: string;
@@ -135,15 +136,16 @@ class ExportService {
   ): Promise<Blob> {
     const template = this.getTemplate(conference);
     const doc = new jsPDF();
-    
+    const pdfFontFamily = template.formatting.fontFamily === 'Arial' ? 'helvetica' : 'times';
+
     // Set font
-    doc.setFont(template.formatting.fontFamily.toLowerCase().replace(' ', ''));
+    doc.setFont(pdfFontFamily);
     doc.setFontSize(template.formatting.fontSize);
 
     let yPosition = 30;
     const pageWidth = doc.internal.pageSize.getWidth();
     const margins = template.formatting.margins;
-    const textWidth = pageWidth - (margins.left / 2.83) - (margins.right / 2.83); // Convert points to mm
+    const textWidth = pageWidth - margins.left / 2.83 - margins.right / 2.83; // Convert points to mm
 
     // Title
     if (options.customTitle) {
@@ -154,11 +156,11 @@ class ExportService {
     }
 
     // Impact Section
-    doc.setFont(template.formatting.fontFamily.toLowerCase().replace(' ', ''), 'bold');
+    doc.setFont(pdfFontFamily, 'bold');
     doc.text('IMPACT', 20, yPosition);
     yPosition += 10;
-    
-    doc.setFont(template.formatting.fontFamily.toLowerCase().replace(' ', ''), 'normal');
+
+    doc.setFont(pdfFontFamily, 'normal');
     const impactLines = doc.splitTextToSize(data.impact, textWidth);
     doc.text(impactLines, 20, yPosition);
     yPosition += impactLines.length * 6 + 10;
@@ -170,14 +172,35 @@ class ExportService {
     }
 
     // Synopsis Section
-    doc.setFont(template.formatting.fontFamily.toLowerCase().replace(' ', ''), 'bold');
+    doc.setFont(pdfFontFamily, 'bold');
     doc.text('SYNOPSIS', 20, yPosition);
     yPosition += 10;
-    
-    doc.setFont(template.formatting.fontFamily.toLowerCase().replace(' ', ''), 'normal');
+
+    doc.setFont(pdfFontFamily, 'normal');
     const synopsisLines = doc.splitTextToSize(data.synopsis, textWidth);
     doc.text(synopsisLines, 20, yPosition);
     yPosition += synopsisLines.length * 6 + 10;
+
+    if (data.abstract) {
+      if (yPosition > 245) {
+        doc.addPage();
+        yPosition = 25;
+      }
+      doc.setFont(pdfFontFamily, 'bold');
+      doc.text('ABSTRACT', 20, yPosition);
+      yPosition += 10;
+      doc.setFont(pdfFontFamily, 'normal');
+      const abstractLines = doc.splitTextToSize(data.abstract, textWidth) as string[];
+      for (const line of abstractLines) {
+        if (yPosition > 275) {
+          doc.addPage();
+          yPosition = 25;
+        }
+        doc.text(line, 20, yPosition);
+        yPosition += 6;
+      }
+      yPosition += 10;
+    }
 
     // Keywords Section
     if (template.structure.includeKeywords && data.keywords.length > 0) {
@@ -186,23 +209,36 @@ class ExportService {
         yPosition += 10;
       }
 
-      doc.setFont(template.formatting.fontFamily.toLowerCase().replace(' ', ''), 'bold');
+      doc.setFont(pdfFontFamily, 'bold');
       doc.text('KEYWORDS', 20, yPosition);
       yPosition += 10;
-      
-      doc.setFont(template.formatting.fontFamily.toLowerCase().replace(' ', ''), 'normal');
-      
+
+      doc.setFont(pdfFontFamily, 'normal');
+
       if (template.structure.keywordFormat === 'list') {
-        data.keywords.forEach(keyword => {
-          doc.text(`• ${keyword}`, 25, yPosition);
+        data.keywords.forEach((keyword) => {
+          doc.text(`- ${keyword}`, 25, yPosition);
           yPosition += 6;
         });
       } else {
         const keywordText = data.keywords.join(', ');
         const keywordLines = doc.splitTextToSize(keywordText, textWidth);
         doc.text(keywordLines, 20, yPosition);
+        yPosition += keywordLines.length * 6 + 10;
       }
     }
+
+    if (yPosition > 235) {
+      doc.addPage();
+      yPosition = 25;
+    }
+    doc.setFont(pdfFontFamily, 'bold');
+    doc.text('GENERATIVE AI NOTICE', 20, yPosition);
+    yPosition += 8;
+    doc.setFont(pdfFontFamily, 'normal');
+    doc.setFontSize(9);
+    const disclaimerLines = doc.splitTextToSize(AI_EXPORT_DISCLAIMER, textWidth);
+    doc.text(disclaimerLines, 20, yPosition);
 
     return new Promise((resolve) => {
       const pdfBlob = doc.output('blob');
@@ -216,7 +252,7 @@ class ExportService {
     options: Partial<ExportOptions> = {}
   ): Promise<Blob> {
     const template = this.getTemplate(conference);
-    
+
     const children: Paragraph[] = [];
 
     // Title
@@ -290,6 +326,26 @@ class ExportService {
       })
     );
 
+    if (data.abstract) {
+      children.push(
+        new Paragraph({
+          children: [
+            new TextRun({
+              text: 'ABSTRACT',
+              bold: true,
+              size: template.formatting.fontSize * 2,
+            }),
+          ],
+          heading: HeadingLevel.HEADING_2,
+          spacing: { before: 240, after: 120 },
+        }),
+        new Paragraph({
+          children: [new TextRun({ text: data.abstract, size: template.formatting.fontSize * 2 })],
+          spacing: { after: 240 },
+        })
+      );
+    }
+
     // Keywords Section
     if (template.structure.includeKeywords && data.keywords.length > 0) {
       children.push(
@@ -307,7 +363,7 @@ class ExportService {
       );
 
       if (template.structure.keywordFormat === 'list') {
-        data.keywords.forEach(keyword => {
+        data.keywords.forEach((keyword) => {
           children.push(
             new Paragraph({
               children: [
@@ -334,6 +390,16 @@ class ExportService {
         );
       }
     }
+
+    children.push(
+      new Paragraph({
+        children: [new TextRun({ text: 'GENERATIVE AI NOTICE', bold: true, size: 18 })],
+        spacing: { before: 360, after: 100 },
+      }),
+      new Paragraph({
+        children: [new TextRun({ text: AI_EXPORT_DISCLAIMER, italics: true, size: 18 })],
+      })
+    );
 
     const doc = new Document({
       sections: [
@@ -375,6 +441,7 @@ class ExportService {
 
     const exportData = {
       abstract: data,
+      aiDisclaimer: AI_EXPORT_DISCLAIMER,
       metadata: options.includeMetadata ? metadata : undefined,
       template: this.getTemplate(conference),
     };
@@ -384,25 +451,35 @@ class ExportService {
   }
 
   private countWords(text: string): number {
-    return text.trim().split(/\s+/).filter(word => word.length > 0).length;
+    return text
+      .trim()
+      .split(/\s+/)
+      .filter((word) => word.length > 0).length;
   }
 
-  public validateWordLimits(data: AbstractData, conference: Conference): {
+  public validateWordLimits(
+    data: AbstractData,
+    conference: Conference
+  ): {
     valid: boolean;
     errors: string[];
   } {
     const template = this.getTemplate(conference);
     const errors: string[] = [];
-    
+
     const impactWords = this.countWords(data.impact);
     const synopsisWords = this.countWords(data.synopsis);
 
     if (impactWords > template.wordLimits.impact) {
-      errors.push(`Impact section exceeds word limit: ${impactWords}/${template.wordLimits.impact} words`);
+      errors.push(
+        `Impact section exceeds word limit: ${impactWords}/${template.wordLimits.impact} words`
+      );
     }
 
     if (synopsisWords > template.wordLimits.synopsis) {
-      errors.push(`Synopsis section exceeds word limit: ${synopsisWords}/${template.wordLimits.synopsis} words`);
+      errors.push(
+        `Synopsis section exceeds word limit: ${synopsisWords}/${template.wordLimits.synopsis} words`
+      );
     }
 
     return {

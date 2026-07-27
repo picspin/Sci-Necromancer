@@ -1,6 +1,16 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import type { Settings } from '@/types';
 
+const { generateContentMock } = vi.hoisted(() => ({
+  generateContentMock: vi.fn(),
+}));
+
+vi.mock('@google/genai', () => ({
+  GoogleGenAI: class {
+    models = { generateContent: generateContentMock };
+  },
+}));
+
 const mockSettings: Settings = {
   provider: 'google',
   googleApiKey: 'test-google-api-key',
@@ -13,26 +23,17 @@ describe('Gemini LLM Service', () => {
   beforeEach(() => {
     localStorage.setItem('app-settings', JSON.stringify(mockSettings));
     vi.clearAllMocks();
+    generateContentMock.mockResolvedValue({ text: '' });
   });
 
   describe('analyzeContent', () => {
     it('should analyze content and extract categories', async () => {
-      // Mock Google AI SDK
-      vi.mock('@google/genai', () => ({
-        GoogleGenerativeAI: vi.fn().mockImplementation(() => ({
-          getGenerativeModel: vi.fn().mockReturnValue({
-            generateContent: vi.fn().mockResolvedValue({
-              response: {
-                text: () =>
-                  JSON.stringify({
-                    categories: [{ name: 'Neuro', type: 'main', probability: 0.95 }],
-                    keywords: ['fMRI', 'brain', 'connectivity'],
-                  }),
-              },
-            }),
-          }),
-        })),
-      }));
+      generateContentMock.mockResolvedValue({
+        text: JSON.stringify({
+          categories: [{ name: 'Neuro', type: 'main', probability: 0.95 }],
+          keywords: ['fMRI', 'brain', 'connectivity'],
+        }),
+      });
 
       const { analyzeContent } = await import('@/lib/llm/gemini');
       const result = await analyzeContent('Functional MRI study of brain connectivity');
@@ -58,17 +59,9 @@ describe('Gemini LLM Service', () => {
 
   describe('generateAbstract', () => {
     it('should generate structured abstract', async () => {
-      vi.mock('@google/genai', () => ({
-        GoogleGenerativeAI: vi.fn().mockImplementation(() => ({
-          getGenerativeModel: vi.fn().mockReturnValue({
-            generateContent: vi.fn().mockResolvedValue({
-              response: {
-                text: () => '## Background\nNovel fMRI technique...\n\n## Methods\nWe developed...',
-              },
-            }),
-          }),
-        })),
-      }));
+      generateContentMock.mockResolvedValue({
+        text: '## Background\nNovel fMRI technique...\n\n## Methods\nWe developed...',
+      });
 
       const { generateFinalAbstract } = await import('@/lib/llm/gemini');
       const result = await generateFinalAbstract(

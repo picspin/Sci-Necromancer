@@ -28,6 +28,60 @@
       </div>
 
       <div class="space-y-6">
+        <div
+          v-if="abstract"
+          class="rounded-lg border border-amber-500/50 bg-amber-500/10 p-3 text-sm text-amber-100"
+        >
+          <p class="font-semibold">{{ t('ai_disclosure.output_title') }}</p>
+          <p class="mt-1">{{ t('ai_disclosure.output_body') }}</p>
+        </div>
+
+        <div v-if="abstract?.rsna" class="animate-fade-in rounded-lg bg-base-100 p-4 text-sm">
+          <h3 class="font-semibold text-brand-primary">{{ t('rsna.output_route') }}</h3>
+          <p class="mt-1 text-text-secondary">{{ rsnaRoute }}</p>
+          <p class="mt-1 text-xs text-amber-300">
+            {{ abstract.rsna.ruleVersion }} — {{ t('rsna.output_provisional') }}
+          </p>
+        </div>
+
+        <div
+          v-if="abstract?.complianceWarnings?.length"
+          class="animate-fade-in rounded-lg border border-red-500/40 bg-red-500/10 p-4 text-sm"
+        >
+          <h3 class="font-semibold text-red-200">{{ t('rsna.submission_checks') }}</h3>
+          <ul class="mt-2 list-disc space-y-1 pl-5 text-red-100">
+            <li v-for="warning in abstract.complianceWarnings" :key="warning">{{ warning }}</li>
+          </ul>
+        </div>
+
+        <div
+          v-if="abstract?.presentationGuidance?.length"
+          class="animate-fade-in rounded-lg bg-base-100 p-4 text-sm"
+        >
+          <h3 class="font-semibold text-text-primary">{{ t('rsna.presentation_guidance') }}</h3>
+          <ul class="mt-2 list-disc space-y-1 pl-5 text-text-secondary">
+            <li v-for="item in abstract.presentationGuidance" :key="item">{{ item }}</li>
+          </ul>
+          <p class="mt-2 text-xs text-text-secondary">
+            {{ t('rsna.presentation_advisory') }}
+          </p>
+        </div>
+
+        <div
+          v-if="abstract?.aiAssistance"
+          class="animate-fade-in rounded-lg bg-base-100 p-4 text-sm"
+        >
+          <h3 class="font-semibold text-text-primary">{{ t('ai_disclosure.record_title') }}</h3>
+          <p class="mt-1 text-text-secondary">
+            {{ abstract.aiAssistance.provider }} / {{ abstract.aiAssistance.model }} ·
+            {{ abstract.aiAssistance.mode }} ·
+            {{ formatTimestamp(abstract.aiAssistance.generatedAt) }}
+          </p>
+          <p class="mt-1 text-xs text-text-secondary">
+            {{ abstract.aiAssistance.operations.join('; ') }}.
+            {{ t('ai_disclosure.record_verify') }}
+          </p>
+        </div>
         <!-- Show Impact & Synopsis even before full abstract is generated -->
         <div v-if="displayImpact" class="animate-fade-in">
           <h3 class="flex items-center gap-2 text-md font-semibold text-blue-600 mb-2">
@@ -119,6 +173,9 @@
           <div class="bg-base-100 p-4 rounded-lg text-text-secondary text-sm">
             <AbstractBody :content="abstract.abstract" />
           </div>
+          <p class="mt-2 text-xs text-amber-300">
+            {{ t('ai_disclosure.copy_reminder') }}
+          </p>
         </div>
 
         <div v-if="image" class="animate-fade-in">
@@ -147,6 +204,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
+import { useI18n } from 'vue-i18n';
 import type { AbstractData, Conference, AbstractType, Category } from '@/types';
 import SvgIcon from '@/components/ui/SvgIcon.vue';
 import ExportButtons from '@/components/export/ExportButtons.vue';
@@ -173,11 +231,18 @@ const props = withDefaults(defineProps<Props>(), {
   conference: 'ISMRM',
   image: null,
 });
+const { t } = useI18n();
 
 const hasOutput = computed(() => props.abstract || props.image || props.impact || props.synopsis);
 
 const displayImpact = computed(() => props.impact || props.abstract?.impact);
 const displaySynopsis = computed(() => props.synopsis || props.abstract?.synopsis);
+const rsnaRoute = computed(() => {
+  const route = props.abstract?.rsna;
+  if (!route) return '';
+  const format = route.primaryPresentationFormat.replaceAll('-', ' ');
+  return `${route.track} → ${route.contentType} → ${format}`;
+});
 
 const liveRegionMessage = computed(() => {
   if (props.isLoading) return props.loadingMessage || 'Generating content...';
@@ -192,6 +257,8 @@ const copyToClipboard = () => {
   navigator.clipboard.writeText(fullText);
   alert('Abstract copied to clipboard!');
 };
+
+const formatTimestamp = (value: string) => new Date(value).toLocaleString();
 
 const handleDownloadImage = () => {
   if (!props.image) return;

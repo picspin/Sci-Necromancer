@@ -47,6 +47,8 @@
       </div>
     </header>
 
+    <AIDisclosure />
+
     <!-- Main Content -->
     <main class="max-w-7xl mx-auto px-6 py-8">
       <!-- Conference Panel with integrated navigation -->
@@ -103,6 +105,7 @@ import HelpDocumentation from '@/components/ui/HelpDocumentation.vue';
 import NotificationDisplay from '@/components/ui/NotificationDisplay.vue';
 import SvgIcon from '@/components/ui/SvgIcon.vue';
 import LanguageSelector from '@/components/LanguageSelector.vue';
+import AIDisclosure from '@/components/ui/AIDisclosure.vue';
 
 const { t } = useI18n();
 const showAbstractManager = ref(false);

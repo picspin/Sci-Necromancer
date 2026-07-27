@@ -56,7 +56,7 @@ export function useConferenceRegistry() {
   // Make conferenceInfo reactive by using computed
   const conferenceInfo = computed(() => {
     // Depend on updateTrigger and initialized to re-compute
-    const _ = updateTrigger.value;
+    void updateTrigger.value;
     if (!initialized.value) {
       // Return default placeholder data when not initialized
       const defaultColorScheme = { primary: '#9E9E9E', secondary: '#BDBDBD', accent: '#616161' };

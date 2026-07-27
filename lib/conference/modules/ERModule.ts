@@ -144,7 +144,7 @@ export class ERModule extends BaseConferenceModule {
 
     try {
       // Try to load from GuidelineService (supports database or file fallback)
-      this.guidelineContent = await GuidelineService.loadGuideline('ECR');
+      this.guidelineContent = await GuidelineService.loadGuideline('ER');
       return this.guidelineContent;
     } catch (error) {
       console.warn('Failed to load ECR guideline, using embedded version:', error);
