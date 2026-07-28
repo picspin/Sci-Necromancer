@@ -23,6 +23,11 @@ CLAUDE_FIX_REQUEST.md
 .DS_Store
 dist
 
+# Local conference/reference PDFs (not distributed with the repository)
+public/My ESC Congress Services - My Abstracts Submission Rules.pdf
+public/bmj.j3751.full.pdf
+public/heus2020.pdf
+
 # Kiro specs (development only)
 .kiro/specs/
 

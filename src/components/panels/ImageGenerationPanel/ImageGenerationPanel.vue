@@ -121,9 +121,12 @@
 
         <!-- Template Buttons -->
         <TemplateButtons
-          :templates="templates"
-          :selected-template="state.specsState.selectedTemplate"
-          @apply="applyTemplate"
+          :styles="journalStyles"
+          :layouts="schematicLayouts"
+          :selected-style="state.specsState.selectedJournalStyle"
+          :selected-layout="state.specsState.selectedSchematicLayout"
+          @select-style="selectJournalStyle"
+          @select-layout="selectSchematicLayout"
         />
 
         <!-- Image Specs Form -->
@@ -138,12 +141,32 @@
           @hide-suggestions="hideSuggestions"
         />
 
-        <!-- Generation Buttons -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <!-- Generation Provider + Single Action -->
+        <div class="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-3">
+          <label class="block">
+            <span class="mb-1 block text-xs font-medium text-text-secondary">
+              {{ t('image_generation.image_provider') }}
+            </span>
+            <select
+              :value="state.imageProvider"
+              @change="handleProviderChange"
+              class="h-12 w-full rounded-lg border border-base-300 bg-base-100 px-3 text-sm text-text-primary"
+            >
+              <option value="byok">{{ t('image_generation.provider_byok') }}</option>
+              <option value="nano-banana-pro" :disabled="!managedImageAvailable">
+                Nano Banana Pro 🔒
+              </option>
+              <option value="gpt-image-2" :disabled="!managedImageAvailable">GPT Image 2 🔒</option>
+            </select>
+          </label>
           <button
             @click="generateImage"
-            :disabled="!canGenerate || state.isLoading"
-            class="w-full flex items-center justify-center gap-2 bg-brand-primary hover:bg-brand-secondary text-white font-bold py-3 px-4 rounded-lg transition-all duration-300 disabled:bg-base-300/50 disabled:cursor-not-allowed"
+            :disabled="
+              !canGenerate ||
+              state.isLoading ||
+              (state.imageProvider !== 'byok' && !managedImageAvailable)
+            "
+            class="mt-auto h-12 w-full flex items-center justify-center gap-2 bg-brand-primary hover:bg-brand-secondary text-white font-bold px-4 rounded-lg transition-all duration-300 disabled:bg-base-300/50 disabled:cursor-not-allowed"
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -160,15 +183,6 @@
               />
             </svg>
             {{ t('image_generation.generate_figure') }}
-          </button>
-          <button
-            @click="generateNanobana"
-            :disabled="!canGenerate || state.isLoading"
-            class="w-full flex items-center justify-center gap-2 bg-orange-600 hover:bg-orange-700 text-white font-bold py-3 px-4 rounded-lg transition-all duration-300 disabled:bg-base-300/50 disabled:cursor-not-allowed"
-            title="Nanobana Pro 3"
-          >
-            <span class="text-lg">🔥</span>
-            {{ t('image_generation.nanobana_button') }} 🍌
           </button>
         </div>
 
@@ -218,6 +232,7 @@
 import { ref, computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import type { CompletionSuggestion } from '@/types';
+import type { ImageGenerationProvider } from '@/types';
 import { useImageGeneration } from '@/composables/useImageGeneration';
 import ImageCanvas from './ImageCanvas.vue';
 import ImageSpecsForm from './ImageSpecsForm.vue';
@@ -232,11 +247,14 @@ const fileInputRef = ref<HTMLInputElement | null>(null);
 const {
   state,
   canGenerate,
-  templates,
+  journalStyles,
+  schematicLayouts,
   uploadedImagesCount,
   canUploadMore,
+  managedImageAvailable,
   imageConstraints,
   setMode,
+  setImageProvider,
   uploadImages,
   removeImage,
   clearAllImages,
@@ -246,9 +264,9 @@ const {
   getSuggestions,
   applySuggestion,
   hideSuggestions,
-  applyTemplate,
+  selectJournalStyle,
+  selectSchematicLayout,
   generateImage,
-  generateNanobana,
   zoomIn,
   zoomOut,
   resetZoom,
@@ -278,6 +296,10 @@ const handleSpecsUpdate = (value: string, cursorPos: number) => {
 // Handle suggestion selection
 const handleSuggestionSelect = (suggestion: CompletionSuggestion) => {
   applySuggestion(suggestion.text);
+};
+
+const handleProviderChange = (event: Event) => {
+  setImageProvider((event.target as HTMLSelectElement).value as ImageGenerationProvider);
 };
 
 // Handle clear all

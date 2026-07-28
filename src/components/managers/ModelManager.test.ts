@@ -23,6 +23,17 @@ vi.mock('@/composables/useSettings', async () => {
   return { useSettings: () => ({ settings: computed(() => storedSettings), saveSettings }) };
 });
 
+vi.mock('@/composables/useMembership', async () => {
+  const { computed } = await vi.importActual<typeof import('vue')>('vue');
+  return {
+    useMembership: () => ({
+      configured: true,
+      isAuthenticated: computed(() => false),
+      status: computed(() => null),
+    }),
+  };
+});
+
 const i18n = createI18n({
   legacy: false,
   locale: 'en',
@@ -30,6 +41,19 @@ const i18n = createI18n({
 });
 
 describe('ModelManager blind-review settings', () => {
+  it('keeps managed image and cloud-save controls locked for visitors', async () => {
+    render(ModelManager, {
+      global: {
+        plugins: [i18n],
+        stubs: { Modal: { template: '<div><slot /></div>' } },
+      },
+    });
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Member services' }));
+    expect((screen.getByLabelText('Nano Banana Pro') as HTMLInputElement).disabled).toBe(true);
+    expect((screen.getByLabelText('Supabase cloud save') as HTMLInputElement).disabled).toBe(true);
+  });
+
   it('saves backend capability selections without endpoint fields', async () => {
     saveSettings.mockReset();
     render(ModelManager, {

@@ -440,12 +440,6 @@ const handleGenerateCreative = async () => {
   }
 };
 
-const handleGenerateNanobana = () => {
-  alert(
-    'Nanobana Pro 3 enhanced generation is coming soon. This will require a premium API with payment gating.'
-  );
-};
-
 const handleDeepUpdate = async () => {
   if (!generatedAbstract.value || !selectedAbstractType.value) return;
 
@@ -471,7 +465,10 @@ Keywords: ${generatedAbstract.value.keywords.join(', ')}`;
       refinementPrompt,
       selectedAbstractType.value,
       selectedCategories.value,
-      selectedKeywords.value
+      selectedKeywords.value,
+      '',
+      '',
+      'deep_update'
     );
 
     result.categories = selectedCategories.value;

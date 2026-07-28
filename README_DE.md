@@ -32,6 +32,9 @@ Vue 3 stellt die gemeinsame Oberfläche und Kongress-Slices bereit. Deterministi
 - ISMRM, RSNA Science/Education, ECR/ER und ESC.
 - Vollständige englische/chinesische UI-Lokalisierung inklusive Fehlern und Barrierefreiheit.
 - Bildgenerierung/-bearbeitung sowie Markdown-, PDF-, JSON- und Bildexport.
+- Neun Journal-Stilvorlagen und sieben erklärbare Schaubild-Layouts mit manueller Übersteuerung.
+- Optionale Mitgliedsdienste: GitHub-Anmeldung, fünf Start-Boni, täglicher Check-in, verwaltete Gemini-/GPT-Image-Generierung, Stripe-Aufladung und explizites privates Supabase-Speichern.
+- Ein verwalteter Standardablauf Analyse→Generierung kostet einen Bonus; Neugenerierung, Deep Update oder ein einzelnes Bild kosten je einen Bonus. BYOK verbraucht keine Plattform-Boni.
 - Getrennte Skills-/MCP-Schalter, sicherer lokaler JSON-Manifestimport und herunterladbarer Review-Skill.
 - Strukturierte Prüfung von Ethik, Einwilligung, De-Identifizierung, Daten, Methodik, Zitaten und Kongressregeln.
 - Fail-closed: Nicht verfügbare Evidenzdienste gelten niemals als verifiziert.
@@ -67,7 +70,11 @@ npm run lint
 npm run build
 ```
 
-`dist/` kann mit SPA-Fallback auf Cloudflare, Vercel oder Netlify bereitgestellt werden. Vercel kann zusätzlich `api/blind-review.ts` hosten. HTTPS-Facades und Trusted-Edge-Token für CiteCheck/DOI MCP sind im [Backend-Leitfaden](docs/BLIND_REVIEW_BACKEND.md) beschrieben. Servergeheimnisse gehören niemals in `VITE_*`-Variablen.
+`dist/` kann mit SPA-Fallback auf Cloudflare, Vercel oder Netlify bereitgestellt werden. `api/` wird separat auf Vercel betrieben; [vercel.json](vercel.json) bindet Functions an die US-Region `iad1`. Supabase-, Turnstile-, Provider- und Stripe-Geheimnisse werden gemäß [.env.example](.env.example) serverseitig gesetzt; statische Hosts erhalten nur `VITE_API_BASE_URL`. Beide SQL-Dateien unter `supabase/migrations/` müssen angewandt werden. Provider-Regionen und Nutzungsbedingungen bleiben verbindlich.
+
+Der Stripe-Webhook unter `/api/stripe-webhook` muss auf API-Version `2026-02-25.clover` fixiert sein und `checkout.session.completed`, `refund.created`, `refund.updated`, `charge.dispute.created` sowie das explizit auswählbare Ereignis `charge.dispute.funds_reinstated` abonnieren. Kauf, erfolgreiche Erstattung, doppelte Zustellung, Dispute und Wiederherstellung der Gelder sind vor Live-Zahlungen mit der Stripe CLI im Testmodus zu prüfen.
+
+HTTPS-Facades und Trusted-Edge-Token für CiteCheck/DOI MCP sind im [Backend-Leitfaden](docs/BLIND_REVIEW_BACKEND.md) beschrieben. Servergeheimnisse gehören niemals in `VITE_*`-Variablen.
 
 ## Referenzen
 

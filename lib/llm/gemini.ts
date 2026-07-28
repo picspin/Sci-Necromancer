@@ -51,6 +51,19 @@ const getAIClient = (apiKey?: string): any => {
   return aiClient;
 };
 
+const getImageModel = (): string => {
+  try {
+    const saved = localStorage.getItem('app-settings');
+    if (saved) {
+      const configured = JSON.parse(saved).googleImageModel;
+      if (typeof configured === 'string' && configured.trim()) return configured.trim();
+    }
+  } catch (error) {
+    console.error('Failed to read Google image model setting:', error);
+  }
+  return 'gemini-2.5-flash-image';
+};
+
 // Schemas for structured responses
 const analysisSchema = {
   type: TypeRef.OBJECT,
@@ -329,7 +342,7 @@ export const generateImage = async (
     }
 
     const response = await client.models.generateContent({
-      model: 'gemini-2.5-flash-image',
+      model: getImageModel(),
       contents,
     });
 

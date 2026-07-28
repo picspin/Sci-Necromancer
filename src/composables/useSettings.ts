@@ -1,6 +1,8 @@
 import { ref, computed } from 'vue';
 import type { Settings } from '@/types';
 import { LocalStorageService } from '@/services/databaseService';
+import { CloudSyncedDatabaseService } from '@/services/cloudSyncedDatabaseService';
+import { useMembership } from '@/src/composables/useMembership';
 import { normalizeBlindReviewSettings } from '@/lib/review/reviewSettings';
 import { normalizeCapabilitySettings } from '@/lib/capabilities/capabilityRegistry';
 
@@ -41,11 +43,22 @@ const saveSettingsToStorage = (settings: Settings): void => {
   }
 };
 
-// Database service instance - use proper LocalStorageService class with abstract methods
-const databaseServiceInstance = new LocalStorageService();
-
 // Reactive settings store
 const settings = ref<Settings>(loadSettingsFromStorage());
+const membership = useMembership();
+const databaseServiceInstance = new CloudSyncedDatabaseService(new LocalStorageService(), {
+  enabled: () => settings.value.databaseEnabled === true && membership.isAuthenticated.value,
+  saveCloud: (clientId, payload, expectedUpdatedAt) =>
+    membership.memberApi.saveAbstract({
+      clientId,
+      title: payload.title,
+      conference: payload.conference,
+      payload,
+      expectedUpdatedAt,
+    }),
+  deleteCloud: (clientId) => membership.memberApi.deleteAbstract(clientId),
+  listCloud: async () => (await membership.memberApi.listAbstracts()).abstracts,
+});
 
 export function useSettings() {
   const updateSettings = (updates: Partial<Settings>): void => {

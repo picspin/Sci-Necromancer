@@ -7,18 +7,9 @@ interface ImportMetaEnv {
    * If not set, defaults to same origin (for local dev)
    */
   readonly VITE_API_BASE_URL?: string;
-  /**
-   * Google AI API key(s) for Nanobana Pro image generation
-   * Supports multiple comma-separated keys for automatic fallback:
-   * VITE_NANOBANA_API_KEY=key1,key2,key3
-   * When one key hits quota limit (429), the next key is automatically used.
-   */
-  readonly VITE_NANOBANA_API_KEY: string;
-  /**
-   * Optional: Override the Gemini model for image generation
-   * Default: gemini-3-pro-image-preview (highest quality)
-   */
-  readonly VITE_NANOBANA_MODEL?: string;
+  readonly VITE_SUPABASE_URL?: string;
+  readonly VITE_SUPABASE_ANON_KEY?: string;
+  readonly VITE_TURNSTILE_SITE_KEY?: string;
 }
 
 interface ImportMeta {

@@ -32,8 +32,8 @@
     "src/**/*.vue",
     "lib/**/*.ts",
     "services/blindReviewService.ts",
-    "api/blind-review.ts",
-    "api/_review/externalReview.ts",
+    "services/cloudSyncedDatabaseService.ts",
+    "api/**/*.ts",
     "vite.config.ts",
     "types/**/*.d.ts"
   ],

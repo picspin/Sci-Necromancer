@@ -33,6 +33,9 @@ Vue 3 provides the shared interface and conference slices. Deterministic confere
 - Conference-specific support for ISMRM, RSNA science/education, ECR/ER, and ESC.
 - Complete English/Chinese application UI and localized errors/accessibility labels.
 - Figure generation/editing and Markdown, PDF, JSON, and image export.
+- Nine journal-style figure presets and seven explainable schematic layouts, with a user-overridable layout recommendation.
+- Optional member services: GitHub sign-in, five-unit signup bonus, daily check-in, managed Gemini/GPT Image generation, Stripe top-up, and explicit private Supabase saving.
+- One managed standard analysis-to-generation workflow consumes one bonus; regeneration, deep update, or a single image consumes one bonus. BYOK remains free of platform bonus charges.
 - Skills & MCP capability switches, safe local JSON-manifest import, and downloadable blind-review skill.
 - Structured blind review across ethics, consent, de-identification, data integrity, methods, citations, reporting guidance, and conference rules.
 - Fail-closed external verification: unavailable evidence services never count as verified.
@@ -68,7 +71,11 @@ npm run lint
 npm run build
 ```
 
-Deploy `dist/` to Cloudflare Pages/Workers static assets, Vercel, or Netlify with SPA fallback to `index.html`. Vercel can also host `api/blind-review.ts`. For privileged CiteCheck/DOI MCP review, configure the HTTPS facade variables and trusted edge token described in [the backend guide](docs/BLIND_REVIEW_BACKEND.md). Never place server credentials in `VITE_*` variables.
+Deploy `dist/` to Cloudflare Pages/Workers static assets, Vercel, or Netlify with SPA fallback to `index.html`. Deploy `api/` separately to Vercel; [vercel.json](vercel.json) pins Functions to the US `iad1` region. Configure Supabase, Turnstile, provider, and Stripe server secrets from [.env.example](.env.example), then point every static host at it with `VITE_API_BASE_URL`. Apply both SQL files under `supabase/migrations/`. Never place server credentials in `VITE_*` variables. Provider use must still comply with its supported-region rules and terms.
+
+Create the Stripe webhook at `/api/stripe-webhook`, pin it to API version `2026-02-25.clover`, and explicitly enable `checkout.session.completed`, `refund.created`, `refund.updated`, `charge.dispute.created`, and the selection-required `charge.dispute.funds_reinstated` event. Verify purchase, successful refund, duplicate delivery, dispute, and funds reinstatement with Stripe CLI in test mode before enabling live payments.
+
+For privileged CiteCheck/DOI MCP review, also configure the HTTPS facade variables and trusted edge token described in [the backend guide](docs/BLIND_REVIEW_BACKEND.md).
 
 ## References
 

@@ -10,10 +10,24 @@ import type {
   SavedAbstract,
   CompletionSuggestion,
   UploadedImage,
+  JournalStyleId,
+  SchematicLayoutId,
+  ImageGenerationProvider,
 } from '@/types';
 import { IMAGE_UPLOAD_CONSTRAINTS } from '@/types';
-import { imageSpecsEngine, IMAGE_TEMPLATES } from '@/src/services/imageSpecsEngine';
+import { imageSpecsEngine } from '@/src/services/imageSpecsEngine';
+import {
+  JOURNAL_STYLE_TEMPLATES,
+  SCHEMATIC_LAYOUTS,
+  composeScientificImagePrompt,
+  recommendSchematicLayout,
+} from '@/src/services/imageTemplateRegistry';
 import * as llm from '@/lib/llm';
+import { useMembership } from '@/src/composables/useMembership';
+import { requireAIDisclosureAcceptance } from '@/lib/compliance/aiDisclosure';
+import { useSettings } from '@/src/composables/useSettings';
+import { useI18n } from 'vue-i18n';
+import { localizeError } from '@/lib/i18n/errorMessages';
 
 // ============================================================================
 // INITIAL STATE
@@ -23,7 +37,9 @@ const createInitialSpecsState = (): ImageSpecsState => ({
   rawInput: '',
   parsedFields: [],
   jsonOutput: '{}',
-  selectedTemplate: null,
+  selectedJournalStyle: 'nature',
+  selectedSchematicLayout: 'modular-grid',
+  layoutManuallySelected: false,
   cursorPosition: 0,
   showSuggestions: false,
   suggestions: [],
@@ -31,6 +47,7 @@ const createInitialSpecsState = (): ImageSpecsState => ({
 
 const createInitialState = (): ImageGenerationState => ({
   mode: 'standard',
+  imageProvider: 'byok',
   imageFile: null,
   imageBase64: null,
   uploadedImages: [], // Multi-image support
@@ -51,6 +68,9 @@ const createInitialState = (): ImageGenerationState => ({
 const state = ref<ImageGenerationState>(createInitialState());
 
 export function useImageGeneration() {
+  const { t } = useI18n();
+  const membership = useMembership();
+  const { settings } = useSettings();
   // ============================================================================
   // COMPUTED PROPERTIES
   // ============================================================================
@@ -75,33 +95,33 @@ export function useImageGeneration() {
   const canUploadMore = computed(
     () => state.value.uploadedImages.length < IMAGE_UPLOAD_CONSTRAINTS.maxFiles
   );
+  const managedImageAvailable = computed(
+    () =>
+      membership.isAuthenticated.value &&
+      Boolean(settings.value.memberManagedImageEnabled) &&
+      (membership.status.value?.bonusBalance || 0) > 0
+  );
 
   const finalPrompt = computed(() => {
-    let prompt = '';
+    let researchIntent = state.value.specsState.rawInput.trim();
 
     // Add abstract intent if in text-to-image mode
     if (state.value.mode === 'text-to-image' && state.value.abstractIntent) {
       const abstract = state.value.abstractIntent;
-      prompt += `Research Intent:\n`;
-      prompt += `Title: ${abstract.title}\n`;
-      prompt += `Impact: ${abstract.abstractData.impact}\n`;
-      prompt += `Synopsis: ${abstract.abstractData.synopsis}\n\n`;
+      researchIntent = [
+        `Title: ${abstract.title}`,
+        `Impact: ${abstract.abstractData.impact}`,
+        `Synopsis: ${abstract.abstractData.synopsis}`,
+        researchIntent,
+      ]
+        .filter(Boolean)
+        .join('\n');
     }
-
-    // Add structured specs
-    if (state.value.specsState.parsedFields.length > 0) {
-      prompt += `Image Specifications:\n${state.value.specsState.jsonOutput}\n\n`;
-    }
-
-    // Add raw input if no structured fields
-    if (
-      state.value.specsState.parsedFields.length === 0 &&
-      state.value.specsState.rawInput.trim()
-    ) {
-      prompt += `Additional Instructions:\n${state.value.specsState.rawInput}\n`;
-    }
-
-    return prompt;
+    return composeScientificImagePrompt({
+      journalStyleId: state.value.specsState.selectedJournalStyle,
+      layoutId: state.value.specsState.selectedSchematicLayout,
+      researchIntent: researchIntent || 'Create a general scientific research schematic.',
+    });
   });
 
   const parsedFieldsCount = computed(() => state.value.specsState.parsedFields.length);
@@ -126,6 +146,10 @@ export function useImageGeneration() {
       // Clear multi-image state when switching to text-to-image
       clearAllImages();
     }
+  };
+
+  const setImageProvider = (provider: ImageGenerationProvider) => {
+    state.value.imageProvider = provider;
   };
 
   // ============================================================================
@@ -262,6 +286,10 @@ export function useImageGeneration() {
     state.value.specsState.rawInput = input;
     state.value.specsState.cursorPosition = cursorPos;
 
+    if (!state.value.specsState.layoutManuallySelected) {
+      state.value.specsState.selectedSchematicLayout = recommendSchematicLayout(input).layoutId;
+    }
+
     // Parse input to extract structured fields
     const parsedFields = imageSpecsEngine.parseInput(input);
     state.value.specsState.parsedFields = parsedFields;
@@ -305,14 +333,13 @@ export function useImageGeneration() {
     state.value.specsState.showSuggestions = false;
   };
 
-  const applyTemplate = (templateId: string) => {
-    const fields = imageSpecsEngine.applyTemplate(templateId);
-    if (fields.length === 0) return;
+  const selectJournalStyle = (styleId: JournalStyleId) => {
+    state.value.specsState.selectedJournalStyle = styleId;
+  };
 
-    state.value.specsState.parsedFields = fields;
-    state.value.specsState.selectedTemplate = templateId;
-    state.value.specsState.rawInput = imageSpecsEngine.fieldsToText(fields);
-    state.value.specsState.jsonOutput = imageSpecsEngine.toJSON(fields);
+  const selectSchematicLayout = (layoutId: SchematicLayoutId) => {
+    state.value.specsState.selectedSchematicLayout = layoutId;
+    state.value.specsState.layoutManuallySelected = true;
   };
 
   const clearSpecs = () => {
@@ -332,10 +359,11 @@ export function useImageGeneration() {
     state.value.generatedImage = null;
 
     try {
+      requireAIDisclosureAcceptance();
       // Build image state for API
       const imageState = {
         file: state.value.imageFile,
-        specs: state.value.specsState.jsonOutput || state.value.specsState.rawInput,
+        specs: finalPrompt.value,
         base64: state.value.imageBase64,
         // Pass all uploaded images for multi-image support
         uploadedImages: state.value.uploadedImages,
@@ -348,51 +376,36 @@ export function useImageGeneration() {
         creativeContext = `Impact: ${abstract.abstractData.impact}\nSynopsis: ${abstract.abstractData.synopsis}`;
       }
 
-      const result = await llm.generateImage(imageState, creativeContext);
-      state.value.generatedImage = `data:image/png;base64,${result}`;
-    } catch (err) {
-      state.value.error = err instanceof Error ? err.message : 'Failed to generate image';
-      console.error('Image generation error:', err);
-    } finally {
-      state.value.isLoading = false;
-      state.value.loadingMessage = '';
-    }
-  };
-
-  const generateNanobana = async () => {
-    if (!canGenerate.value) return;
-
-    state.value.isLoading = true;
-    state.value.loadingMessage = 'Nanobana Pro 3 generation...';
-    state.value.error = null;
-    state.value.generatedImage = null;
-
-    try {
-      const imageState = {
-        file: state.value.imageFile,
-        specs: state.value.specsState.jsonOutput || state.value.specsState.rawInput,
-        base64: state.value.imageBase64,
-        // Pass all uploaded images for multi-image support
-        uploadedImages: state.value.uploadedImages,
-      };
-
-      // Try backend proxy first, fall back to direct API
-      let result: string;
-      try {
-        result = await llm.generateImageNanobanaViaProxy(
-          imageState,
-          state.value.specsState.jsonOutput
-        );
-      } catch (proxyError) {
-        console.warn('Backend proxy failed, falling back to direct API:', proxyError);
-        // Fall back to direct API call
-        result = await llm.generateImageNanobana(imageState, state.value.specsState.jsonOutput);
+      if (state.value.imageProvider === 'byok') {
+        const result = await llm.generateImage(imageState, creativeContext);
+        state.value.generatedImage = `data:image/png;base64,${result}`;
+      } else {
+        if (!managedImageAvailable.value) throw new Error('member_generation_locked');
+        if (
+          state.value.uploadedImages.reduce((total, image) => total + image.base64.length, 0) >
+          3_200_000
+        ) {
+          throw new Error('managed_image_request_too_large');
+        }
+        const output = await membership.managedGenerate({
+          idempotencyKey:
+            typeof crypto.randomUUID === 'function'
+              ? crypto.randomUUID()
+              : `image-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+          provider: state.value.imageProvider,
+          operation: 'image_generation',
+          prompt: finalPrompt.value,
+          images: state.value.uploadedImages.map((image) => ({
+            data: image.base64,
+            mimeType: image.file.type,
+          })),
+        });
+        if (!output.base64) throw new Error('managed_provider_empty_output');
+        state.value.generatedImage = `data:${output.mimeType || 'image/png'};base64,${output.base64}`;
       }
-
-      state.value.generatedImage = `data:image/png;base64,${result}`;
     } catch (err) {
-      state.value.error = err instanceof Error ? err.message : 'Nanobana generation failed';
-      console.error('Nanobana generation error:', err);
+      state.value.error = localizeError(err, t, 'errors.generation_failed');
+      console.error('Image generation error:', err);
     } finally {
       state.value.isLoading = false;
       state.value.loadingMessage = '';
@@ -470,15 +483,18 @@ export function useImageGeneration() {
     zoomStyle,
     uploadedImagesCount,
     canUploadMore,
+    managedImageAvailable,
 
     // Constants
     imageConstraints: IMAGE_UPLOAD_CONSTRAINTS,
 
     // Templates
-    templates: IMAGE_TEMPLATES,
+    journalStyles: JOURNAL_STYLE_TEMPLATES,
+    schematicLayouts: SCHEMATIC_LAYOUTS,
 
     // Mode actions
     setMode,
+    setImageProvider,
 
     // Image actions (multi-image)
     uploadImages,
@@ -496,12 +512,12 @@ export function useImageGeneration() {
     getSuggestions,
     applySuggestion,
     hideSuggestions,
-    applyTemplate,
+    selectJournalStyle,
+    selectSchematicLayout,
     clearSpecs,
 
     // Generation actions
     generateImage,
-    generateNanobana,
 
     // Canvas actions
     zoomIn,

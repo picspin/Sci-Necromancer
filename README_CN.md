@@ -32,6 +32,9 @@ Vue 3 提供统一界面与会议 slice；确定性会议规则约束模型提�
 - 支持 ISMRM、RSNA science/education、ECR/ER 与 ESC。
 - 完整中英文界面、错误提示和无障碍标签切换。
 - 图像生成/编辑，以及 Markdown、PDF、JSON 和图像导出。
+- 9 类期刊风格模板与 7 类可解释 schematic 布局，并允许用户覆盖自动推荐。
+- 可选会员服务：GitHub 登录、注册 5 bonus、每日签到、托管 Gemini/GPT Image、Stripe 充值和显式 Supabase 私有保存。
+- 托管标准“分析→生成”一次任务扣 1 bonus；重生成、深度更新或单张生图各扣 1。BYOK 不消耗平台 bonus。
 - Skills 与 MCP 独立开关、安全本地 JSON 清单导入、盲审 Skill 下载。
 - 从伦理、同意、脱敏、数据、方法、引文、报告规范和会议规则进行结构化盲审。
 - 外部证据服务严格 fail-closed：不可用绝不等同于已核验。
@@ -67,7 +70,11 @@ npm run lint
 npm run build
 ```
 
-可将 `dist/` 部署至 Cloudflare、Vercel 或 Netlify，并配置 SPA 回退到 `index.html`。Vercel 还可托管 `api/blind-review.ts`。CiteCheck/DOI MCP 的 HTTPS facade 与可信边缘令牌配置见[后端指南](docs/BLIND_REVIEW_BACKEND.md)。服务端凭据不得写入 `VITE_*` 变量。
+可将 `dist/` 部署至 Cloudflare、Vercel 或 Netlify，并配置 SPA 回退到 `index.html`；`api/` 单独部署到 Vercel，[vercel.json](vercel.json) 将 Functions 固定在美国 `iad1`。按 [.env.example](.env.example) 配置 Supabase、Turnstile、模型供应商和 Stripe 服务端密钥，再通过 `VITE_API_BASE_URL` 让各静态站点连接该后端，并执行 `supabase/migrations/` 下两份 SQL。服务端凭据不得写入 `VITE_*`；海外节点也不得用于绕过供应商地区限制或条款。
+
+Stripe webhook 地址设为 `/api/stripe-webhook`，API 版本固定为 `2026-02-25.clover`，并显式订阅 `checkout.session.completed`、`refund.created`、`refund.updated`、`charge.dispute.created` 和需单独选择的 `charge.dispute.funds_reinstated`。上线真实支付前，须用 Stripe CLI 测试购买、成功退款、重复投递、争议和争议资金恢复。
+
+CiteCheck/DOI MCP 的 HTTPS facade 与可信边缘令牌配置见[后端指南](docs/BLIND_REVIEW_BACKEND.md)。
 
 ## 参考资料
 

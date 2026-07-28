@@ -12,13 +12,17 @@
 ### 环境变量
 
 ```
-VITE_API_BASE_URL = https://your-vercel-backend.vercel.app
-VITE_NANOBANA_API_KEY = your-api-key (可选，如果前端直接调用)
+VITE_API_BASE_URL = https://your-us-vercel-backend.example.com
+VITE_SUPABASE_URL = https://your-project.supabase.co
+VITE_SUPABASE_ANON_KEY = your-public-anon-key
+VITE_TURNSTILE_SITE_KEY = your-public-turnstile-site-key
 ```
 
 ### 重要提示
 
 **不要设置 Deploy command**，Cloudflare Pages 会自动部署 `dist` 目录的静态文件。
+
+模型、Supabase service role、Turnstile 与 Stripe 的私钥只配置在 Vercel 后端，绝不能放入 `VITE_*`。Vercel Functions 固定在 `iad1`，但仍须遵守各模型供应商的可用地区与服务条款。
 
 ## 使用 Wrangler CLI 部署 (可选)
 

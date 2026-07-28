@@ -16,6 +16,7 @@ import {
   RSNA_CATEGORIES,
 } from '../conference/rsnaRules';
 import { requireAIDisclosureAcceptance } from '../compliance/aiDisclosure';
+import { canUseManagedText } from '../../src/composables/useMembership';
 
 // Export writing style utilities
 export {
@@ -62,7 +63,8 @@ const getApiKey = (): string | undefined => {
   return undefined;
 };
 
-const getService = () => {
+const getService = (allowManagedText = true) => {
+  if (allowManagedText && canUseManagedText()) return openai;
   const provider = getProvider();
   if (provider === 'openai') {
     return openai;
@@ -76,7 +78,7 @@ const getAuxiliaryLocale = (): 'en' | 'zh' =>
 export async function reviewAbstractBlind(prompt: string): Promise<BlindReviewModelAssessment> {
   requireAIDisclosureAcceptance();
   const apiKey = getApiKey();
-  return getService().reviewAbstractBlind(prompt, apiKey);
+  return getService(false).reviewAbstractBlind(prompt, apiKey);
 }
 
 export const analyzeContent = (text: string): Promise<AnalysisResult> => {
@@ -111,7 +113,8 @@ export const generateFinalAbstract = (
   categories: Category[],
   keywords: string[],
   impact: string,
-  synopsis: string
+  synopsis: string,
+  managedOperation: 'generation' | 'deep_update' = 'generation'
 ): Promise<AbstractData> => {
   requireAIDisclosureAcceptance();
   const apiKey = getApiKey();
@@ -122,7 +125,8 @@ export const generateFinalAbstract = (
     keywords,
     impact,
     synopsis,
-    apiKey
+    apiKey,
+    managedOperation
   );
 };
 
@@ -135,24 +139,7 @@ export const generateCreativeAbstract = (coreIdea: string): Promise<AbstractData
 export const generateImage = (imageState: ImageState, creativeContext: string): Promise<string> => {
   requireAIDisclosureAcceptance();
   const apiKey = getApiKey();
-  return getService().generateImage(imageState, creativeContext, apiKey);
-};
-
-export const generateImageNanobana = (
-  imageState: ImageState,
-  specsJson: string
-): Promise<string> => {
-  requireAIDisclosureAcceptance();
-  const apiKey = getApiKey();
-  return openai.generateImageNanobana(imageState, specsJson, apiKey);
-};
-
-export const generateImageNanobanaViaProxy = (
-  imageState: ImageState,
-  specsJson: string
-): Promise<string> => {
-  requireAIDisclosureAcceptance();
-  return openai.generateImageNanobanaViaProxy(imageState, specsJson);
+  return getService(false).generateImage(imageState, creativeContext, apiKey);
 };
 
 // Conference-specific functions
@@ -165,6 +152,9 @@ export const analyzeContentForConference = (
   const service = getService();
   if (conference === 'RSNA') {
     return service.analyzeRSNAContent(text, apiKey, getAuxiliaryLocale());
+  }
+  if (service === openai) {
+    return openai.analyzeContent(text, apiKey, `${conference}:${text}`);
   }
   if ('analyzeContentForConference' in service) {
     return (service as any).analyzeContentForConference(text, conference);
@@ -179,7 +169,8 @@ export const generateAbstractForConference = (
   categories: Category[],
   keywords: string[],
   conference: string,
-  conferenceContext?: RSNAClassification | string
+  conferenceContext?: RSNAClassification | string,
+  managedOperation: 'generation' | 'deep_update' = 'generation'
 ): Promise<AbstractData> => {
   requireAIDisclosureAcceptance();
   const apiKey = getApiKey();
@@ -227,7 +218,8 @@ export const generateAbstractForConference = (
         mode: 'standard',
         auxiliaryLocale,
       },
-      apiKey
+      apiKey,
+      managedOperation
     );
   }
   if ('generateAbstractForConference' in service) {
@@ -239,8 +231,30 @@ export const generateAbstractForConference = (
       conference
     );
   }
+  if (service === openai) {
+    return openai.generateFinalAbstract(
+      text,
+      type,
+      categories,
+      keywords,
+      '',
+      '',
+      apiKey,
+      managedOperation,
+      `${conference}:${text}`
+    );
+  }
   // Fallback to regular generation
-  return service.generateFinalAbstract(text, type, categories, keywords, '', '', apiKey);
+  return service.generateFinalAbstract(
+    text,
+    type,
+    categories,
+    keywords,
+    '',
+    '',
+    apiKey,
+    managedOperation
+  );
 };
 
 export const generateCreativeAbstractForConference = (

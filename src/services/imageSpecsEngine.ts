@@ -7,7 +7,6 @@
 import type {
   ImageSpecField,
   ImageSpecCategory,
-  ImageTemplate,
   CompletionSuggestion,
   TriggerMapping,
   StructuredImagePrompt,
@@ -176,89 +175,6 @@ function buildTriggerMappings(): TriggerMapping[] {
 const TRIGGER_MAPPINGS = buildTriggerMappings();
 
 // ============================================================================
-// TEMPLATES
-// ============================================================================
-
-export const IMAGE_TEMPLATES: ImageTemplate[] = [
-  {
-    id: 'diagram',
-    name: 'Diagram Template',
-    icon: '🔬',
-    description: 'Scientific diagram with annotations',
-    defaultFields: [
-      { key: 'research_type', value: 'biomedical', category: 'research', isValid: true },
-      { key: 'journal_style', value: 'Nature', category: 'journal', isValid: true },
-      { key: 'layout', value: 'single', category: 'layout', isValid: true },
-      { key: 'color_palette', value: 'scientific blue', category: 'style', isValid: true },
-      { key: 'resolution', value: '1024x1024', category: 'format', isValid: true },
-      {
-        key: 'elements',
-        value: 'labeled arrows, scale bar, annotations',
-        category: 'elements',
-        isValid: true,
-      },
-    ],
-  },
-  {
-    id: 'flowchart',
-    name: 'Flowchart Template',
-    icon: '📊',
-    description: 'Process flow with connected boxes',
-    defaultFields: [
-      { key: 'research_type', value: 'clinical', category: 'research', isValid: true },
-      { key: 'journal_style', value: 'JAMA', category: 'journal', isValid: true },
-      { key: 'layout', value: 'columned', category: 'layout', isValid: true },
-      { key: 'color_palette', value: 'colorful', category: 'style', isValid: true },
-      { key: 'resolution', value: '1920x1080', category: 'format', isValid: true },
-      {
-        key: 'elements',
-        value: 'boxes, arrows, decision diamonds, connectors',
-        category: 'elements',
-        isValid: true,
-      },
-    ],
-  },
-  {
-    id: 'statistical',
-    name: 'Statistical Chart Template',
-    icon: '📈',
-    description: 'Data visualization with statistics',
-    defaultFields: [
-      { key: 'research_type', value: 'clinical', category: 'research', isValid: true },
-      { key: 'journal_style', value: 'NEJM', category: 'journal', isValid: true },
-      { key: 'layout', value: '2x2 grid', category: 'layout', isValid: true },
-      { key: 'color_palette', value: 'grayscale', category: 'style', isValid: true },
-      { key: 'resolution', value: '1024x1024', category: 'format', isValid: true },
-      {
-        key: 'elements',
-        value: 'bar charts, error bars, p-values, significance markers',
-        category: 'elements',
-        isValid: true,
-      },
-    ],
-  },
-  {
-    id: 'mri',
-    name: 'MRI Figure Template',
-    icon: '🧠',
-    description: 'Medical imaging figure layout',
-    defaultFields: [
-      { key: 'research_type', value: 'radiology', category: 'research', isValid: true },
-      { key: 'journal_style', value: 'Radiology', category: 'journal', isValid: true },
-      { key: 'layout', value: '3x3 grid', category: 'layout', isValid: true },
-      { key: 'color_palette', value: 'medical imaging', category: 'style', isValid: true },
-      { key: 'resolution', value: '2048x2048', category: 'format', isValid: true },
-      {
-        key: 'elements',
-        value: 'ROI markers, scale bar, sequence labels, color bar',
-        category: 'elements',
-        isValid: true,
-      },
-    ],
-  },
-];
-
-// ============================================================================
 // IMAGE SPECS ENGINE CLASS
 // ============================================================================
 
@@ -360,18 +276,6 @@ export class ImageSpecsEngine {
     );
 
     return uniqueSuggestions.slice(0, 10);
-  }
-
-  /**
-   * Apply a template by ID
-   */
-  applyTemplate(templateId: string): ImageSpecField[] {
-    const template = IMAGE_TEMPLATES.find((t) => t.id === templateId);
-    if (!template) {
-      console.warn(`Template "${templateId}" not found`);
-      return [];
-    }
-    return [...template.defaultFields];
   }
 
   /**
@@ -507,10 +411,6 @@ export class ImageSpecsEngine {
 export const imageSpecsEngine = new ImageSpecsEngine();
 
 // Export utility functions
-export function getTemplates(): ImageTemplate[] {
-  return IMAGE_TEMPLATES;
-}
-
 export function getFieldDefinitions() {
   return FIELD_DEFINITIONS;
 }

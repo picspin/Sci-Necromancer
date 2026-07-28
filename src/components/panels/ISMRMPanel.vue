@@ -496,7 +496,8 @@ Keywords: ${generatedAbstract.value.keywords.join(', ')}`;
       selectedCategories.value,
       selectedKeywords.value,
       impact.value,
-      synopsis.value
+      synopsis.value,
+      'deep_update'
     );
 
     result.categories = selectedCategories.value;

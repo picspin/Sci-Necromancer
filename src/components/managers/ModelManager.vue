@@ -1,721 +1,300 @@
 <template>
   <Modal @close="$emit('close')" :title="t('model_manager.title')" size="lg">
-    <div class="space-y-6">
-      <!-- Panel Navigation -->
-      <div class="flex gap-2 border-b border-base-300">
+    <div class="space-y-5">
+      <nav class="grid grid-cols-3 gap-2" :aria-label="t('model_manager.title')">
         <button
-          @click="activePanel = 'providers'"
+          v-for="panel in panels"
+          :key="panel.id"
+          type="button"
+          @click="activePanel = panel.id"
           :class="[
-            'px-4 py-2 text-sm font-medium transition-colors border-b-2',
-            activePanel === 'providers'
-              ? 'border-brand-primary text-brand-primary'
-              : 'border-transparent text-text-secondary hover:text-text-primary',
+            'rounded-lg px-3 py-2 text-sm font-medium transition-colors',
+            activePanel === panel.id
+              ? 'bg-brand-primary text-white'
+              : 'bg-base-100 text-text-secondary hover:text-text-primary',
           ]"
         >
-          {{ t('model_manager.providers_tab') }}
+          {{ t(panel.label) }}
         </button>
-        <button
-          @click="activePanel = 'mcp-tools'"
-          :class="[
-            'px-4 py-2 text-sm font-medium transition-colors border-b-2',
-            activePanel === 'mcp-tools'
-              ? 'border-brand-primary text-brand-primary'
-              : 'border-transparent text-text-secondary hover:text-text-primary',
-          ]"
-        >
-          {{ t('model_manager.mcp_tab') }}
-        </button>
-      </div>
+      </nav>
 
-      <!-- AI Providers Panel -->
-      <div v-if="activePanel === 'providers'" class="space-y-4">
-        <!-- Provider Selection -->
-        <div class="space-y-3">
-          <label class="block text-sm font-medium text-text-primary">{{
-            t('model_manager.provider')
-          }}</label>
-          <div class="flex gap-3">
-            <button
-              @click="handleProviderChange('google')"
-              :class="[
-                'flex-1 py-2 px-4 rounded-md text-sm font-medium transition-all duration-200',
-                localSettings.provider === 'google'
-                  ? 'bg-brand-primary text-white shadow-md'
-                  : 'bg-base-200 text-text-secondary hover:bg-base-300',
-              ]"
-            >
-              {{ t('model_manager.google_ai') }}
-            </button>
-            <button
-              @click="handleProviderChange('openai')"
-              :class="[
-                'flex-1 py-2 px-4 rounded-md text-sm font-medium transition-all duration-200',
-                localSettings.provider === 'openai'
-                  ? 'bg-brand-primary text-white shadow-md'
-                  : 'bg-base-200 text-text-secondary hover:bg-base-300',
-              ]"
-            >
-              {{ t('model_manager.openai_compatible') }}
-            </button>
-          </div>
+      <section v-if="activePanel === 'personal-api'" class="space-y-4">
+        <p class="text-sm text-text-secondary">{{ t('model_manager.personal_api_help') }}</p>
+        <div class="grid grid-cols-2 gap-2">
+          <button
+            v-for="provider in providerOptions"
+            :key="provider.id"
+            type="button"
+            @click="localSettings.provider = provider.id"
+            :class="[
+              'rounded-lg px-4 py-2 text-sm font-medium',
+              localSettings.provider === provider.id
+                ? 'bg-brand-primary text-white'
+                : 'bg-base-100 text-text-secondary',
+            ]"
+          >
+            {{ t(provider.label) }}
+          </button>
         </div>
 
-        <!-- Google AI Configuration -->
         <div
           v-if="localSettings.provider === 'google'"
-          class="space-y-4 p-4 bg-base-100 rounded-lg"
+          class="grid gap-3 rounded-lg bg-base-100 p-4 sm:grid-cols-2"
         >
-          <div>
-            <label for="google-api-key" class="block text-sm font-medium text-text-secondary mb-1">
-              {{ t('model_manager.api_key') }}
-            </label>
+          <label class="sm:col-span-2">
+            <span class="field-label">{{ t('model_manager.api_key') }}</span>
             <input
-              type="password"
-              id="google-api-key"
               v-model="localSettings.googleApiKey"
-              placeholder="AIza..."
-              class="w-full p-2 bg-base-200 border border-base-300 rounded-md text-sm focus:ring-2 focus:ring-brand-primary focus:outline-none transition"
-            />
-            <p class="text-xs text-text-secondary mt-1">{{ t('model_manager.google_key_help') }}</p>
-          </div>
-
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <div>
-              <label
-                for="google-text-model"
-                class="block text-sm font-medium text-text-secondary mb-1"
-              >
-                {{ t('model_manager.text_model') }}
-              </label>
-              <div class="flex items-center gap-2">
-                <template v-if="googleModelIds.length">
-                  <select
-                    id="google-text-model"
-                    v-model="localSettings.model"
-                    class="flex-1 p-2 bg-base-200 border border-base-300 rounded-md text-sm focus:ring-2 focus:ring-brand-primary focus:outline-none transition"
-                  >
-                    <option v-for="m in googleModelIds" :key="m" :value="m">{{ m }}</option>
-                  </select>
-                </template>
-                <template v-else>
-                  <select
-                    id="google-text-model"
-                    v-model="localSettings.model"
-                    class="flex-1 p-2 bg-base-200 border border-base-300 rounded-md text-sm focus:ring-2 focus:ring-brand-primary focus:outline-none transition"
-                  >
-                    <option value="gemini-2.5-flash">gemini-2.5-flash</option>
-                    <option value="gemini-2.5-pro">gemini-2.5-pro</option>
-                    <option value="gemini-2.5-flash-lite">gemini-2.5-flash-lite</option>
-                  </select>
-                </template>
-                <button
-                  type="button"
-                  @click="loadGoogleModels"
-                  class="p-2 bg-base-300 text-text-secondary rounded-md hover:bg-base-400 transition-colors flex items-center justify-center"
-                  :disabled="loadingGoogleModels"
-                  :title="t('model_manager.load_models')"
-                >
-                  <svg
-                    :class="['w-5 h-5', loadingGoogleModels ? 'animate-spin' : '']"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      stroke-width="2"
-                      d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                    />
-                  </svg>
-                </button>
-              </div>
-            </div>
-
-            <div>
-              <label
-                for="google-image-model"
-                class="block text-sm font-medium text-text-secondary mb-1"
-              >
-                {{ t('model_manager.image_model') }}
-              </label>
-              <div class="flex items-center gap-2">
-                <template v-if="googleImageModelIds.length">
-                  <select
-                    id="google-image-model"
-                    v-model="localSettings.openAIImageModel"
-                    class="flex-1 p-2 bg-base-200 border border-base-300 rounded-md text-sm focus:ring-2 focus:ring-brand-primary focus:outline-none transition"
-                  >
-                    <option v-for="m in googleImageModelIds" :key="m" :value="m">{{ m }}</option>
-                  </select>
-                </template>
-                <template v-else>
-                  <select
-                    id="google-image-model"
-                    v-model="localSettings.openAIImageModel"
-                    class="flex-1 p-2 bg-base-200 border border-base-300 rounded-md text-sm focus:ring-2 focus:ring-brand-primary focus:outline-none transition"
-                  >
-                    <option value="imagen-3.0-generate-001">imagen-3.0-generate-001</option>
-                  </select>
-                </template>
-                <button
-                  type="button"
-                  @click="loadGoogleModels"
-                  class="p-2 bg-base-300 text-text-secondary rounded-md hover:bg-base-400 transition-colors flex items-center justify-center"
-                  :disabled="loadingGoogleModels"
-                  :title="t('model_manager.load_models')"
-                >
-                  <svg
-                    :class="['w-5 h-5', loadingGoogleModels ? 'animate-spin' : '']"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      stroke-width="2"
-                      d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                    />
-                  </svg>
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- OpenAI Compatible Configuration -->
-        <div
-          v-if="localSettings.provider === 'openai'"
-          class="space-y-4 p-4 bg-base-100 rounded-lg"
-        >
-          <div>
-            <label for="openai-api-key" class="block text-sm font-medium text-text-secondary mb-1">
-              {{ t('model_manager.api_key') }}
-            </label>
-            <input
               type="password"
-              id="openai-api-key"
-              v-model="localSettings.openAIApiKey"
-              placeholder="sk-... or provider-specific key"
-              class="w-full p-2 bg-base-200 border border-base-300 rounded-md text-sm focus:ring-2 focus:ring-brand-primary focus:outline-none transition"
+              class="field-input"
+              autocomplete="off"
             />
-          </div>
-
-          <div>
-            <label for="openai-base-url" class="block text-sm font-medium text-text-secondary mb-1">
-              {{ t('model_manager.base_url') }}
-            </label>
-            <div class="flex items-center gap-2">
-              <input
-                type="text"
-                id="openai-base-url"
-                v-model="localSettings.openAIBaseUrl"
-                placeholder="https://api.openai.com/v1"
-                class="flex-1 p-2 bg-base-200 border border-base-300 rounded-md text-sm focus:ring-2 focus:ring-brand-primary focus:outline-none transition"
-              />
-              <button
-                type="button"
-                @click="loadOpenAIModels"
-                class="px-3 py-2 bg-brand-primary text-white rounded-md text-sm hover:bg-brand-secondary transition-colors"
-                :disabled="loadingModels"
-              >
-                {{
-                  loadingModels ? t('model_manager.loading_models') : t('model_manager.load_models')
-                }}
-              </button>
-            </div>
-            <p class="text-xs text-text-secondary mt-1">{{ t('model_manager.openai_support') }}</p>
-          </div>
-
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <div>
-              <label for="text-model" class="block text-sm font-medium text-text-secondary mb-1">
-                {{ t('model_manager.text_model') }}
-              </label>
-              <div class="flex items-center gap-2">
-                <template v-if="openAIModelIds.length">
-                  <select
-                    id="text-model"
-                    v-model="localSettings.openAITextModel"
-                    class="flex-1 p-2 bg-base-200 border border-base-300 rounded-md text-sm focus:ring-2 focus:ring-brand-primary focus:outline-none transition"
-                  >
-                    <option v-for="m in openAIModelIds" :key="m" :value="m">{{ m }}</option>
-                  </select>
-                </template>
-                <template v-else>
-                  <input
-                    type="text"
-                    id="text-model"
-                    v-model="localSettings.openAITextModel"
-                    placeholder="gpt-4o"
-                    class="flex-1 p-2 bg-base-200 border border-base-300 rounded-md text-sm focus:ring-2 focus:ring-brand-primary focus:outline-none transition"
-                  />
-                </template>
-                <button
-                  type="button"
-                  @click="loadOpenAIModels"
-                  class="p-2 bg-base-300 text-text-secondary rounded-md hover:bg-base-400 transition-colors flex items-center justify-center"
-                  :disabled="loadingModels"
-                  :title="t('model_manager.load_models')"
-                >
-                  <svg
-                    :class="['w-5 h-5', loadingModels ? 'animate-spin' : '']"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      stroke-width="2"
-                      d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                    />
-                  </svg>
-                </button>
-              </div>
-            </div>
-
-            <div>
-              <label for="vision-model" class="block text-sm font-medium text-text-secondary mb-1">
-                {{ t('model_manager.vision_model') }}
-              </label>
-              <div class="flex items-center gap-2">
-                <template v-if="openAIModelIds.length">
-                  <select
-                    id="vision-model"
-                    v-model="localSettings.openAIVisionModel"
-                    class="flex-1 p-2 bg-base-200 border border-base-300 rounded-md text-sm focus:ring-2 focus:ring-brand-primary focus:outline-none transition"
-                  >
-                    <option v-for="m in openAIModelIds" :key="m" :value="m">{{ m }}</option>
-                  </select>
-                </template>
-                <template v-else>
-                  <input
-                    type="text"
-                    id="vision-model"
-                    v-model="localSettings.openAIVisionModel"
-                    placeholder="gpt-4o, gpt-4-vision-preview"
-                    class="flex-1 p-2 bg-base-200 border border-base-300 rounded-md text-sm focus:ring-2 focus:ring-brand-primary focus:outline-none transition"
-                  />
-                </template>
-                <button
-                  type="button"
-                  @click="loadOpenAIModels"
-                  class="p-2 bg-base-300 text-text-secondary rounded-md hover:bg-base-400 transition-colors flex items-center justify-center"
-                  :disabled="loadingModels"
-                  :title="t('model_manager.load_models')"
-                >
-                  <svg
-                    :class="['w-5 h-5', loadingModels ? 'animate-spin' : '']"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      stroke-width="2"
-                      d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                    />
-                  </svg>
-                </button>
-              </div>
-              <p class="text-xs text-text-secondary mt-1">{{ t('model_manager.vision_help') }}</p>
-            </div>
-
-            <div>
-              <label for="image-model" class="block text-sm font-medium text-text-secondary mb-1">
-                {{ t('model_manager.image_model') }}
-              </label>
-              <div class="flex items-center gap-2">
-                <template v-if="openAIModelIds.length">
-                  <select
-                    id="image-model"
-                    v-model="localSettings.openAIImageModel"
-                    class="flex-1 p-2 bg-base-200 border border-base-300 rounded-md text-sm focus:ring-2 focus:ring-brand-primary focus:outline-none transition"
-                  >
-                    <option v-for="m in openAIModelIds" :key="m" :value="m">{{ m }}</option>
-                  </select>
-                </template>
-                <template v-else>
-                  <input
-                    type="text"
-                    id="image-model"
-                    v-model="localSettings.openAIImageModel"
-                    placeholder="dall-e-3, gpt-5"
-                    class="flex-1 p-2 bg-base-200 border border-base-300 rounded-md text-sm focus:ring-2 focus:ring-brand-primary focus:outline-none transition"
-                  />
-                </template>
-                <button
-                  type="button"
-                  @click="loadOpenAIModels"
-                  class="p-2 bg-base-300 text-text-secondary rounded-md hover:bg-base-400 transition-colors flex items-center justify-center"
-                  :disabled="loadingModels"
-                  :title="t('model_manager.load_models')"
-                >
-                  <svg
-                    :class="['w-5 h-5', loadingModels ? 'animate-spin' : '']"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      stroke-width="2"
-                      d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                    />
-                  </svg>
-                </button>
-              </div>
-              <p class="text-xs text-text-secondary mt-1">{{ t('model_manager.image_help') }}</p>
-            </div>
-          </div>
+          </label>
+          <label>
+            <span class="field-label">{{ t('model_manager.text_model') }}</span>
+            <input
+              v-model="localSettings.model"
+              type="text"
+              class="field-input"
+              placeholder="gemini-3.6-flash"
+            />
+          </label>
+          <label>
+            <span class="field-label">{{ t('model_manager.image_model') }}</span>
+            <input
+              v-model="localSettings.googleImageModel"
+              type="text"
+              class="field-input"
+              placeholder="gemini-3-pro-image"
+            />
+          </label>
         </div>
-      </div>
 
-      <!-- Skills & MCP Panel -->
-      <div v-if="activePanel === 'mcp-tools'" class="space-y-4">
-        <p class="text-sm text-text-secondary">
-          {{ t('model_manager.mcp_description') }}
+        <div v-else class="grid gap-3 rounded-lg bg-base-100 p-4 sm:grid-cols-2">
+          <label class="sm:col-span-2">
+            <span class="field-label">{{ t('model_manager.api_key') }}</span>
+            <input
+              v-model="localSettings.openAIApiKey"
+              type="password"
+              class="field-input"
+              autocomplete="off"
+            />
+          </label>
+          <label class="sm:col-span-2">
+            <span class="field-label">{{ t('model_manager.base_url') }}</span>
+            <input
+              v-model="localSettings.openAIBaseUrl"
+              type="url"
+              class="field-input"
+              placeholder="https://api.openai.com/v1"
+            />
+          </label>
+          <label>
+            <span class="field-label">{{ t('model_manager.text_model') }}</span>
+            <input
+              v-model="localSettings.openAITextModel"
+              type="text"
+              class="field-input"
+              placeholder="gpt-5.6-terra"
+            />
+          </label>
+          <label>
+            <span class="field-label">{{ t('model_manager.image_model') }}</span>
+            <input
+              v-model="localSettings.openAIImageModel"
+              type="text"
+              class="field-input"
+              placeholder="gpt-image-2"
+            />
+          </label>
+        </div>
+      </section>
+
+      <section v-else-if="activePanel === 'member-services'" class="space-y-3">
+        <div v-if="!isAuthenticated" class="rounded-lg bg-amber-500/10 p-3 text-sm text-amber-500">
+          {{ t('model_manager.member_login_required') }}
+        </div>
+        <p class="rounded-lg bg-base-100 p-3 text-xs text-text-secondary">
+          {{ t('model_manager.managed_data_route') }}
         </p>
+        <label class="setting-row">
+          <span>
+            <strong>Gemini 3.6 Flash</strong>
+            <small>{{ t('model_manager.managed_text_help') }}</small>
+          </span>
+          <input
+            v-model="localSettings.memberManagedTextEnabled"
+            type="checkbox"
+            :disabled="!isAuthenticated"
+            aria-label="Gemini 3.6 Flash"
+            class="setting-checkbox"
+          />
+        </label>
+        <label class="setting-row">
+          <span>
+            <strong>Nano Banana Pro</strong>
+            <small>{{ t('model_manager.managed_image_help') }}</small>
+          </span>
+          <input
+            v-model="localSettings.memberManagedImageEnabled"
+            type="checkbox"
+            :disabled="!isAuthenticated"
+            aria-label="Nano Banana Pro"
+            class="setting-checkbox"
+          />
+        </label>
+        <label class="setting-row">
+          <span>
+            <strong>Supabase cloud save</strong>
+            <small>{{ t('model_manager.cloud_save_help') }}</small>
+          </span>
+          <input
+            v-model="localSettings.databaseEnabled"
+            type="checkbox"
+            :disabled="!isAuthenticated"
+            aria-label="Supabase cloud save"
+            class="setting-checkbox"
+          />
+        </label>
+        <div class="rounded-lg bg-base-100 p-3 text-sm text-text-secondary">
+          GPT Image 2 · {{ t('model_manager.backend_managed') }}
+        </div>
+      </section>
 
+      <section v-else class="space-y-4">
+        <p class="text-sm text-text-secondary">{{ t('model_manager.mcp_description') }}</p>
         <div class="grid gap-3 sm:grid-cols-2">
-          <div class="flex items-center justify-between rounded-lg bg-base-100 p-4">
-            <div>
-              <h4 class="text-sm font-medium text-text-primary">
-                {{ t('model_manager.skills_runtime') }}
-              </h4>
-              <p class="mt-0.5 text-xs text-text-secondary">
-                {{ t('model_manager.skills_runtime_help') }}
-              </p>
-            </div>
-            <label
-              class="relative inline-flex min-h-[44px] min-w-[44px] cursor-pointer items-center justify-center"
+          <label class="setting-row">
+            <span
+              ><strong>{{ t('model_manager.skills_runtime') }}</strong></span
             >
-              <input
-                v-model="localSettings.capabilities!.skillsEnabled"
-                type="checkbox"
-                class="sr-only peer"
-                :aria-label="t('model_manager.skills_runtime')"
-              />
-              <div
-                class="relative h-5 w-9 rounded-full bg-base-300 after:absolute after:left-0.5 after:top-0.5 after:h-4 after:w-4 after:rounded-full after:bg-white after:transition-all after:content-[''] peer-checked:bg-brand-primary peer-checked:after:translate-x-4"
-              ></div>
-            </label>
-          </div>
-          <div class="flex items-center justify-between rounded-lg bg-base-100 p-4">
-            <div>
-              <h4 class="text-sm font-medium text-text-primary">
-                {{ t('model_manager.mcp_runtime') }}
-              </h4>
-              <p class="mt-0.5 text-xs text-text-secondary">
-                {{ t('model_manager.mcp_runtime_help') }}
-              </p>
-            </div>
-            <label
-              class="relative inline-flex min-h-[44px] min-w-[44px] cursor-pointer items-center justify-center"
+            <input
+              v-model="localSettings.capabilities!.skillsEnabled"
+              type="checkbox"
+              :aria-label="t('model_manager.skills_runtime')"
+              class="setting-checkbox"
+            />
+          </label>
+          <label class="setting-row">
+            <span
+              ><strong>{{ t('model_manager.mcp_runtime') }}</strong></span
             >
-              <input
-                v-model="localSettings.capabilities!.mcpEnabled"
-                type="checkbox"
-                class="sr-only peer"
-                :aria-label="t('model_manager.mcp_runtime')"
-              />
-              <div
-                class="relative h-5 w-9 rounded-full bg-base-300 after:absolute after:left-0.5 after:top-0.5 after:h-4 after:w-4 after:rounded-full after:bg-white after:transition-all after:content-[''] peer-checked:bg-brand-primary peer-checked:after:translate-x-4"
-              ></div>
-            </label>
-          </div>
+            <input
+              v-model="localSettings.capabilities!.mcpEnabled"
+              type="checkbox"
+              :aria-label="t('model_manager.mcp_runtime')"
+              class="setting-checkbox"
+            />
+          </label>
         </div>
 
-        <div class="rounded-lg bg-base-100 p-4">
-          <div class="flex items-start justify-between gap-4">
-            <div>
-              <h4 class="text-sm font-medium text-text-primary">
-                {{ t('model_manager.bundled_skill') }}
-              </h4>
-              <p class="mt-0.5 text-xs text-text-secondary">
-                {{ t('model_manager.bundled_skill_help') }}
-              </p>
-            </div>
-            <label class="inline-flex min-h-[44px] min-w-[44px] items-center justify-center">
-              <input
-                v-model="localSettings.capabilities!.bundledBlindReviewSkill"
-                type="checkbox"
-                :disabled="!localSettings.capabilities?.skillsEnabled"
-                :aria-label="t('model_manager.bundled_skill')"
-                class="rounded border-base-300 text-brand-primary focus:ring-brand-primary"
-                @change="syncBundledSkill"
-              />
-            </label>
-          </div>
-          <a
-            href="/skills/academic-abstract-blind-review.zip"
-            class="mt-2 inline-block text-xs text-brand-primary hover:underline"
-            download
-            >{{ t('model_manager.download_skill') }}</a
-          >
-        </div>
-
-        <div class="rounded-lg bg-base-100 p-4">
-          <div class="flex items-start justify-between gap-4">
-            <div>
-              <h4 class="text-sm font-medium text-text-primary">
-                {{ t('model_manager.blind_review_title') }}
-              </h4>
-              <p class="mt-0.5 text-xs text-text-secondary">
-                {{ t('model_manager.blind_review_help') }}
-              </p>
-            </div>
-            <label
-              class="relative inline-flex min-h-[44px] min-w-[44px] cursor-pointer items-center justify-center"
+        <div class="rounded-lg bg-base-100 p-4 space-y-3">
+          <label class="setting-row !p-0">
+            <span>
+              <strong>{{ t('model_manager.bundled_skill') }}</strong>
+              <small>{{ t('model_manager.bundled_skill_help') }}</small>
+            </span>
+            <input
+              v-model="localSettings.capabilities!.bundledBlindReviewSkill"
+              type="checkbox"
+              class="setting-checkbox"
+              @change="syncBundledSkill"
+            />
+          </label>
+          <label class="setting-row !p-0">
+            <span
+              ><strong>{{ t('model_manager.blind_review_enabled') }}</strong></span
             >
-              <input
-                v-model="localSettings.blindReview!.enabled"
-                type="checkbox"
-                class="sr-only peer"
-                :aria-label="t('model_manager.blind_review_enabled')"
-              />
-              <div
-                class="relative h-5 w-9 rounded-full bg-base-300 after:absolute after:left-0.5 after:top-0.5 after:h-4 after:w-4 after:rounded-full after:bg-white after:transition-all after:content-[''] peer-checked:bg-brand-primary peer-checked:after:translate-x-4"
-              ></div>
-            </label>
-          </div>
-          <p class="mt-2 text-xs text-cyan-200">{{ t('model_manager.backend_managed') }}</p>
-          <p class="mt-2 text-xs text-amber-200">{{ t('model_manager.external_data_notice') }}</p>
-          <fieldset
-            class="mt-3 space-y-2"
-            :disabled="
-              !localSettings.blindReview?.enabled || !localSettings.capabilities?.mcpEnabled
-            "
-          >
+            <input
+              v-model="localSettings.blindReview!.enabled"
+              type="checkbox"
+              class="setting-checkbox"
+            />
+          </label>
+          <div class="grid gap-2 sm:grid-cols-3">
             <label
               v-for="reviewer in reviewerOptions"
               :key="reviewer.key"
-              class="flex min-h-[44px] items-center gap-2 text-sm text-text-secondary"
+              class="flex items-center gap-2 text-xs text-text-secondary"
             >
               <input
                 v-model="localSettings.blindReview!.reviewers[reviewer.key]"
                 type="checkbox"
-                class="rounded border-base-300 text-brand-primary focus:ring-brand-primary"
+                :aria-label="t(reviewer.label)"
+                class="setting-checkbox"
               />
               {{ t(reviewer.label) }}
             </label>
-          </fieldset>
+          </div>
         </div>
 
-        <div class="rounded-lg bg-base-100 p-4">
-          <h4 class="text-sm font-medium text-text-primary">
-            {{ t('model_manager.import_capability') }}
-          </h4>
-          <p class="mt-1 text-xs text-text-secondary">
-            {{ t('model_manager.import_capability_help') }}
-          </p>
+        <div class="rounded-lg border border-dashed border-base-300 p-4 space-y-3">
+          <div>
+            <h4 class="text-sm font-medium text-text-primary">
+              {{ t('model_manager.import_capability') }}
+            </h4>
+            <p class="text-xs text-text-secondary">
+              {{ t('model_manager.import_capability_help') }}
+            </p>
+          </div>
           <label
-            class="mt-3 inline-flex cursor-pointer items-center rounded-md border border-base-300 px-3 py-2 text-sm text-text-secondary hover:border-brand-primary hover:text-brand-primary"
+            class="inline-flex cursor-pointer rounded-lg bg-base-100 px-3 py-2 text-sm text-text-primary"
           >
             {{ t('model_manager.choose_manifest') }}
             <input
               type="file"
               accept="application/json,.json"
               class="sr-only"
+              :aria-label="t('model_manager.choose_manifest')"
               @change="importCapabilityManifest"
             />
           </label>
           <p
             v-if="capabilityImportMessage"
-            class="mt-2 text-xs"
-            :class="capabilityImportError ? 'text-red-300' : 'text-green-300'"
+            :class="capabilityImportError ? 'text-red-500' : 'text-emerald-500'"
+            class="text-xs"
           >
             {{ capabilityImportMessage }}
           </p>
-          <ul v-if="localSettings.capabilities?.imported.length" class="mt-3 space-y-2">
-            <li
-              v-for="capability in localSettings.capabilities.imported"
-              :key="capability.id"
-              class="flex items-center justify-between gap-3 rounded border border-base-300 p-2"
-            >
-              <label
-                class="flex min-h-[44px] min-w-0 items-center gap-2 text-sm text-text-secondary"
-              >
-                <input
-                  v-model="capability.enabled"
-                  type="checkbox"
-                  :disabled="
-                    !capability.adapter ||
-                    (capability.kind === 'skill'
-                      ? !localSettings.capabilities.skillsEnabled
-                      : !localSettings.capabilities.mcpEnabled)
-                  "
-                />
-                <span class="truncate">{{ capability.name }}</span>
-                <span class="rounded bg-base-300 px-1.5 py-0.5 text-[10px] uppercase">{{
-                  capability.kind
-                }}</span>
-                <span v-if="!capability.adapter" class="text-[10px] text-amber-200">
-                  {{ t('model_manager.registry_only') }}
-                </span>
-              </label>
-              <button
-                type="button"
-                class="text-xs text-red-300 hover:text-red-200"
-                @click="removeCapability(capability.id)"
-              >
-                {{ t('common.delete') }}
-              </button>
-            </li>
-          </ul>
-        </div>
-
-        <!-- Supabase MCP -->
-        <div class="p-4 bg-base-100 rounded-lg">
-          <div class="flex items-center justify-between mb-3">
-            <div>
-              <h4 class="text-sm font-medium text-text-primary">
-                {{ t('model_manager.supabase_database') }}
-              </h4>
-              <p class="text-xs text-text-secondary mt-0.5">{{ t('model_manager.cloud_sync') }}</p>
-            </div>
-            <label
-              class="relative inline-flex min-h-[44px] min-w-[44px] items-center justify-center cursor-pointer"
-            >
-              <input
-                type="checkbox"
-                v-model="localSettings.databaseEnabled"
-                :disabled="!localSettings.capabilities?.mcpEnabled"
-                class="sr-only peer"
-              />
-              <div
-                class="relative h-5 w-9 rounded-full bg-base-300 after:absolute after:left-0.5 after:top-0.5 after:h-4 after:w-4 after:rounded-full after:bg-white after:transition-all after:content-[''] peer-checked:bg-brand-primary peer-checked:after:translate-x-4"
-              ></div>
-            </label>
-          </div>
-        </div>
-
-        <!-- Image Generation MCP -->
-        <div class="p-4 bg-base-100 rounded-lg">
-          <div class="flex items-center justify-between mb-3">
-            <div>
-              <h4 class="text-sm font-medium text-text-primary">
-                {{ t('model_manager.image_mcp') }}
-              </h4>
-              <p class="text-xs text-text-secondary mt-0.5">
-                {{ t('model_manager.image_mcp_help') }}
-              </p>
-            </div>
-            <label
-              class="relative inline-flex min-h-[44px] min-w-[44px] items-center justify-center cursor-pointer"
-            >
-              <input
-                type="checkbox"
-                :checked="localSettings.mcpConfig?.imageGeneration?.enabled || false"
-                :disabled="!localSettings.capabilities?.mcpEnabled"
-                @change="toggleImageGeneration"
-                class="sr-only peer"
-              />
-              <div
-                class="relative h-5 w-9 rounded-full bg-base-300 after:absolute after:left-0.5 after:top-0.5 after:h-4 after:w-4 after:rounded-full after:bg-white after:transition-all after:content-[''] peer-checked:bg-brand-primary peer-checked:after:translate-x-4"
-              ></div>
-            </label>
-          </div>
-
           <div
-            v-if="localSettings.mcpConfig?.imageGeneration?.enabled"
-            class="space-y-3 pt-3 border-t border-base-300"
+            v-for="capability in localSettings.capabilities!.imported"
+            :key="capability.id"
+            class="flex items-center justify-between gap-3 rounded-lg bg-base-100 p-3"
           >
-            <div>
-              <label
-                for="mcp-image-base-url"
-                class="block text-sm font-medium text-text-secondary mb-1"
-              >
-                {{ t('model_manager.base_url') }}
-              </label>
+            <label class="flex min-w-0 items-center gap-2 text-sm text-text-primary">
               <input
-                type="text"
-                id="mcp-image-base-url"
-                v-model="mcpImageConfig.baseUrl"
-                placeholder="https://chat.int.bayer.com/api/v2"
-                class="w-full p-2 bg-base-200 border border-base-300 rounded-md text-sm focus:ring-2 focus:ring-brand-primary focus:outline-none transition"
+                v-model="capability.enabled"
+                type="checkbox"
+                :disabled="!capability.adapter"
+                :aria-label="capability.name"
+                class="setting-checkbox"
               />
-              <p class="text-xs text-text-secondary mt-1">
-                {{ t('model_manager.image_mcp_endpoint') }}
-              </p>
-            </div>
-
-            <div>
-              <label
-                for="mcp-image-model"
-                class="block text-sm font-medium text-text-secondary mb-1"
-              >
-                {{ t('model_manager.model') }}
-              </label>
-              <input
-                type="text"
-                id="mcp-image-model"
-                v-model="mcpImageConfig.model"
-                placeholder="gpt-4o (model with tool access)"
-                class="w-full p-2 bg-base-200 border border-base-300 rounded-md text-sm focus:ring-2 focus:ring-brand-primary focus:outline-none transition"
-              />
-              <p class="text-xs text-text-secondary mt-1">
-                {{ t('model_manager.image_mcp_model_help') }}
-              </p>
-            </div>
-
-            <div>
-              <label
-                for="mcp-image-config"
-                class="block text-sm font-medium text-text-secondary mb-1"
-              >
-                {{ t('model_manager.custom_config') }}
-              </label>
-              <textarea
-                id="mcp-image-config"
-                v-model="mcpImageConfig.customConfig"
-                placeholder='{"customHeaders": {"X-Custom": "value"}}'
-                class="w-full p-2 bg-base-200 border border-base-300 rounded-md text-sm font-mono focus:ring-2 focus:ring-brand-primary focus:outline-none transition"
-                rows="3"
-              ></textarea>
-              <p class="text-xs text-text-secondary mt-1">
-                {{ t('model_manager.custom_config_help') }}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <!-- Nanobana Pro 3 Info (Environment-based) -->
-        <div class="p-4 bg-base-100 rounded-lg">
-          <div class="flex items-center gap-2 mb-2">
-            <span class="text-orange-500 text-lg">🍌</span>
-            <h4 class="text-sm font-medium text-text-primary">Nanobana Pro 3</h4>
-          </div>
-          <p class="text-xs text-text-secondary">
-            {{ t('model_manager.nanobana_env') }}
-          </p>
-          <p class="text-xs text-text-secondary mt-1">
-            {{ t('model_manager.get_key_from') }}
-            <a
-              href="https://aistudio.google.com/apikey"
-              target="_blank"
-              class="text-brand-primary hover:underline"
-              >Google AI Studio</a
+              <span class="truncate">{{ capability.name }}</span>
+              <small class="uppercase text-text-secondary">{{ capability.kind }}</small>
+            </label>
+            <button
+              type="button"
+              class="text-xs text-red-500"
+              @click="removeCapability(capability.id)"
             >
-          </p>
+              {{ t('common.delete') }}
+            </button>
+          </div>
         </div>
-      </div>
+      </section>
 
-      <!-- Action Buttons -->
-      <div class="flex justify-end gap-3 pt-4 border-t border-base-300">
+      <div class="flex justify-end gap-3 border-t border-base-300 pt-4">
         <button
+          type="button"
+          class="rounded-lg px-4 py-2 text-text-secondary"
           @click="$emit('close')"
-          class="px-4 py-2 rounded-md text-text-secondary hover:bg-base-300 transition-colors"
         >
           {{ t('model_manager.cancel') }}
         </button>
         <button
+          type="button"
+          class="rounded-lg bg-brand-primary px-4 py-2 font-semibold text-white"
           @click="handleSave"
-          class="px-4 py-2 rounded-md bg-brand-primary hover:bg-brand-secondary text-white font-semibold transition-colors"
         >
           {{ t('model_manager.save') }}
         </button>
@@ -725,12 +304,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue';
+import { ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import Modal from '@/components/ui/Modal.vue';
 import { useSettings } from '@/composables/useSettings';
-import type { AIProvider, Settings } from '@/types';
-import type { ExternalReviewer } from '@/types';
+import { useMembership } from '@/composables/useMembership';
+import type { AIProvider, ExternalReviewer, Settings } from '@/types';
 import { normalizeBlindReviewSettings } from '@/lib/review/reviewSettings';
 import {
   normalizeCapabilitySettings,
@@ -738,24 +317,35 @@ import {
 } from '@/lib/capabilities/capabilityRegistry';
 
 const { t } = useI18n();
-
-const emit = defineEmits<{
-  close: [];
-}>();
-
+const emit = defineEmits<{ close: [] }>();
 const { settings, saveSettings } = useSettings();
+const { isAuthenticated } = useMembership();
+type ConfigPanel = 'personal-api' | 'member-services' | 'skills-mcp';
+const activePanel = ref<ConfigPanel>('personal-api');
+const panels: Array<{ id: ConfigPanel; label: string }> = [
+  { id: 'personal-api', label: 'model_manager.personal_api_tab' },
+  { id: 'member-services', label: 'model_manager.member_services_tab' },
+  { id: 'skills-mcp', label: 'model_manager.mcp_tab' },
+];
+const providerOptions: Array<{ id: AIProvider; label: string }> = [
+  { id: 'google', label: 'model_manager.google_ai' },
+  { id: 'openai', label: 'model_manager.openai_compatible' },
+];
 
-type ConfigPanel = 'providers' | 'mcp-tools';
+function cloneSettings(value: Settings): Settings {
+  const blindReview = normalizeBlindReviewSettings(value.blindReview);
+  const capabilities = normalizeCapabilitySettings(value.capabilities);
+  return {
+    ...value,
+    blindReview: { ...blindReview, reviewers: { ...blindReview.reviewers } },
+    capabilities: { ...capabilities, imported: capabilities.imported.map((item) => ({ ...item })) },
+    memberManagedTextEnabled: value.memberManagedTextEnabled ?? false,
+    memberManagedImageEnabled: value.memberManagedImageEnabled ?? false,
+  };
+}
 
-// Local state
-const activePanel = ref<ConfigPanel>('providers');
-const cloneSettings = (value: Settings): Settings => ({
-  ...value,
-  mcpConfig: value.mcpConfig ? { ...value.mcpConfig } : undefined,
-  blindReview: normalizeBlindReviewSettings(value.blindReview),
-  capabilities: normalizeCapabilitySettings(value.capabilities),
-});
-const localSettings = ref<Settings>(cloneSettings(settings.value));
+const localSettings = ref(cloneSettings(settings.value));
+watch(settings, (value) => (localSettings.value = cloneSettings(value)), { deep: true });
 const reviewerOptions: Array<{ key: ExternalReviewer; label: string }> = [
   { key: 'pubmed', label: 'model_manager.reviewer_pubmed' },
   { key: 'citecheck', label: 'model_manager.reviewer_citecheck' },
@@ -764,31 +354,24 @@ const reviewerOptions: Array<{ key: ExternalReviewer; label: string }> = [
 const capabilityImportMessage = ref('');
 const capabilityImportError = ref(false);
 
-const syncBundledSkill = () => {
-  if (!localSettings.value.capabilities) return;
-  const enabled = localSettings.value.capabilities.bundledBlindReviewSkill;
-  localSettings.value.blindReview = {
-    ...normalizeBlindReviewSettings(localSettings.value.blindReview),
-    enabled,
-  };
-};
+function syncBundledSkill() {
+  localSettings.value.blindReview!.enabled =
+    localSettings.value.capabilities!.bundledBlindReviewSkill;
+}
 
-const importCapabilityManifest = async (event: Event) => {
+async function importCapabilityManifest(event: Event) {
   const input = event.target as HTMLInputElement;
   const file = input.files?.[0];
   if (!file) return;
-  capabilityImportMessage.value = '';
-  capabilityImportError.value = false;
   try {
     if (file.size > 64 * 1024) throw new Error('capabilities.file_too_large');
     const capability = parseCapabilityManifest(await file.text(), file.name);
-    const settings = normalizeCapabilitySettings(localSettings.value.capabilities);
-    if (settings.imported.some((item) => item.id === capability.id)) {
+    if (localSettings.value.capabilities!.imported.some(({ id }) => id === capability.id)) {
       throw new Error('capabilities.duplicate');
     }
-    settings.imported = [...settings.imported, capability].slice(0, 20);
-    localSettings.value.capabilities = settings;
+    localSettings.value.capabilities!.imported.push(capability);
     capabilityImportMessage.value = t('model_manager.import_success', { name: capability.name });
+    capabilityImportError.value = false;
   } catch (error) {
     const key = error instanceof Error ? error.message : 'capabilities.invalid_manifest';
     capabilityImportMessage.value = t(
@@ -798,131 +381,41 @@ const importCapabilityManifest = async (event: Event) => {
   } finally {
     input.value = '';
   }
-};
+}
 
-const removeCapability = (id: string) => {
-  if (!localSettings.value.capabilities) return;
-  localSettings.value.capabilities.imported = localSettings.value.capabilities.imported.filter(
-    (capability) => capability.id !== id
+function removeCapability(id: string) {
+  localSettings.value.capabilities!.imported = localSettings.value.capabilities!.imported.filter(
+    (item) => item.id !== id
   );
-};
+}
 
-// MCP Image Generation Config (reactive helper)
-const mcpImageConfig = computed({
-  get: () =>
-    localSettings.value.mcpConfig?.imageGeneration || {
-      enabled: false,
-      baseUrl: '',
-      model: '',
-      customConfig: '',
-    },
-  set: (value) => {
-    localSettings.value = {
-      ...localSettings.value,
-      mcpConfig: {
-        ...localSettings.value.mcpConfig,
-        imageGeneration: value,
-      },
-    };
-  },
-});
-
-// Watch for external settings changes
-watch(
-  settings,
-  (newSettings) => {
-    localSettings.value = cloneSettings(newSettings);
-  },
-  { deep: true }
-);
-
-const handleProviderChange = (provider: AIProvider) => {
-  localSettings.value = { ...localSettings.value, provider };
-};
-
-const toggleImageGeneration = (e: Event) => {
-  const target = e.target as HTMLInputElement;
-  localSettings.value = {
-    ...localSettings.value,
-    mcpConfig: {
-      ...localSettings.value.mcpConfig,
-      imageGeneration: {
-        enabled: target.checked,
-        baseUrl:
-          localSettings.value.mcpConfig?.imageGeneration?.baseUrl ||
-          'https://chat.int.bayer.com/api/v2',
-        model: localSettings.value.mcpConfig?.imageGeneration?.model || '',
-        customConfig: localSettings.value.mcpConfig?.imageGeneration?.customConfig || '',
-      },
-    },
-  };
-};
-
-const loadingModels = ref(false);
-const openAIModelIds = ref<string[]>([]);
-const loadingGoogleModels = ref(false);
-const googleModelIds = ref<string[]>([]);
-const googleImageModelIds = ref<string[]>([]);
-
-const loadOpenAIModels = async () => {
-  try {
-    loadingModels.value = true;
-    const base = (localSettings.value.openAIBaseUrl || '').replace(/\/$/, '');
-    const url = `${base}/models`;
-    const res = await fetch(url, {
-      headers: {
-        Authorization: `Bearer ${localSettings.value.openAIApiKey || ''}`,
-      },
-    });
-    if (!res.ok) {
-      throw new Error(`Failed to load models: ${res.status} ${res.statusText}`);
-    }
-    const data = await res.json();
-    const list: string[] = Array.isArray(data?.data)
-      ? data.data.map((m: any) => m.id).filter((id: any) => typeof id === 'string')
-      : [];
-    openAIModelIds.value = list;
-  } catch (e) {
-    console.warn('Load models error:', e);
-    openAIModelIds.value = [];
-  } finally {
-    loadingModels.value = false;
+function handleSave() {
+  if (!isAuthenticated.value) {
+    localSettings.value.memberManagedImageEnabled = false;
+    localSettings.value.databaseEnabled = false;
   }
-};
-
-const loadGoogleModels = async () => {
-  try {
-    loadingGoogleModels.value = true;
-    const apiKey = localSettings.value.googleApiKey;
-    if (!apiKey) {
-      console.warn('No Google API key provided');
-      return;
-    }
-    const url = `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`;
-    const res = await fetch(url);
-    if (!res.ok) {
-      throw new Error(`Failed to load Google models: ${res.status} ${res.statusText}`);
-    }
-    const data = await res.json();
-    const models: string[] = Array.isArray(data?.models)
-      ? data.models
-          .map((m: any) => m.name?.replace('models/', '') || '')
-          .filter((name: string) => name.length > 0)
-      : [];
-    // Separate text models (gemini) and image models (imagen)
-    googleModelIds.value = models.filter((m) => m.includes('gemini'));
-    googleImageModelIds.value = models.filter((m) => m.includes('imagen'));
-  } catch (e) {
-    console.warn('Load Google models error:', e);
-    googleModelIds.value = [];
-    googleImageModelIds.value = [];
-  } finally {
-    loadingGoogleModels.value = false;
-  }
-};
-
-const handleSave = () => {
   saveSettings(localSettings.value);
   emit('close');
-};
+}
 </script>
+
+<style scoped>
+.field-label {
+  @apply mb-1 block text-xs font-medium text-text-secondary;
+}
+.field-input {
+  @apply w-full rounded-lg border border-base-300 bg-base-200 px-3 py-2 text-sm text-text-primary focus:border-brand-primary focus:outline-none;
+}
+.setting-row {
+  @apply flex items-center justify-between gap-4 rounded-lg bg-base-100 p-4 text-sm text-text-primary;
+}
+.setting-row span {
+  @apply flex min-w-0 flex-col;
+}
+.setting-row small {
+  @apply mt-0.5 text-xs font-normal text-text-secondary;
+}
+.setting-checkbox {
+  @apply h-4 w-4 shrink-0 accent-brand-primary;
+}
+</style>

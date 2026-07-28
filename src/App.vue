@@ -10,6 +10,18 @@
           </h1>
         </div>
         <div class="flex items-center gap-4">
+          <button
+            @click="showMemberPanel = true"
+            class="flex items-center gap-2 px-4 py-2 bg-base-300 text-text-secondary hover:text-text-primary rounded-lg hover:bg-base-300/80 transition-colors"
+            :title="t('membership.title')"
+          >
+            <span aria-hidden="true">◉</span>
+            <span class="hidden sm:inline">
+              {{
+                isAuthenticated ? `${memberStatus?.bonusBalance ?? 0} bonus` : t('header.sign_in')
+              }}
+            </span>
+          </button>
           <!-- Abstract Manager -->
           <button
             @click="showAbstractManager = true"
@@ -65,6 +77,8 @@
     <!-- Model Manager Modal -->
     <ModelManager v-if="showModelManager" @close="showModelManager = false" />
 
+    <MemberPanel v-if="showMemberPanel" @close="showMemberPanel = false" />
+
     <!-- Notification Display -->
     <NotificationDisplay />
 
@@ -95,7 +109,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { getMemeTranslation } from '@/lib/i18n';
 import ConferencePanel from '@/components/panels/ConferencePanel.vue';
@@ -106,9 +120,15 @@ import NotificationDisplay from '@/components/ui/NotificationDisplay.vue';
 import SvgIcon from '@/components/ui/SvgIcon.vue';
 import LanguageSelector from '@/components/LanguageSelector.vue';
 import AIDisclosure from '@/components/ui/AIDisclosure.vue';
+import MemberPanel from '@/components/membership/MemberPanel.vue';
+import { useMembership } from '@/composables/useMembership';
 
 const { t } = useI18n();
 const showAbstractManager = ref(false);
 const showModelManager = ref(false);
 const showHelp = ref(false);
+const showMemberPanel = ref(false);
+const { initialize, isAuthenticated, status: memberStatus } = useMembership();
+
+onMounted(() => void initialize());
 </script>

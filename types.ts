@@ -247,16 +247,15 @@ export interface Settings {
   openAITextModel?: string;
   openAIVisionModel?: string;
   openAIImageModel?: string;
+  googleImageModel?: string;
   databaseUrl?: string; // Legacy - will be moved to MCP config
   supabaseMCP?: SupabaseMCPConfig; // Legacy - moved to mcpConfig
   databaseEnabled?: boolean; // User preference for cloud storage
   mcpConfig?: MCPConfig; // New unified MCP configuration
   blindReview?: BlindReviewSettings;
   capabilities?: CapabilitySettings;
-  // Nanobana Pro 3 (Google Gemini Image Generation) - API key from environment
-  nanobanaApiKey?: string;
-  nanobanaBaseUrl?: string;
-  nanobanaModel?: string;
+  memberManagedTextEnabled?: boolean;
+  memberManagedImageEnabled?: boolean;
 }
 
 // Database types
@@ -275,6 +274,7 @@ export interface SavedAbstract {
   updatedAt: Date;
   userId?: string;
   syncStatus?: 'local' | 'synced' | 'conflict';
+  cloudVersion?: string;
 }
 
 export interface DatabaseService {
@@ -386,6 +386,27 @@ export interface ErrorBoundaryState {
 // ============================================================================
 
 export type ImageGenerationMode = 'standard' | 'text-to-image';
+export type ImageGenerationProvider = 'byok' | 'nano-banana-pro' | 'gpt-image-2';
+
+export type JournalStyleId =
+  | 'lancet'
+  | 'nature'
+  | 'nejm'
+  | 'science'
+  | 'jama-bmj'
+  | 'radiology'
+  | 'ieee'
+  | 'cell'
+  | 'pnas';
+
+export type SchematicLayoutId =
+  | 'linear-sequential'
+  | 'central-hub'
+  | 'input-process-output'
+  | 'multi-scale-nested'
+  | 'before-after'
+  | 'contextual-landscape'
+  | 'modular-grid';
 
 export type ImageSpecCategory = 'research' | 'journal' | 'layout' | 'style' | 'format' | 'elements';
 
@@ -402,7 +423,9 @@ export interface ImageSpecsState {
   rawInput: string; // User's raw text input
   parsedFields: ImageSpecField[]; // Extracted structured fields
   jsonOutput: string; // Final JSON for LLM API
-  selectedTemplate: string | null; // Applied template ID
+  selectedJournalStyle: JournalStyleId;
+  selectedSchematicLayout: SchematicLayoutId;
+  layoutManuallySelected: boolean;
   cursorPosition: number; // Current cursor position for completion
   showSuggestions: boolean; // Whether to show autocomplete popup
   suggestions: string[]; // Current autocomplete suggestions
@@ -411,6 +434,7 @@ export interface ImageSpecsState {
 // Main state for the Image Generation panel
 export interface ImageGenerationState {
   mode: ImageGenerationMode;
+  imageProvider: ImageGenerationProvider;
   imageFile: File | null; // Legacy single file (kept for backwards compatibility)
   imageBase64: string | null; // Legacy single base64
   uploadedImages: UploadedImage[]; // Multi-image support (max 8, each ≤2MB)
@@ -421,15 +445,6 @@ export interface ImageGenerationState {
   loadingMessage: string;
   error: string | null;
   zoomLevel: number;
-}
-
-// Template for one-click image specs
-export interface ImageTemplate {
-  id: string;
-  name: string;
-  icon: string;
-  description: string;
-  defaultFields: ImageSpecField[];
 }
 
 // Autocomplete suggestion item

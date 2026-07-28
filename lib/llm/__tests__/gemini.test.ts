@@ -77,4 +77,24 @@ describe('Gemini LLM Service', () => {
       expect(result.abstract).toContain('Background');
     });
   });
+
+  describe('generateImage', () => {
+    it('uses the configured Google BYOK image model', async () => {
+      localStorage.setItem(
+        'app-settings',
+        JSON.stringify({ ...mockSettings, googleImageModel: 'gemini-custom-image' })
+      );
+      generateContentMock.mockResolvedValue({
+        candidates: [{ content: { parts: [{ inlineData: { data: 'image-base64' } }] } }],
+      });
+
+      const { generateImage } = await import('@/lib/llm/gemini');
+      await expect(
+        generateImage({ file: null, specs: 'diagram', base64: null }, 'clinical pathway')
+      ).resolves.toBe('image-base64');
+      expect(generateContentMock).toHaveBeenCalledWith(
+        expect.objectContaining({ model: 'gemini-custom-image' })
+      );
+    });
+  });
 });
