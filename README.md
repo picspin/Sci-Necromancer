@@ -1,373 +1,92 @@
-# Sci-Necromancer
+<div align="center">
+  <a href="https://www.rad-sci.org/" target="_blank"><img src="public/readme-assets/sci-necromancer-logo.svg" height="180" alt="SCI-Necromancer logo"></a>
 
-AI-powered academic abstract generator for medical imaging and scientific research conferences.
+  <p><a href="README.md">English</a> · <a href="README_CN.md">中文</a> · <a href="README_DE.md">Deutsch</a></p>
+  <p>
+    <a href="https://github.com/picspin/Sci-Necromancer/actions/workflows/ci.yml"><img src="https://github.com/picspin/Sci-Necromancer/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+    <a href="https://vite.dev/"><img src="https://img.shields.io/badge/Vite-6-646CFF?logo=vite&amp;logoColor=white" alt="Vite 6"></a>
+    <a href="https://vuejs.org/"><img src="https://img.shields.io/badge/Vue-3-42B883?logo=vuedotjs&amp;logoColor=white" alt="Vue 3"></a>
+    <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-4A959F.svg" alt="MIT License"></a>
+    <a href="https://github.com/picspin/Sci-Necromancer"><img src="https://img.shields.io/badge/Open%20Source-Yes-567A87" alt="Open Source"></a>
+    <a href="#deployment"><img src="https://img.shields.io/badge/Deploy-Cloudflare%20%7C%20Vercel%20%7C%20Netlify-B4C3D7" alt="Cloudflare Vercel Netlify"></a>
+  </p>
+</div>
 
-**[English](README.md) | [中文](README_CN.md) | [Deutsch](README_DE.md)**
+[![SCI cultivation path](public/readme-assets/sci-necromancer-cultivation.png)](https://www.rad-sci.org/)
 
 ## Overview
 
-Sci-Necromancer streamlines the process of preparing conference abstracts by leveraging large language models to analyze research content, generate impact statements, suggest appropriate submission categories, and produce polished abstracts that conform to conference guidelines.
+SCI-Necromancer is an open-source academic writing assistant for medical-imaging and cardiovascular conference abstracts. It turns source material into structured ISMRM, RSNA, ECR/ER, or ESC drafts through either standard analysis or the intentionally playful **邪修 / alchemy mode**.
 
-> **Migration Status**: This project has been migrated from React 19 to **Vue 3 + Composition API** with a **Nest.js serverless backend** for file processing.
+The application assists with analysis, wording, formatting, figures, export, and independent blind review. It does **not** prove that data, ethics approvals, patient de-identification, statistics, citations, or submission compliance are correct. Authors remain responsible for every submission.
 
-### Supported Conferences
+## Architecture
 
-- **ISMRM** - International Society for Magnetic Resonance in Medicine
-- **RSNA** - Radiological Society of North America
-- **ESC** - European Society of Cardiology
-- **ECR** - European Congress of Radiology
+![Architecture](public/readme-assets/architecture.svg)
+
+Vue 3 provides the shared interface and conference slices. Deterministic conference rules constrain provider prompts and validate outputs. The optional Skills & MCP layer adds a bundled read-only blind-review skill plus backend-provisioned PubMed, CiteCheck, and DOI verification. Local storage is the default; Supabase integration is optional.
 
 ## Features
 
-### Abstract Generation
-
-- **Standard Analysis Mode**: Upload PDF/DOCX or paste text, then follow a guided workflow:
-  - Content analysis with keyword extraction
-  - Impact statement and synopsis generation
-  - Abstract type suggestion based on content
-  - Final abstract generation conforming to conference guidelines
-- **Creative Expansion Mode**: Provide a core research idea and generate a complete abstract directly
-
-### Figure Generation
-
-- **Standard Edit**: Upload images and apply AI-powered editing based on specifications
-- **Creative Generation**: Generate figures from abstract context (impact + synopsis)
-
-### Abstract Management
-
-- Save and organize generated abstracts locally
-- Import/export abstracts as JSON for backup and sharing
-- Full CRUD operations on saved abstracts
-
-### Export Options
-
-- Markdown (.md)
-- PDF document
-- JSON data
-
-### Internationalization
-
-- English and Chinese language support
-- Automatic browser language detection
-- Easy language switching via UI
-
-## Tech Stack
-
-| Category         | Technologies                               |
-| ---------------- | ------------------------------------------ |
-| Frontend         | Vue 3 (Composition API, `<script setup>`)  |
-| State Management | Pinia (with persisted state)               |
-| Styling          | Tailwind CSS (JIT mode)                    |
-| Build Tool       | Vite 6                                     |
-| Backend          | Nest.js (Serverless Functions)             |
-| AI Integration   | Google AI (Gemini), OpenAI-compatible APIs |
-| File Processing  | pdf-parse, mammoth (DOCX), pdfjs-dist      |
-| Testing          | Vitest, Vue Test Utils, Testing Library    |
-| i18n             | vue-i18n                                   |
-| Code Quality     | ESLint, Prettier, Husky, lint-staged       |
+- Guided standard workflow: source → analysis → type/category selection → generation → save/export.
+- **邪修 mode** with the shared “一键炼丹” action for idea expansion.
+- Conference-specific support for ISMRM, RSNA science/education, ECR/ER, and ESC.
+- Complete English/Chinese application UI and localized errors/accessibility labels.
+- Figure generation/editing and Markdown, PDF, JSON, and image export.
+- Skills & MCP capability switches, safe local JSON-manifest import, and downloadable blind-review skill.
+- Structured blind review across ethics, consent, de-identification, data integrity, methods, citations, reporting guidance, and conference rules.
+- Fail-closed external verification: unavailable evidence services never count as verified.
 
 ## Quick Start
 
-### Prerequisites
-
-- Node.js 18 or higher
-- API key for Google AI (Gemini) or an OpenAI-compatible provider
-
-### Installation
+Requirements: Node.js 18+ and a Google Gemini or OpenAI-compatible API key.
 
 ```bash
-# Clone the repository
-git clone https://github.com/yourusername/sci-necromancer.git
-cd sci-necromancer
-
-# Install dependencies
+git clone https://github.com/picspin/Sci-Necromancer.git
+cd Sci-Necromancer
 npm install
-
-# Start development server
 npm run dev
 ```
 
-The application will be available at `http://localhost:3000`.
-
-### Production Build
-
-```bash
-npm run build
-npm run preview
-```
-
-## Configuration
-
-### First-Time Setup
-
-1. Launch the application and click the **Models** button (gear icon) in the header
-2. Select your AI provider:
-   - **Google AI**: Enter your Gemini API key from [Google AI Studio](https://aistudio.google.com/)
-   - **OpenAI-compatible**: Enter base URL and API key (supports OpenAI, SiliconFlow, and other compatible APIs)
-3. Configure models (optional):
-   - Text model (e.g., `gemini-2.5-pro`, `gpt-4o`)
-   - Vision model (for image analysis)
-   - Image model (for figure generation)
-4. Save settings
-
-Settings are stored in browser localStorage and persist across sessions.
-
-### Supported Providers
-
-| Provider    | Base URL                        | Notes                     |
-| ----------- | ------------------------------- | ------------------------- |
-| Google AI   | N/A                             | Uses `@google/genai` SDK  |
-| OpenAI      | `https://api.openai.com/v1`     | Official OpenAI API       |
-| SiliconFlow | `https://api.siliconflow.cn/v1` | Image generation support  |
-| Custom      | Your endpoint URL               | Any OpenAI-compatible API |
+Open the local URL printed by Vite, then configure the provider under **Models**.
 
 ## Usage
 
-### Standard Analysis Workflow
+1. Select ISMRM, RSNA, ECR/ER, or ESC.
+2. Paste/upload source material, or switch to 邪修 mode and enter a research idea.
+3. Analyze, confirm the suggested route, and generate the abstract.
+4. Save, export, or run the independent blind review.
+5. Verify every factual, ethical, privacy, statistical, citation, and conference-compliance claim before submission.
 
-1. **Select Conference**: Choose the target conference tab (ISMRM, RSNA, ESC, ECR)
-2. **Input Content**: Upload a PDF/DOCX file or paste your research text
-3. **Analyze**: Click "Analyze" to extract categories and keywords
-4. **Generate Impact & Synopsis**: Create impact statement and synopsis
-5. **Select Type**: Review AI-suggested abstract types or choose manually
-6. **Generate Abstract**: Produce the final abstract conforming to conference guidelines
-7. **Export**: Download as Markdown, PDF, or JSON
-
-### Creative Expansion Mode
-
-1. Select a conference and switch to "Creative Expansion" mode
-2. Enter your core research idea or hypothesis
-3. Generate a complete abstract directly from the concept
-
-### Figure Generation
-
-1. Navigate to the "Figure Generation" tab
-2. Choose mode:
-   - **Standard Edit**: Upload an image and specify editing instructions
-   - **Creative Generation**: Generate figures based on your abstract context
-3. Download the generated figure
-
-## ECR (European Congress of Radiology) Features
-
-### Research Type Guidelines (EQUATOR Network)
-
-The ECR module integrates EQUATOR Network reporting guidelines to ensure your abstract follows best practices for your study type:
-
-| Study Type                  | Checklist | Description                                                          |
-| --------------------------- | --------- | -------------------------------------------------------------------- |
-| Case-control study          | STROBE    | Strengthening the Reporting of Observational studies in Epidemiology |
-| Cross-sectional study       | STROBE    | Strengthening the Reporting of Observational studies in Epidemiology |
-| Diagnostic/prognostic study | STARD     | Standards for Reporting of Diagnostic Accuracy Studies               |
-| Experimental (animal)       | ARRIVE    | Animal Research: Reporting of In Vivo Experiments                    |
-| Observational study         | STROBE    | Strengthening the Reporting of Observational studies in Epidemiology |
-| Randomised controlled trial | CONSORT   | Consolidated Standards of Reporting Trials                           |
-
-For more information, visit the [EQUATOR Network](http://equator-network.org/).
-
-### ECR Abstract Types
-
-- **Research Presentation (RP)** - 5-minute oral presentation
-- **Clinical Trials in Radiology (CTiR)** - 8-minute presentation for multicentre/randomised studies
-- **EPOS Scientific Poster** - Electronic poster with scientific content
-- **EPOS Educational Poster** - Teaching-focused electronic poster
-- **Student Presentation** - For university projects and first research papers
-
-### Submission Portal
-
-**ECR Abstract Submission**: [www.myESR.org/abstractsubmission](https://www.myesr.org/abstractsubmission)
-
-## Project Structure
-
-```
-sci-necromancer/
-├── src/
-│   ├── main.ts                 # Application entry point
-│   ├── App.vue                 # Root component with error boundary
-│   ├── components/
-│   │   ├── panels/             # Conference-specific panels (ISMRM, RSNA, ESC, ECR)
-│   │   │   ├── ConferencePanel.vue
-│   │   │   ├── ISMRMPanel.vue
-│   │   │   ├── RSNAPanel.vue
-│   │   │   ├── ESCPanel.vue
-│   │   │   ├── ERPanel.vue
-│   │   │   └── ImageGenerationPanel/
-│   │   ├── managers/           # Abstract and Model configuration
-│   │   ├── ui/                 # Reusable UI components
-│   │   └── export/             # Export functionality
-│   ├── composables/            # Vue composables (useLLM, useSettings, etc.)
-│   ├── plugins/                # Vue plugins (i18n, errorHandler)
-│   └── services/               # Frontend services
-├── lib/
-│   ├── llm/                    # LLM provider integrations
-│   │   ├── index.ts            # Unified API facade
-│   │   ├── gemini.ts           # Google AI integration
-│   │   ├── openai.ts           # OpenAI-compatible integration
-│   │   └── prompts/            # Conference-specific prompts
-│   ├── conference/             # Conference module system
-│   │   ├── modules/            # Per-conference implementations
-│   │   ├── BaseConferenceModule.ts
-│   │   ├── ConferenceRegistry.ts
-│   │   └── ConferenceRouter.ts
-│   ├── file/                   # File processing utilities
-│   ├── hooks/                  # Shared hooks (theme, keyboard nav)
-│   ├── i18n/                   # Internationalization config
-│   └── utils/                  # Shared utilities
-├── server/                     # Nest.js serverless backend
-│   └── src/
-│       ├── main.ts             # Serverless entry point
-│       ├── app.module.ts       # Root module
-│       └── file/               # File processing module
-│           ├── file.controller.ts
-│           ├── file.service.ts
-│           └── dto/
-├── services/                   # Legacy services (being migrated)
-├── public/
-│   ├── locales/                # i18n translation files
-│   └── *.md                    # Conference guidelines
-├── types.ts                    # TypeScript type definitions
-├── vite.config.ts              # Vite configuration
-└── tsconfig.json               # TypeScript configuration
-```
-
-## Development
-
-### Available Scripts
-
-| Command                 | Description                    |
-| ----------------------- | ------------------------------ |
-| `npm run dev`           | Start development server       |
-| `npm run build`         | Build for production           |
-| `npm run preview`       | Preview production build       |
-| `npm run lint`          | Run TypeScript type checking   |
-| `npm run lint:fix`      | Fix ESLint issues              |
-| `npm run format`        | Format code with Prettier      |
-| `npm run test`          | Run tests with Vitest          |
-| `npm run test:ui`       | Run tests with Vitest UI       |
-| `npm run test:coverage` | Run tests with coverage report |
-| `npm run prepare`       | Setup Husky git hooks          |
-
-### Backend Development
-
-The Nest.js backend is located in the `server/` directory:
-
-```bash
-cd server
-npm install
-npm run start:dev
-```
-
-### Path Aliases
-
-The `@` alias maps to the project root:
-
-```typescript
-import { useSettings } from '@/src/composables/useSettings';
-import { analyzeContent } from '@/lib/llm';
-```
-
-### Adding a New Conference
-
-1. Create a new module in `lib/conference/modules/` extending `BaseConferenceModule`
-2. Define conference-specific guidelines, types, and prompts
-3. Register the module in `ConferenceRegistry`
-4. Create a corresponding panel component in `src/components/panels/`
-5. Add translations in `public/locales/`
-
-### Architecture Notes
-
-- **State Management**: Uses Pinia stores with `pinia-plugin-persistedstate` for localStorage persistence
-- **Error Handling**: Global error boundary via `onErrorCaptured` hook in `App.vue`
-- **LLM Integration**: Unified facade in `lib/llm/index.ts` handles provider selection
-- **File Processing**: Heavy parsing (PDF/DOCX) delegated to Nest.js backend, avoiding browser-side overhead
+Under **Skills & MCP**, Skills and MCP can be loaded independently. External `.json` manifests may activate only a named, trusted adapter already built into the deployment; unbound manifests remain registry-only. Browser-side commands and credentials are ignored, and new executable MCP adapters must be provisioned by the backend administrator.
 
 ## Deployment
 
-### Vercel (Recommended)
+```bash
+npm run test -- --run
+npm run lint
+npm run build
+```
 
-1. Push the repository to GitHub
-2. Import the project in Vercel
-3. Configure:
-   - Framework preset: **Vite**
-   - Build command: `npm run build`
-   - Output directory: `dist`
-4. For serverless backend, configure the `server/` directory as a separate Vercel Function
-5. Deploy
+Deploy `dist/` to Cloudflare Pages/Workers static assets, Vercel, or Netlify with SPA fallback to `index.html`. Vercel can also host `api/blind-review.ts`. For privileged CiteCheck/DOI MCP review, configure the HTTPS facade variables and trusted edge token described in [the backend guide](docs/BLIND_REVIEW_BACKEND.md). Never place server credentials in `VITE_*` variables.
 
-No environment variables are required; API keys are entered via UI and stored locally.
+## References
 
-### Serverless Backend Deployment
+- [RSNA abstract submission](https://www.rsna.org/annual-meeting/abstract-submission)
+- [RSNA faculty and presenter resources](https://www.rsna.org/annual-meeting/attendee-resources/faculty-and-presenter-resources)
+- [ISMRM abstract submission guide](https://www.ismrm.org/26m/call/submission-guide/)
+- [ECR abstract submission](https://www.myesr.org/congress/submit/abstract-submission/)
+- [ESC abstract rules](https://www.escardio.org/events/congresses/esc-congress/call-for-science/abstracts/rules/)
+- [STARD](https://www.equator-network.org/reporting-guidelines/stard/) · [TRIPOD](https://www.tripod-statement.org/)
 
-The Nest.js backend in `server/` supports deployment to:
-
-- **Vercel Serverless Functions**
-- **AWS Lambda** (via `@nestjs/platform-aws-lambda`)
-- **Other serverless platforms** with appropriate adapters
-
-### Other Platforms
-
-The frontend build output is a static site in `dist/`. Deploy to any static hosting service (Netlify, GitHub Pages, Cloudflare Pages, etc.).
-
-## Security
-
-- API keys are stored in browser localStorage only
-- No server-side storage or transmission of credentials
-- File processing delegated to serverless backend (sandboxed execution)
-- Avoid uploading sensitive or confidential research data
-
-## MCP Tools Integration
-
-Sci-Necromancer supports optional MCP (Model Context Protocol) integrations:
-
-- **Supabase MCP**: Cloud persistence for abstracts and settings (configure via Model Manager)
-- **Image Generation MCP**: Alternative image generation via MCP-enabled tools
-- **Chrome DevTools MCP**: UI comparison during development
-
-See `MCP_TOOLS_GUIDE.md` for detailed configuration.
+Official rules change. Always verify the current meeting website; internal reference material is a drafting aid, not authority.
 
 ## Troubleshooting
 
-| Issue                  | Solution                                                            |
-| ---------------------- | ------------------------------------------------------------------- |
-| API errors             | Verify API key is correct and has sufficient quota                  |
-| PDF parsing fails      | Try a smaller file or use the serverless backend                    |
-| Port 3000 in use       | Vite auto-selects another port (check terminal output)              |
-| Build type errors      | Run `npm run lint` to identify TypeScript issues                    |
-| Backend not responding | Ensure Nest.js server is running (`cd server && npm run start:dev`) |
+- **Blank page:** use Node 18+, run `npm install`, and inspect the browser console.
+- **Provider error:** verify the API key, base URL, model name, quota, and provider privacy terms.
+- **File extraction fails:** paste plain text and remove protected/scanned content.
+- **External reviewer unavailable:** confirm the checkbox, backend facade, HTTPS configuration, timeout, and trusted edge header.
+- **Unexpected output:** clear the workflow, regenerate from verified source material, and never submit unreviewed AI text.
 
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/your-feature`)
-3. Commit changes (`git commit -m 'Add your feature'`)
-4. Push to branch (`git push origin feature/your-feature`)
-5. Open a Pull Request
-
-Please run `npm run lint` before submitting PRs to ensure type safety.
-
-## Documentation
-
-- `README.md` - This file (quick start and overview)
-- `QUICK_REFERENCE.md` - Common user tasks and shortcuts
-- `WORKFLOW.md` - Overall workflow documentation
-- `MODEL_CONFIGURATION_GUIDE.md` - Provider setup details
-- `MCP_TOOLS_GUIDE.md` - MCP integration guide
-- `IMAGE_GENERATION_ARCHITECTURE.md` - Figure generation technical details
-- `lib/llm/WRITING_STYLE_GUIDE.md` - Writing style enforcement guidance
-
-## Acknowledgments
-
-- [ISMRM](https://www.ismrm.org/), [RSNA](https://www.rsna.org/), [ESC](https://www.escardio.org/), [ESR](https://www.myesr.org/) for public abstract guidelines
-- [Google AI](https://ai.google.dev/) (Gemini) for language model capabilities
-- [OpenAI](https://openai.com/) for API compatibility standards
-- [SiliconFlow](https://siliconflow.cn/) for image generation APIs
-- [EQUATOR Network](http://equator-network.org/) for research reporting guidelines
-- [Vue.js](https://vuejs.org/) and [Pinia](https://pinia.vuejs.org/) for the frontend framework
-- [Nest.js](https://nestjs.com/) for the serverless backend framework
-
-## License
-
-MIT
-
----
-
-**[English](README.md) | [中文](README_CN.md) | [Deutsch](README_DE.md)**
+MIT licensed. Contributions and evidence-based corrections are welcome.

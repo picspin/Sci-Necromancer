@@ -1,279 +1,91 @@
-# Sci-Necromancer
+<div align="center">
+  <a href="https://www.rad-sci.org/" target="_blank"><img src="public/readme-assets/sci-necromancer-logo.svg" height="180" alt="SCI-邪修 Logo"></a>
 
-AI驱动的医学影像和科学研究会议学术摘要生成器。
+  <p><a href="README.md">English</a> · <a href="README_CN.md">中文</a> · <a href="README_DE.md">Deutsch</a></p>
+  <p>
+    <a href="https://github.com/picspin/Sci-Necromancer/actions/workflows/ci.yml"><img src="https://github.com/picspin/Sci-Necromancer/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+    <a href="https://vite.dev/"><img src="https://img.shields.io/badge/Vite-6-646CFF?logo=vite&amp;logoColor=white" alt="Vite 6"></a>
+    <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-4A959F.svg" alt="MIT License"></a>
+    <a href="https://github.com/picspin/Sci-Necromancer"><img src="https://img.shields.io/badge/Open%20Source-Yes-567A87" alt="Open Source"></a>
+    <a href="#部署"><img src="https://img.shields.io/badge/Deploy-Cloudflare%20%7C%20Vercel%20%7C%20Netlify-B4C3D7" alt="Cloudflare Vercel Netlify"></a>
+  </p>
+</div>
 
-## 概述
+[![SCI 修炼进阶图](public/readme-assets/sci-necromancer-cultivation.png)](https://www.rad-sci.org/)
 
-Sci-Necromancer 通过利用大语言模型来简化会议摘要的准备过程，可以分析研究内容、生成影响力陈述、建议合适的投稿类别，并生成符合会议指南的精炼摘要。
+## 全局概览
 
-### 支持的会议
+SCI-邪修是面向医学影像与心血管会议摘要的开源 AI 辅助工具。它通过标准分析或更具探索性的 **邪修/炼丹模式**，将研究材料组织为 ISMRM、RSNA、ECR/ER 与 ESC 摘要草稿。
 
-- **ISMRM** - 国际医学磁共振学会
-- **RSNA** - 北美放射学会
-- **ESC** - 欧洲心脏病学会
-- **ECR** - 欧洲放射学大会
+系统可以辅助分析、润色、排版、配图、导出和独立盲审，但**不能保证**数据、伦理审批、患者脱敏、统计结果、引文或投稿合规真实准确。作者必须承担最终核验与投稿责任。
 
-## 功能特点
+## 架构
 
-### 摘要生成
+![架构图](public/readme-assets/architecture.svg)
 
-- **标准分析模式**：上传 PDF/DOCX 文件或粘贴文本，然后按照引导流程操作：
-  - 内容分析与关键词提取
-  - 影响力陈述和摘要生成
-  - 根据内容建议摘要类型
-  - 生成符合会议指南的最终摘要
-- **创意扩展模式**：提供核心研究想法，直接生成完整摘要
+Vue 3 提供统一界面与会议 slice；确定性会议规则约束模型提示并检查输出；可选 Skills & MCP 层提供内置只读盲审 Skill，以及由后端部署的 PubMed、CiteCheck 和 DOI 验证。默认使用本地存储，可选接入 Supabase。
 
-### 图表生成
+## 功能
 
-- **标准编辑**：上传图像并根据规格进行 AI 驱动的编辑
-- **创意生成**：根据摘要上下文（影响力 + 摘要）生成图表
-
-### 摘要管理
-
-- 本地保存和整理生成的摘要
-- 以 JSON 格式导入/导出摘要用于备份和分享
-- 对已保存摘要进行完整的增删改查操作
-
-### 导出选项
-
-- Markdown (.md)
-- PDF 文档
-- JSON 数据
-
-### 国际化
-
-- 支持英语和中文
-- 自动检测浏览器语言
-- 通过界面轻松切换语言
-
-## 技术栈
-
-| 类别     | 技术                                    |
-| -------- | --------------------------------------- |
-| 前端     | Vue 3（组合式 API）、TypeScript         |
-| 状态管理 | Pinia、Vue Composables                  |
-| 样式     | Tailwind CSS                            |
-| 构建工具 | Vite                                    |
-| AI 集成  | Google AI（Gemini）、兼容 OpenAI 的 API |
-| 文件处理 | pdf-parse、mammoth（DOCX）              |
-| 测试     | Vitest                                  |
+- 标准流程：原始材料 → 分析 → 类型/分类确认 → 生成 → 保存/导出。
+- 邪修模式统一使用“一键炼丹”完成研究想法扩展。
+- 支持 ISMRM、RSNA science/education、ECR/ER 与 ESC。
+- 完整中英文界面、错误提示和无障碍标签切换。
+- 图像生成/编辑，以及 Markdown、PDF、JSON 和图像导出。
+- Skills 与 MCP 独立开关、安全本地 JSON 清单导入、盲审 Skill 下载。
+- 从伦理、同意、脱敏、数据、方法、引文、报告规范和会议规则进行结构化盲审。
+- 外部证据服务严格 fail-closed：不可用绝不等同于已核验。
 
 ## 快速开始
 
-### 前置要求
-
-- Node.js 18 或更高版本
-- Google AI（Gemini）或兼容 OpenAI 提供商的 API 密钥
-
-### 安装
+需要 Node.js 18+，以及 Google Gemini 或 OpenAI 兼容 API 密钥。
 
 ```bash
-# 克隆仓库
-git clone https://github.com/yourusername/sci-necromancer.git
-cd sci-necromancer
-
-# 安装依赖
+git clone https://github.com/picspin/Sci-Necromancer.git
+cd Sci-Necromancer
 npm install
-
-# 启动开发服务器
 npm run dev
 ```
 
-应用将在 `http://localhost:3000` 上可用。
+打开 Vite 输出的本地地址，并在“模型配置”中设置供应商。
 
-### 生产构建
+## 使用
 
-```bash
-npm run build
-npm run preview
-```
+1. 选择 ISMRM、RSNA、ECR/ER 或 ESC。
+2. 粘贴/上传原始材料，或切换邪修模式输入核心构想。
+3. 分析并确认投稿路径，然后生成摘要。
+4. 保存、导出，或执行独立盲审。
+5. 投稿前逐项核验事实、伦理、隐私、统计、引文与最新会议规则。
 
-## 配置
-
-### 首次设置
-
-1. 启动应用并点击页眉中的**模型**按钮（齿轮图标）
-2. 选择您的 AI 提供商：
-   - **Google AI**：输入来自 [Google AI Studio](https://aistudio.google.com/) 的 Gemini API 密钥
-   - **兼容 OpenAI**：输入基础 URL 和 API 密钥（支持 OpenAI、SiliconFlow 及其他兼容 API）
-3. 配置模型（可选）：
-   - 文本模型（如 `gemini-2.5-pro`、`gpt-4o`）
-   - 视觉模型（用于图像分析）
-   - 图像模型（用于图表生成）
-4. 保存设置
-
-设置存储在浏览器 localStorage 中，跨会话持久保存。
-
-### 支持的提供商
-
-| 提供商      | 基础 URL                        | 备注                     |
-| ----------- | ------------------------------- | ------------------------ |
-| Google AI   | 不适用                          | 使用 `@google/genai` SDK |
-| OpenAI      | `https://api.openai.com/v1`     | 官方 OpenAI API          |
-| SiliconFlow | `https://api.siliconflow.cn/v1` | 支持图像生成             |
-| 自定义      | 您的端点 URL                    | 任何兼容 OpenAI 的 API   |
-
-## 使用方法
-
-### 标准分析工作流程
-
-1. **选择会议**：选择目标会议标签（ISMRM、RSNA、ESC、ECR）
-2. **输入内容**：上传 PDF/DOCX 文件或粘贴研究文本
-3. **分析**：点击"分析"提取类别和关键词
-4. **生成影响力和摘要**：创建影响力陈述和摘要
-5. **选择类型**：查看 AI 建议的摘要类型或手动选择
-6. **生成摘要**：生成符合会议指南的最终摘要
-7. **导出**：下载为 Markdown、PDF 或 JSON
-
-### 创意扩展模式
-
-1. 选择会议并切换到"创意扩展"模式
-2. 输入您的核心研究想法或假设
-3. 直接从概念生成完整摘要
-
-### 图表生成
-
-1. 导航到"图表生成"标签
-2. 选择模式：
-   - **标准编辑**：上传图像并指定编辑指令
-   - **创意生成**：根据摘要上下文生成图表
-3. 下载生成的图表
-
-## ECR（欧洲放射学大会）特别功能
-
-### 研究类型指南（EQUATOR Network）
-
-ECR 模块集成了 EQUATOR Network 研究报告指南：
-
-| 研究类型         | 检查清单 | 说明                       |
-| ---------------- | -------- | -------------------------- |
-| 病例对照研究     | STROBE   | 流行病学观察性研究报告强化 |
-| 横断面研究       | STROBE   | 流行病学观察性研究报告强化 |
-| 诊断/预后研究    | STARD    | 诊断准确性研究报告标准     |
-| 实验研究（动物） | ARRIVE   | 动物研究：体内实验报告     |
-| 观察性研究       | STROBE   | 流行病学观察性研究报告强化 |
-| 随机对照试验     | CONSORT  | 试验报告整合标准           |
-
-### 投稿链接
-
-- **ECR 摘要投稿门户**：[www.myESR.org/abstractsubmission](https://www.myesr.org/abstractsubmission)
-
-## 项目结构
-
-```
-sci-necromancer/
-├── src/
-│   ├── main.ts                 # 应用入口
-│   ├── App.vue                 # 根组件
-│   ├── components/
-│   │   ├── panels/             # 会议特定面板
-│   │   ├── managers/           # 摘要和模型管理器
-│   │   ├── ui/                 # 可复用 UI 组件
-│   │   └── export/             # 导出功能
-│   ├── composables/            # Vue composables（hooks）
-│   └── plugins/                # Vue 插件（i18n 等）
-├── lib/
-│   ├── llm/                    # LLM 提供商集成
-│   │   ├── index.ts            # 统一 API 门面
-│   │   ├── gemini.ts           # Google AI 集成
-│   │   └── openai.ts           # 兼容 OpenAI 集成
-│   ├── conference/             # 会议模块系统
-│   │   ├── modules/            # 各会议实现
-│   │   ├── ConferenceRegistry.ts
-│   │   └── ConferenceRouter.ts
-│   ├── file/                   # 文件处理工具
-│   └── utils/                  # 共享工具
-├── public/
-│   ├── locales/                # i18n 翻译文件
-│   └── *.md                    # 会议指南
-├── types.ts                    # TypeScript 类型定义
-├── vite.config.ts              # Vite 配置
-└── tsconfig.json               # TypeScript 配置
-```
-
-## 开发
-
-### 可用脚本
-
-| 命令               | 描述                     |
-| ------------------ | ------------------------ |
-| `npm run dev`      | 启动开发服务器           |
-| `npm run build`    | 生产环境构建             |
-| `npm run preview`  | 预览生产构建             |
-| `npm run lint`     | 运行 TypeScript 类型检查 |
-| `npm run lint:fix` | 修复 ESLint 问题         |
-| `npm run format`   | 使用 Prettier 格式化代码 |
-| `npm run test`     | 使用 Vitest 运行测试     |
-| `npm run test:ui`  | 运行带 UI 的测试         |
-
-### 路径别名
-
-`@` 别名映射到项目根目录：
-
-```typescript
-import { useSettings } from '@/src/composables/useSettings';
-import { analyzeContent } from '@/lib/llm';
-```
-
-### 添加新会议
-
-1. 在 `lib/conference/modules/` 中创建新模块
-2. 使用会议特定指南和类型扩展 `BaseConferenceModule`
-3. 在 `ConferenceRegistry` 中注册模块
-4. 在 `src/components/panels/` 中创建对应的面板组件
-5. 在 `public/locales/` 中添加翻译
+“Skills & MCP”允许分别加载 Skills 和 MCP。外部 `.json` 只能激活部署中已内置并受信任的指定适配器；未绑定适配器的清单仅登记。浏览器会忽略命令和凭据，新增可执行 MCP 适配器仍须由后端管理员部署。
 
 ## 部署
 
-### Vercel（推荐）
+```bash
+npm run test -- --run
+npm run lint
+npm run build
+```
 
-1. 将仓库推送到 GitHub
-2. 在 Vercel 中导入项目
-3. 配置：
-   - 框架预设：**Vite**
-   - 构建命令：`npm run build`
-   - 输出目录：`dist`
-4. 部署
+可将 `dist/` 部署至 Cloudflare、Vercel 或 Netlify，并配置 SPA 回退到 `index.html`。Vercel 还可托管 `api/blind-review.ts`。CiteCheck/DOI MCP 的 HTTPS facade 与可信边缘令牌配置见[后端指南](docs/BLIND_REVIEW_BACKEND.md)。服务端凭据不得写入 `VITE_*` 变量。
 
-无需环境变量；API 密钥通过 UI 输入并本地存储。
+## 参考资料
 
-### 其他平台
+- [RSNA 摘要投稿](https://www.rsna.org/annual-meeting/abstract-submission)
+- [RSNA 讲者资源](https://www.rsna.org/annual-meeting/attendee-resources/faculty-and-presenter-resources)
+- [ISMRM 投稿指南](https://www.ismrm.org/26m/call/submission-guide/)
+- [ECR 摘要投稿](https://www.myesr.org/congress/submit/abstract-submission/)
+- [ESC 摘要规则](https://www.escardio.org/events/congresses/esc-congress/call-for-science/abstracts/rules/)
+- [STARD](https://www.equator-network.org/reporting-guidelines/stard/) · [TRIPOD](https://www.tripod-statement.org/)
 
-构建输出是 `dist/` 中的静态站点。可部署到任何静态托管服务（Netlify、GitHub Pages、Cloudflare Pages 等）。
+官方规则会变化；内部资料只用于辅助起草，投稿前必须以当年官方网站为准。
 
-## 安全性
+## 故障排查
 
-- API 密钥仅存储在浏览器 localStorage 中
-- 无服务器端存储或凭据传输
-- 文件处理完全在浏览器中运行
-- 避免上传敏感或机密研究数据
+- **空白页：** 使用 Node 18+，重新安装依赖并查看浏览器控制台。
+- **模型报错：** 检查密钥、Base URL、模型名、额度与供应商隐私条款。
+- **文件提取失败：** 改为粘贴纯文本，或先处理扫描/加密文件。
+- **外部审核器不可用：** 检查复选框、后端 facade、HTTPS、超时和可信边缘请求头。
+- **输出异常：** 清除流程，从已核实材料重新生成；不要提交未经人工复核的 AI 文本。
 
-## 故障排除
-
-| 问题             | 解决方案                                 |
-| ---------------- | ---------------------------------------- |
-| API 错误         | 验证 API 密钥正确且有足够配额            |
-| PDF 解析失败     | 尝试更小的文件或直接粘贴文本             |
-| 端口 3000 被占用 | Vite 自动选择其他端口（查看终端输出）    |
-| 构建类型错误     | 运行 `npm run lint` 识别 TypeScript 问题 |
-
-## 贡献
-
-1. Fork 仓库
-2. 创建功能分支（`git checkout -b feature/your-feature`）
-3. 提交更改（`git commit -m 'Add your feature'`）
-4. 推送到分支（`git push origin feature/your-feature`）
-5. 创建 Pull Request
-
-## 致谢
-
-- [ISMRM](https://www.ismrm.org/)、[RSNA](https://www.rsna.org/)、[ESC](https://www.escardio.org/)、[ESR](https://www.myesr.org/) 提供的公开摘要指南
-- [Google AI](https://ai.google.dev/)（Gemini）提供的语言模型能力
-- [OpenAI](https://openai.com/) 提供的 API 兼容标准
-- [SiliconFlow](https://siliconflow.cn/) 提供的图像生成 API
-- [EQUATOR Network](http://equator-network.org/) 提供的研究报告指南
-
----
-
-[English](README.md) | **中文** | [Deutsch](README_DE.md)
+项目采用 MIT 许可证，欢迎贡献与基于证据的修正。

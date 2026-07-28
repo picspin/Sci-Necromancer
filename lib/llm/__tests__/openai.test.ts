@@ -130,6 +130,29 @@ describe('OpenAI LLM Service', () => {
         expect.any(Object)
       );
     });
+
+    it('does not call image MCP when the MCP capability group is disabled', async () => {
+      global.fetch = vi.fn().mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ images: [{ url: 'https://example.com/direct.png' }] }),
+      });
+      localStorage.setItem(
+        'app-settings',
+        JSON.stringify({
+          openAIApiKey: 'test-api-key',
+          mcpConfig: { imageGeneration: { enabled: true } },
+          capabilities: { mcpEnabled: false },
+        })
+      );
+
+      const { generateImage } = await import('@/lib/llm/openai');
+      await generateImage({ file: null, specs: '1024x1024', base64: null }, 'A scientific figure');
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining('siliconflow'),
+        expect.any(Object)
+      );
+    });
   });
 
   describe('RSNA workflow', () => {

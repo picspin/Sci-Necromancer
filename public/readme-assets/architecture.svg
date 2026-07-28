@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="620" viewBox="0 0 1200 620" role="img" aria-labelledby="title desc">
+  <title id="title">SCI-Necromancer architecture</title>
+  <desc id="desc">Vue interface routes conference-specific generation through shared rules, model providers, evidence review and local or cloud persistence.</desc>
+  <defs>
+    <style>
+      .box{fill:#203941;stroke:#4A959F;stroke-width:2}.soft{fill:#304D57;stroke:#B4C3D7;stroke-width:1.5}.edge{stroke:#7FAAB2;stroke-width:2;fill:none;marker-end:url(#a)}.h{font:700 20px Inter,Arial;fill:#F4F7F8}.t{font:500 15px Inter,Arial;fill:#D9E2E7}.s{font:600 13px Inter,Arial;fill:#B4C3D7}.tag{fill:#936358}
+    </style>
+    <marker id="a" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto"><path d="M0 0 9 4.5 0 9Z" fill="#7FAAB2"/></marker>
+  </defs>
+  <rect width="1200" height="620" rx="28" fill="#13282E"/>
+  <text x="55" y="52" class="h">SCI-Necromancer · Minimal Architecture</text>
+  <g transform="translate(55 92)">
+    <rect class="box" width="240" height="170" rx="18"/>
+    <text x="24" y="38" class="h">Vue 3 Interface</text>
+    <text x="24" y="72" class="t">ISMRM · RSNA · ECR · ESC</text>
+    <text x="24" y="101" class="t">Standard / 邪修 workflows</text>
+    <text x="24" y="130" class="t">i18n · export · saved drafts</text>
+  </g>
+  <g transform="translate(385 92)">
+    <rect class="box" width="300" height="170" rx="18"/>
+    <text x="24" y="38" class="h">Conference Domain</text>
+    <text x="24" y="72" class="t">Router + deterministic rules</text>
+    <text x="24" y="101" class="t">Prompts + validation gates</text>
+    <text x="24" y="130" class="t">Versioned compliance baselines</text>
+  </g>
+  <g transform="translate(775 92)">
+    <rect class="box" width="370" height="170" rx="18"/>
+    <text x="24" y="38" class="h">Generation Providers</text>
+    <text x="24" y="72" class="t">Google Gemini</text>
+    <text x="24" y="101" class="t">OpenAI-compatible APIs</text>
+    <text x="24" y="130" class="t">Image generation adapters</text>
+  </g>
+  <path class="edge" d="M295 177h80"/><path class="edge" d="M685 177h80"/>
+  <g transform="translate(210 350)">
+    <rect class="soft" width="350" height="190" rx="18"/>
+    <text x="24" y="40" class="h">Skills &amp; MCP</text>
+    <text x="24" y="76" class="t">Bundled blind-review Skill</text>
+    <text x="24" y="105" class="t">Safe declarative manifest registry</text>
+    <text x="24" y="134" class="t">PubMed · CiteCheck · DOI MCP</text>
+    <rect x="24" y="153" width="205" height="24" rx="12" class="tag"/><text x="126" y="170" text-anchor="middle" class="s" fill="#fff">fail-closed verification</text>
+  </g>
+  <g transform="translate(650 350)">
+    <rect class="soft" width="340" height="190" rx="18"/>
+    <text x="24" y="40" class="h">Persistence &amp; Delivery</text>
+    <text x="24" y="76" class="t">LocalStorage / optional Supabase</text>
+    <text x="24" y="105" class="t">Markdown · PDF · JSON · images</text>
+    <text x="24" y="134" class="t">Vercel · Cloudflare · Netlify</text>
+    <text x="24" y="163" class="s">AI output always requires author review</text>
+  </g>
+  <path class="edge" d="M535 262v55c0 18-18 18-18 33"/><path class="edge" d="M960 262v55c0 18-140 18-140 33"/>
+</svg>

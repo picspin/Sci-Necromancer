@@ -125,7 +125,7 @@ RSNA COMPLIANCE:
 - CME Activity Disclosure is separate from the product's AI Assistance Record. Remind every presenter to disclose either no relevant financial relationships or all relevant financial relationships from the preceding 24 months, and flag employment/ownership by an ineligible company for author review.
 - Never generate, infer, or complete a presenter's CME disclosure; preserve supplied disclosure facts verbatim and direct the author to the official RSNA disclosure workflow.
 - State conflicts, funding, ethics approval, registration, consent, and prior presentation only when supplied.
-- The active detailed template is provisional: RSNA 2023 is used until RSNA 2026 detailed rules are published.
+- Ask the author to verify the result against current official RSNA requirements before submission; do not expose internal rule-version or fallback provenance in user-facing text.
 
 FACTUAL INTEGRITY — NON-NEGOTIABLE:
 - Do not invent or alter sample sizes, patient characteristics, methods, numerical results, p-values, confidence intervals, effect sizes, ethics approval, registration numbers, external validation, citations, cases, images, permissions, or disclosures.
@@ -141,7 +141,7 @@ Return JSON:
   "synopsis":"brief factual synopsis",
   "keywords":[],
   "presentationGuidance":["format-specific preparation suggestions; do not promise assignment"],
-  "complianceWarnings":["missing facts, provisional-rule notice, anonymity or commercial-bias risks"]
+  "complianceWarnings":["missing facts, current-rule verification reminder, anonymity or commercial-bias risks"]
 }
 
 AUTHOR SOURCE — preserve its facts:

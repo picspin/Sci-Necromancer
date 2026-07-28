@@ -7,10 +7,6 @@
       </p>
     </div>
 
-    <div class="rounded-lg border border-amber-500/50 bg-amber-500/10 p-3 text-sm text-amber-200">
-      <strong>{{ t('rsna.provisional_title') }}</strong> {{ t('rsna.provisional_body') }}
-    </div>
-
     <div class="grid gap-4 sm:grid-cols-3">
       <label class="space-y-1 text-sm">
         <span class="font-semibold text-text-primary">{{ t('rsna.submission_track') }}</span>
@@ -116,24 +112,28 @@
         {{ t('rsna.reporting_guidance') }}
       </legend>
       <div class="space-y-2 text-sm">
-        <label v-for="guideline in reportingOptions" :key="guideline" class="flex gap-2">
+        <label
+          v-for="guideline in reportingOptions"
+          :key="guideline"
+          class="flex min-h-[44px] items-center gap-2"
+        >
           <input v-model="reportingGuidelines" type="checkbox" :value="guideline" />
           <span>{{ guideline }}</span>
         </label>
       </div>
     </fieldset>
 
-    <div v-if="analysis.rationale.length" class="rounded-lg bg-base-100 p-3 text-sm">
+    <div v-if="publicRationale.length" class="rounded-lg bg-base-100 p-3 text-sm">
       <p class="font-semibold text-text-primary">{{ t('rsna.why_route') }}</p>
       <ul class="mt-1 list-disc space-y-1 pl-5 text-text-secondary">
-        <li v-for="reason in analysis.rationale" :key="reason">{{ reason }}</li>
+        <li v-for="reason in publicRationale" :key="reason">{{ reason }}</li>
       </ul>
     </div>
 
-    <div v-if="analysis.warnings.length" class="rounded-lg bg-red-500/10 p-3 text-sm text-red-200">
+    <div v-if="publicWarnings.length" class="rounded-lg bg-red-500/10 p-3 text-sm text-red-200">
       <p class="font-semibold">{{ t('rsna.checks_required') }}</p>
       <ul class="mt-1 list-disc space-y-1 pl-5">
-        <li v-for="warning in analysis.warnings" :key="warning">{{ warning }}</li>
+        <li v-for="warning in publicWarnings" :key="warning">{{ warning }}</li>
       </ul>
     </div>
 
@@ -172,6 +172,7 @@ import {
   RSNA_KEYWORDS,
   getAllowedPresentationFormats,
   normalizeRSNAAnalysis,
+  sanitizeRSNAUserWarnings,
 } from '@/lib/conference/rsnaRules';
 
 const props = defineProps<{ result: AnalysisResult }>();
@@ -188,6 +189,8 @@ const normalized = props.result.rsna
       locale.value.toLowerCase().startsWith('zh') ? 'zh' : 'en'
     );
 const analysis = normalized.rsna;
+const publicRationale = computed(() => sanitizeRSNAUserWarnings(analysis.rationale));
+const publicWarnings = computed(() => sanitizeRSNAUserWarnings(analysis.warnings));
 const categoryCandidates = normalized.categories;
 const track = ref<RSNASubmissionTrack>(analysis.track);
 const contentType = ref<RSNAContentType>(analysis.contentType);

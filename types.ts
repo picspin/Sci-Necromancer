@@ -214,6 +214,28 @@ export interface BlindReviewSettings {
   reviewers: Record<ExternalReviewer, boolean>;
 }
 
+export type CapabilityKind = 'skill' | 'mcp';
+export type CapabilityAdapter = 'academic-abstract-blind-review' | 'image-generation';
+
+export interface ImportedCapability {
+  id: string;
+  name: string;
+  kind: CapabilityKind;
+  version?: string;
+  description?: string;
+  homepage?: string;
+  adapter?: CapabilityAdapter;
+  source: string;
+  enabled: boolean;
+}
+
+export interface CapabilitySettings {
+  skillsEnabled: boolean;
+  mcpEnabled: boolean;
+  bundledBlindReviewSkill: boolean;
+  imported: ImportedCapability[];
+}
+
 export interface Settings {
   provider: AIProvider;
   googleApiKey?: string;
@@ -230,6 +252,7 @@ export interface Settings {
   databaseEnabled?: boolean; // User preference for cloud storage
   mcpConfig?: MCPConfig; // New unified MCP configuration
   blindReview?: BlindReviewSettings;
+  capabilities?: CapabilitySettings;
   // Nanobana Pro 3 (Google Gemini Image Generation) - API key from environment
   nanobanaApiKey?: string;
   nanobanaBaseUrl?: string;

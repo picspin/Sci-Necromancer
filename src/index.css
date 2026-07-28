@@ -27,6 +27,13 @@ code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New', monospace;
 }
 
+/* Keep native checkboxes visually subordinate without shrinking their clickable labels. */
+input[type='checkbox']:not(.sr-only) {
+  width: 0.875rem;
+  height: 0.875rem;
+  flex: 0 0 0.875rem;
+}
+
 /* Fade-in animation */
 @keyframes fade-in {
   from {

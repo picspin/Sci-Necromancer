@@ -325,16 +325,29 @@ const defaultClassification = (locale: 'en' | 'zh' = 'en'): RSNAClassification =
   confidence: 0.5,
   rationale: [
     locale === 'zh'
-      ? '临时回退分类，必须由作者确认。'
-      : 'Provisional fallback classification; author confirmation is required.',
+      ? '自动分类结果必须由作者确认。'
+      : 'The automated classification requires author confirmation.',
   ],
   warnings: [
     locale === 'zh'
-      ? 'RSNA 2026 详细规则尚未发布，当前暂用 RSNA 2023 要求。'
-      : 'Detailed RSNA 2026 rules are not yet available; RSNA 2023 requirements are used provisionally.',
+      ? '投稿前请根据当前 RSNA 官方要求复核。'
+      : 'Verify the result against current official RSNA requirements before submission.',
   ],
   ruleVersion: RSNA_RULESET.version,
 });
+
+const INTERNAL_RULE_PROVENANCE_PATTERN =
+  /(?:RSNA\s*)?(?:2023|2026).*(?:fallback|provisional|回退|临时)|(?:fallback|provisional|回退|临时).*(?:RSNA\s*)?(?:2023|2026)/i;
+
+export const sanitizeRSNAUserWarnings = (warnings: unknown): string[] =>
+  Array.isArray(warnings)
+    ? warnings.filter(
+        (warning): warning is string =>
+          typeof warning === 'string' &&
+          Boolean(warning.trim()) &&
+          !INTERNAL_RULE_PROVENANCE_PATTERN.test(warning)
+      )
+    : [];
 
 export const normalizeRSNAAnalysis = (
   result: Omit<AnalysisResult, 'rsna'> & { rsna?: Partial<RSNAClassification> },
@@ -427,7 +440,7 @@ export const normalizeRSNAAnalysis = (
                 : `Reporting guidance not supported by the source was removed: ${unsupportedGuidelines.join(', ')}.`,
             ]
           : []),
-        ...(result.rsna?.warnings?.filter(Boolean) ?? []),
+        ...sanitizeRSNAUserWarnings(result.rsna?.warnings),
       ],
       ruleVersion: RSNA_RULESET.version,
     },
@@ -528,7 +541,7 @@ export const enforceRSNASourceFidelity = (
   const sanitizedSynopsis = sanitize(draft.synopsis) ?? '';
   const sanitizedGuidance = draft.presentationGuidance?.map((item) => sanitize(item, true) ?? '');
 
-  const warnings = [...(draft.complianceWarnings ?? [])];
+  const warnings = sanitizeRSNAUserWarnings(draft.complianceWarnings);
   if (unsupportedNumbers.size) {
     warnings.push(
       locale === 'zh'
@@ -562,8 +575,8 @@ export const validateRSNADraft = (
   const errors: string[] = [];
   const warnings = [
     message(
-      'RSNA 2026 detailed requirements are not yet published; validation uses provisional RSNA 2023 fallback rules.',
-      'RSNA 2026 详细要求尚未发布；当前校验暂用 RSNA 2023 回退规则。'
+      'Verify this validation against current official RSNA requirements before submission.',
+      '投稿前请根据当前 RSNA 官方要求复核本次校验结果。'
     ),
   ];
   const content = abstract.abstract?.trim() ?? '';

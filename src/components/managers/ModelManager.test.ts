@@ -39,12 +39,42 @@ describe('ModelManager blind-review settings', () => {
       },
     });
 
-    await fireEvent.click(screen.getByRole('button', { name: 'MCP Tools' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Skills & MCP' }));
+    expect((screen.getByLabelText('Skills') as HTMLInputElement).checked).toBe(true);
+    expect((screen.getByLabelText('MCP') as HTMLInputElement).checked).toBe(true);
     expect(screen.queryByLabelText(/endpoint|url|token|command/i)).toBeNull();
+    const manifest = new File(
+      [
+        JSON.stringify({
+          name: 'External reviewer',
+          kind: 'skill',
+          version: '1.0.0',
+          adapter: 'academic-abstract-blind-review',
+        }),
+      ],
+      'reviewer.json',
+      { type: 'application/json' }
+    );
+    Object.defineProperty(manifest, 'text', {
+      value: async () =>
+        JSON.stringify({
+          name: 'External reviewer',
+          kind: 'skill',
+          version: '1.0.0',
+          adapter: 'academic-abstract-blind-review',
+        }),
+    });
+    const manifestInput = screen.getByLabelText('Choose JSON manifest') as HTMLInputElement;
+    Object.defineProperty(manifestInput, 'files', { value: [manifest], configurable: true });
+    await fireEvent.change(manifestInput);
+    expect(await screen.findByText('External reviewer')).toBeTruthy();
+    await fireEvent.click(screen.getByLabelText(/External reviewer/));
     await fireEvent.click(screen.getByLabelText('PubMed related-literature search'));
     await fireEvent.click(screen.getByRole('button', { name: 'Save Settings' }));
 
     expect(saveSettings).toHaveBeenCalledOnce();
     expect(saveSettings.mock.calls[0][0].blindReview.reviewers.pubmed).toBe(true);
+    expect(saveSettings.mock.calls[0][0].capabilities.imported[0].name).toBe('External reviewer');
+    expect(saveSettings.mock.calls[0][0].capabilities.imported[0].enabled).toBe(true);
   });
 });

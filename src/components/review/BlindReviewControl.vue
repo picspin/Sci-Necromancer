@@ -1,6 +1,6 @@
 <template>
   <section
-    v-if="settings.blindReview?.enabled"
+    v-if="blindReviewAvailable"
     class="rounded-lg border border-cyan-500/40 bg-cyan-500/10 p-4"
   >
     <div class="flex flex-wrap items-center justify-between gap-3">
@@ -124,13 +124,17 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import type { AbstractData, BlindReviewReport, Conference } from '@/types';
 import { normalizeBlindReviewSettings } from '@/lib/review/reviewSettings';
 import { localizeError } from '@/lib/i18n/errorMessages';
 import { runBlindReview } from '@/services/blindReviewService';
 import { useSettings } from '@/composables/useSettings';
+import {
+  hasEnabledCapabilityAdapter,
+  normalizeCapabilitySettings,
+} from '@/lib/capabilities/capabilityRegistry';
 
 const props = defineProps<{
   conference: Exclude<Conference, 'IMAGE' | 'JACC'>;
@@ -144,6 +148,14 @@ const isRunning = ref(false);
 const report = ref<BlindReviewReport | null>(null);
 const error = ref('');
 let reviewRevision = 0;
+const capabilities = computed(() => normalizeCapabilitySettings(settings.value.capabilities));
+const blindReviewAvailable = computed(
+  () =>
+    Boolean(settings.value.blindReview?.enabled) &&
+    capabilities.value.skillsEnabled &&
+    (capabilities.value.bundledBlindReviewSkill ||
+      hasEnabledCapabilityAdapter(settings.value, 'skill', 'academic-abstract-blind-review'))
+);
 
 watch(
   [
@@ -151,6 +163,7 @@ watch(
     () => props.sourceText,
     () => props.abstract,
     () => settings.value.blindReview,
+    () => settings.value.capabilities,
   ],
   () => {
     reviewRevision += 1;
@@ -171,7 +184,12 @@ const handleReview = async () => {
       sourceText: props.sourceText,
       abstract: props.abstract,
       locale: locale.value.toLowerCase().startsWith('zh') ? 'zh' : 'en',
-      settings: normalizeBlindReviewSettings(settings.value.blindReview),
+      settings: {
+        ...normalizeBlindReviewSettings(settings.value.blindReview),
+        reviewers: capabilities.value.mcpEnabled
+          ? normalizeBlindReviewSettings(settings.value.blindReview).reviewers
+          : { pubmed: false, citecheck: false, 'doi-mcp': false },
+      },
     });
     if (revision === reviewRevision) report.value = nextReport;
   } catch (caught) {

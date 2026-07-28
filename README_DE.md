@@ -1,279 +1,91 @@
-# Sci-Necromancer
+<div align="center">
+  <a href="https://www.rad-sci.org/" target="_blank"><img src="public/readme-assets/sci-necromancer-logo.svg" height="180" alt="SCI-Necromancer Logo"></a>
 
-KI-gesteuerter Generator fuer akademische Abstracts fuer medizinische Bildgebung und wissenschaftliche Forschungskonferenzen.
+  <p><a href="README.md">English</a> · <a href="README_CN.md">中文</a> · <a href="README_DE.md">Deutsch</a></p>
+  <p>
+    <a href="https://github.com/picspin/Sci-Necromancer/actions/workflows/ci.yml"><img src="https://github.com/picspin/Sci-Necromancer/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+    <a href="https://vite.dev/"><img src="https://img.shields.io/badge/Vite-6-646CFF?logo=vite&amp;logoColor=white" alt="Vite 6"></a>
+    <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-4A959F.svg" alt="MIT License"></a>
+    <a href="https://github.com/picspin/Sci-Necromancer"><img src="https://img.shields.io/badge/Open%20Source-Yes-567A87" alt="Open Source"></a>
+    <a href="#deployment"><img src="https://img.shields.io/badge/Deploy-Cloudflare%20%7C%20Vercel%20%7C%20Netlify-B4C3D7" alt="Cloudflare Vercel Netlify"></a>
+  </p>
+</div>
 
-## Ueberblick
+[![SCI cultivation path](public/readme-assets/sci-necromancer-cultivation.png)](https://www.rad-sci.org/)
 
-Sci-Necromancer vereinfacht den Prozess der Vorbereitung von Konferenz-Abstracts durch den Einsatz grosser Sprachmodelle zur Analyse von Forschungsinhalten, Generierung von Impact-Statements, Vorschlag geeigneter Einreichungskategorien und Erstellung ausgefeilter Abstracts, die den Konferenzrichtlinien entsprechen.
+## Überblick
 
-### Unterstuetzte Konferenzen
+SCI-Necromancer ist ein quelloffener KI-Assistent für Abstracts medizinischer Bildgebungs- und Kardiologiekongresse. Aus Quellenmaterial entstehen im Standardmodus oder im spielerischen **邪修-/Alchemie-Modus** strukturierte Entwürfe für ISMRM, RSNA, ECR/ER und ESC.
 
-- **ISMRM** - International Society for Magnetic Resonance in Medicine
-- **RSNA** - Radiological Society of North America
-- **ESC** - European Society of Cardiology
-- **ECR** - European Congress of Radiology
+Die Anwendung unterstützt Analyse, Sprachoptimierung, Formatierung, Abbildungen, Export und unabhängige Blindprüfung. Sie **garantiert nicht** die Richtigkeit von Daten, Ethikvoten, De-Identifizierung, Statistik, Zitaten oder Einreichungsregeln. Die Verantwortung bleibt bei den Autorinnen und Autoren.
+
+## Architektur
+
+![Architektur](public/readme-assets/architecture.svg)
+
+Vue 3 stellt die gemeinsame Oberfläche und Kongress-Slices bereit. Deterministische Regeln begrenzen Modellprompts und validieren Ergebnisse. Die optionale Skills-&-MCP-Schicht ergänzt einen schreibgeschützten Blind-Review-Skill sowie serverseitig bereitgestellte PubMed-, CiteCheck- und DOI-Prüfung. Standardmäßig wird lokal gespeichert; Supabase ist optional.
 
 ## Funktionen
 
-### Abstract-Generierung
-
-- **Standard-Analysemodus**: PDF/DOCX hochladen oder Text einfuegen, dann einem gefuehrten Workflow folgen:
-  - Inhaltsanalyse mit Schluesselwortextraktion
-  - Impact-Statement- und Synopsis-Generierung
-  - Abstract-Typ-Vorschlag basierend auf Inhalt
-  - Finale Abstract-Generierung entsprechend Konferenzrichtlinien
-- **Kreativer Erweiterungsmodus**: Kernforschungsidee eingeben und direkt ein vollstaendiges Abstract generieren
-
-### Abbildungsgenerierung
-
-- **Standard-Bearbeitung**: Bilder hochladen und KI-gestuetzte Bearbeitung nach Spezifikationen anwenden
-- **Kreative Generierung**: Abbildungen aus Abstract-Kontext (Impact + Synopsis) generieren
-
-### Abstract-Verwaltung
-
-- Generierte Abstracts lokal speichern und organisieren
-- Abstracts als JSON importieren/exportieren fuer Backup und Teilen
-- Vollstaendige CRUD-Operationen fuer gespeicherte Abstracts
-
-### Exportoptionen
-
-- Markdown (.md)
-- PDF-Dokument
-- JSON-Daten
-
-### Internationalisierung
-
-- Englisch- und Chinesisch-Sprachunterstuetzung
-- Automatische Browser-Spracherkennung
-- Einfacher Sprachwechsel ueber UI
-
-## Technologie-Stack
-
-| Kategorie          | Technologien                               |
-| ------------------ | ------------------------------------------ |
-| Frontend           | Vue 3 (Composition API), TypeScript        |
-| Zustandsverwaltung | Pinia, Vue Composables                     |
-| Styling            | Tailwind CSS                               |
-| Build-Tool         | Vite                                       |
-| KI-Integration     | Google AI (Gemini), OpenAI-kompatible APIs |
-| Dateiverarbeitung  | pdf-parse, mammoth (DOCX)                  |
-| Testing            | Vitest                                     |
+- Geführter Ablauf von Quelle, Analyse und Klassifikation bis Generierung, Speichern und Export.
+- Einheitliche „一键炼丹“-Aktion im kreativen 邪修-Modus.
+- ISMRM, RSNA Science/Education, ECR/ER und ESC.
+- Vollständige englische/chinesische UI-Lokalisierung inklusive Fehlern und Barrierefreiheit.
+- Bildgenerierung/-bearbeitung sowie Markdown-, PDF-, JSON- und Bildexport.
+- Getrennte Skills-/MCP-Schalter, sicherer lokaler JSON-Manifestimport und herunterladbarer Review-Skill.
+- Strukturierte Prüfung von Ethik, Einwilligung, De-Identifizierung, Daten, Methodik, Zitaten und Kongressregeln.
+- Fail-closed: Nicht verfügbare Evidenzdienste gelten niemals als verifiziert.
 
 ## Schnellstart
 
-### Voraussetzungen
-
-- Node.js 18 oder hoeher
-- API-Schluessel fuer Google AI (Gemini) oder einen OpenAI-kompatiblen Anbieter
-
-### Installation
+Voraussetzungen: Node.js 18+ und ein Google-Gemini- oder OpenAI-kompatibler API-Schlüssel.
 
 ```bash
-# Repository klonen
-git clone https://github.com/yourusername/sci-necromancer.git
-cd sci-necromancer
-
-# Abhaengigkeiten installieren
+git clone https://github.com/picspin/Sci-Necromancer.git
+cd Sci-Necromancer
 npm install
-
-# Entwicklungsserver starten
 npm run dev
 ```
 
-Die Anwendung ist unter `http://localhost:3000` verfuegbar.
-
-### Produktions-Build
-
-```bash
-npm run build
-npm run preview
-```
-
-## Konfiguration
-
-### Ersteinrichtung
-
-1. Anwendung starten und auf die **Modelle**-Schaltflaeche (Zahnrad-Symbol) in der Kopfzeile klicken
-2. KI-Anbieter auswaehlen:
-   - **Google AI**: Gemini API-Schluessel von [Google AI Studio](https://aistudio.google.com/) eingeben
-   - **OpenAI-kompatibel**: Basis-URL und API-Schluessel eingeben (unterstuetzt OpenAI, SiliconFlow und andere kompatible APIs)
-3. Modelle konfigurieren (optional):
-   - Textmodell (z.B. `gemini-2.5-pro`, `gpt-4o`)
-   - Bildverarbeitungsmodell (fuer Bildanalyse)
-   - Bildgenerierungsmodell (fuer Abbildungsgenerierung)
-4. Einstellungen speichern
-
-Einstellungen werden im Browser localStorage gespeichert und bleiben sitzungsuebergreifend erhalten.
-
-### Unterstuetzte Anbieter
-
-| Anbieter          | Basis-URL                       | Hinweise                        |
-| ----------------- | ------------------------------- | ------------------------------- |
-| Google AI         | N/A                             | Verwendet `@google/genai` SDK   |
-| OpenAI            | `https://api.openai.com/v1`     | Offizielle OpenAI API           |
-| SiliconFlow       | `https://api.siliconflow.cn/v1` | Bildgenerierungs-Unterstuetzung |
-| Benutzerdefiniert | Ihre Endpunkt-URL               | Jede OpenAI-kompatible API      |
+Danach die von Vite ausgegebene lokale URL öffnen und den Anbieter unter **Models** konfigurieren.
 
 ## Verwendung
 
-### Standard-Analyse-Workflow
+1. ISMRM, RSNA, ECR/ER oder ESC wählen.
+2. Quellenmaterial einfügen/hochladen oder im 邪修-Modus eine Forschungsidee eingeben.
+3. Analysieren, Einreichungsroute bestätigen und Abstract generieren.
+4. Speichern, exportieren oder unabhängig blind prüfen.
+5. Vor der Einreichung Fakten, Ethik, Datenschutz, Statistik, Zitate und aktuelle Regeln manuell prüfen.
 
-1. **Konferenz auswaehlen**: Zielkonferenz-Tab auswaehlen (ISMRM, RSNA, ESC, ECR)
-2. **Inhalt eingeben**: PDF/DOCX-Datei hochladen oder Forschungstext einfuegen
-3. **Analysieren**: "Analysieren" klicken, um Kategorien und Schluesselwoerter zu extrahieren
-4. **Impact & Synopsis generieren**: Impact-Statement und Synopsis erstellen
-5. **Typ auswaehlen**: KI-vorgeschlagene Abstract-Typen ueberpruefen oder manuell auswaehlen
-6. **Abstract generieren**: Finales Abstract entsprechend Konferenzrichtlinien erstellen
-7. **Exportieren**: Als Markdown, PDF oder JSON herunterladen
+Unter **Skills & MCP** lassen sich beide Laufzeiten getrennt laden. Externe `.json`-Dateien können nur einen benannten, bereits integrierten und vertrauenswürdigen Adapter aktivieren; ungebundene Manifeste bleiben reine Registry-Einträge. Browserbefehle und Zugangsdaten werden ignoriert. Neue ausführbare MCP-Adapter müssen weiterhin serverseitig bereitgestellt werden.
 
-### Kreativer Erweiterungsmodus
+## Deployment
 
-1. Konferenz auswaehlen und zum "Kreative Erweiterung"-Modus wechseln
-2. Kernforschungsidee oder Hypothese eingeben
-3. Vollstaendiges Abstract direkt aus dem Konzept generieren
-
-### Abbildungsgenerierung
-
-1. Zum "Abbildungsgenerierung"-Tab navigieren
-2. Modus auswaehlen:
-   - **Standard-Bearbeitung**: Bild hochladen und Bearbeitungsanweisungen angeben
-   - **Kreative Generierung**: Abbildungen basierend auf Abstract-Kontext generieren
-3. Generierte Abbildung herunterladen
-
-## ECR (European Congress of Radiology) Spezialfunktionen
-
-### Forschungstyp-Richtlinien (EQUATOR Network)
-
-Das ECR-Modul integriert EQUATOR Network Berichtsrichtlinien:
-
-| Studientyp                         | Checkliste | Beschreibung                                                    |
-| ---------------------------------- | ---------- | --------------------------------------------------------------- |
-| Fall-Kontroll-Studie               | STROBE     | Staerkung der Berichterstattung von Beobachtungsstudien         |
-| Querschnittsstudie                 | STROBE     | Staerkung der Berichterstattung von Beobachtungsstudien         |
-| Diagnostische/prognostische Studie | STARD      | Standards fuer Berichte ueber diagnostische Genauigkeitsstudien |
-| Experimentelle Studie (Tier)       | ARRIVE     | Tierforschung: Berichterstattung von In-vivo-Experimenten       |
-| Beobachtungsstudie                 | STROBE     | Staerkung der Berichterstattung von Beobachtungsstudien         |
-| Randomisierte kontrollierte Studie | CONSORT    | Konsolidierte Standards fuer die Berichterstattung von Studien  |
-
-### Einreichungslink
-
-- **ECR Abstract-Einreichungsportal**: [www.myESR.org/abstractsubmission](https://www.myesr.org/abstractsubmission)
-
-## Projektstruktur
-
-```
-sci-necromancer/
-├── src/
-│   ├── main.ts                 # Anwendungs-Einstiegspunkt
-│   ├── App.vue                 # Wurzelkomponente
-│   ├── components/
-│   │   ├── panels/             # Konferenzspezifische Panels
-│   │   ├── managers/           # Abstract- und Modell-Manager
-│   │   ├── ui/                 # Wiederverwendbare UI-Komponenten
-│   │   └── export/             # Export-Funktionalitaet
-│   ├── composables/            # Vue Composables (Hooks)
-│   └── plugins/                # Vue Plugins (i18n, etc.)
-├── lib/
-│   ├── llm/                    # LLM-Anbieter-Integrationen
-│   │   ├── index.ts            # Einheitliche API-Fassade
-│   │   ├── gemini.ts           # Google AI Integration
-│   │   └── openai.ts           # OpenAI-kompatible Integration
-│   ├── conference/             # Konferenzmodul-System
-│   │   ├── modules/            # Pro-Konferenz-Implementierungen
-│   │   ├── ConferenceRegistry.ts
-│   │   └── ConferenceRouter.ts
-│   ├── file/                   # Dateiverarbeitungs-Utilities
-│   └── utils/                  # Gemeinsame Utilities
-├── public/
-│   ├── locales/                # i18n-Uebersetzungsdateien
-│   └── *.md                    # Konferenzrichtlinien
-├── types.ts                    # TypeScript-Typdefinitionen
-├── vite.config.ts              # Vite-Konfiguration
-└── tsconfig.json               # TypeScript-Konfiguration
+```bash
+npm run test -- --run
+npm run lint
+npm run build
 ```
 
-## Entwicklung
+`dist/` kann mit SPA-Fallback auf Cloudflare, Vercel oder Netlify bereitgestellt werden. Vercel kann zusätzlich `api/blind-review.ts` hosten. HTTPS-Facades und Trusted-Edge-Token für CiteCheck/DOI MCP sind im [Backend-Leitfaden](docs/BLIND_REVIEW_BACKEND.md) beschrieben. Servergeheimnisse gehören niemals in `VITE_*`-Variablen.
 
-### Verfuegbare Skripte
+## Referenzen
 
-| Befehl             | Beschreibung                      |
-| ------------------ | --------------------------------- |
-| `npm run dev`      | Entwicklungsserver starten        |
-| `npm run build`    | Fuer Produktion bauen             |
-| `npm run preview`  | Produktions-Build vorschauen      |
-| `npm run lint`     | TypeScript-Typpruefung ausfuehren |
-| `npm run lint:fix` | ESLint-Probleme beheben           |
-| `npm run format`   | Code mit Prettier formatieren     |
-| `npm run test`     | Tests mit Vitest ausfuehren       |
-| `npm run test:ui`  | Tests mit UI ausfuehren           |
+- [RSNA Abstract Submission](https://www.rsna.org/annual-meeting/abstract-submission)
+- [RSNA Presenter Resources](https://www.rsna.org/annual-meeting/attendee-resources/faculty-and-presenter-resources)
+- [ISMRM Submission Guide](https://www.ismrm.org/26m/call/submission-guide/)
+- [ECR Abstract Submission](https://www.myesr.org/congress/submit/abstract-submission/)
+- [ESC Abstract Rules](https://www.escardio.org/events/congresses/esc-congress/call-for-science/abstracts/rules/)
+- [STARD](https://www.equator-network.org/reporting-guidelines/stard/) · [TRIPOD](https://www.tripod-statement.org/)
 
-### Pfad-Aliase
-
-Der `@`-Alias verweist auf das Projektstammverzeichnis:
-
-```typescript
-import { useSettings } from '@/src/composables/useSettings';
-import { analyzeContent } from '@/lib/llm';
-```
-
-### Neue Konferenz hinzufuegen
-
-1. Neues Modul in `lib/conference/modules/` erstellen
-2. `BaseConferenceModule` mit konferenzspezifischen Richtlinien und Typen erweitern
-3. Modul in `ConferenceRegistry` registrieren
-4. Entsprechende Panel-Komponente in `src/components/panels/` erstellen
-5. Uebersetzungen in `public/locales/` hinzufuegen
-
-## Bereitstellung
-
-### Vercel (Empfohlen)
-
-1. Repository zu GitHub pushen
-2. Projekt in Vercel importieren
-3. Konfigurieren:
-   - Framework-Preset: **Vite**
-   - Build-Befehl: `npm run build`
-   - Ausgabeverzeichnis: `dist`
-4. Bereitstellen
-
-Keine Umgebungsvariablen erforderlich; API-Schluessel werden ueber UI eingegeben und lokal gespeichert.
-
-### Andere Plattformen
-
-Die Build-Ausgabe ist eine statische Seite in `dist/`. Kann auf jedem statischen Hosting-Service bereitgestellt werden (Netlify, GitHub Pages, Cloudflare Pages, etc.).
-
-## Sicherheit
-
-- API-Schluessel werden nur im Browser localStorage gespeichert
-- Keine serverseitige Speicherung oder Uebertragung von Anmeldedaten
-- Dateiverarbeitung laeuft vollstaendig im Browser
-- Vermeiden Sie das Hochladen sensibler oder vertraulicher Forschungsdaten
+Offizielle Regeln ändern sich. Interne Referenzen sind nur Entwurfshilfen; vor jeder Einreichung gilt die aktuelle Kongresswebsite.
 
 ## Fehlerbehebung
 
-| Problem                    | Loesung                                                                   |
-| -------------------------- | ------------------------------------------------------------------------- |
-| API-Fehler                 | Pruefen Sie, ob API-Schluessel korrekt ist und ausreichend Kontingent hat |
-| PDF-Parsing fehlgeschlagen | Versuchen Sie eine kleinere Datei oder fuegen Sie Text direkt ein         |
-| Port 3000 belegt           | Vite waehlt automatisch einen anderen Port (Terminal-Ausgabe pruefen)     |
-| Build-Typfehler            | `npm run lint` ausfuehren, um TypeScript-Probleme zu identifizieren       |
+- **Leere Seite:** Node 18+ verwenden, Abhängigkeiten neu installieren und Browserkonsole prüfen.
+- **Providerfehler:** API-Schlüssel, Base URL, Modell, Kontingent und Datenschutzbedingungen prüfen.
+- **Dateiextraktion scheitert:** Klartext einfügen oder geschützte/gescannte Datei vorher aufbereiten.
+- **Reviewer nicht verfügbar:** Checkbox, Backend-Facade, HTTPS, Timeout und Trusted-Edge-Header prüfen.
+- **Unerwartete Ausgabe:** Workflow löschen, aus verifizierten Quellen neu generieren und KI-Text nie ungeprüft einreichen.
 
-## Mitwirken
-
-1. Repository forken
-2. Feature-Branch erstellen (`git checkout -b feature/your-feature`)
-3. Aenderungen committen (`git commit -m 'Add your feature'`)
-4. Zum Branch pushen (`git push origin feature/your-feature`)
-5. Pull Request erstellen
-
-## Danksagungen
-
-- [ISMRM](https://www.ismrm.org/), [RSNA](https://www.rsna.org/), [ESC](https://www.escardio.org/), [ESR](https://www.myesr.org/) fuer oeffentliche Abstract-Richtlinien
-- [Google AI](https://ai.google.dev/) (Gemini) fuer Sprachmodell-Faehigkeiten
-- [OpenAI](https://openai.com/) fuer API-Kompatibilitaetsstandards
-- [SiliconFlow](https://siliconflow.cn/) fuer Bildgenerierungs-APIs
-- [EQUATOR Network](http://equator-network.org/) fuer Forschungsberichts-Richtlinien
-
----
-
-[English](README.md) | [中文](README_CN.md) | **Deutsch**
+MIT-lizenziert; Beiträge und evidenzbasierte Korrekturen sind willkommen.

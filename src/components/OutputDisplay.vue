@@ -48,18 +48,15 @@
         <div v-if="abstract?.rsna" class="animate-fade-in rounded-lg bg-base-100 p-4 text-sm">
           <h3 class="font-semibold text-brand-primary">{{ t('rsna.output_route') }}</h3>
           <p class="mt-1 text-text-secondary">{{ rsnaRoute }}</p>
-          <p class="mt-1 text-xs text-amber-300">
-            {{ abstract.rsna.ruleVersion }} — {{ t('rsna.output_provisional') }}
-          </p>
         </div>
 
         <div
-          v-if="abstract?.complianceWarnings?.length"
+          v-if="publicComplianceWarnings.length"
           class="animate-fade-in rounded-lg border border-red-500/40 bg-red-500/10 p-4 text-sm"
         >
           <h3 class="font-semibold text-red-200">{{ t('rsna.submission_checks') }}</h3>
           <ul class="mt-2 list-disc space-y-1 pl-5 text-red-100">
-            <li v-for="warning in abstract.complianceWarnings" :key="warning">{{ warning }}</li>
+            <li v-for="warning in publicComplianceWarnings" :key="warning">{{ warning }}</li>
           </ul>
         </div>
 
@@ -233,6 +230,7 @@ import AbstractBody from '@/components/ui/AbstractBody.vue';
 import LoadingSpinner from '@/components/ui/LoadingSpinner.vue';
 import ErrorMessage from '@/components/ui/ErrorMessage.vue';
 import BlindReviewControl from '@/components/review/BlindReviewControl.vue';
+import { sanitizeRSNAUserWarnings } from '@/lib/conference/rsnaRules';
 
 interface Props {
   abstract: AbstractData | null;
@@ -255,6 +253,11 @@ const props = withDefaults(defineProps<Props>(), {
   sourceText: '',
 });
 const { t } = useI18n();
+const publicComplianceWarnings = computed(() =>
+  props.conference === 'RSNA'
+    ? sanitizeRSNAUserWarnings(props.abstract?.complianceWarnings)
+    : (props.abstract?.complianceWarnings ?? [])
+);
 
 const hasOutput = computed(() => props.abstract || props.image || props.impact || props.synopsis);
 

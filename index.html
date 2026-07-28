@@ -167,12 +167,18 @@
       a,
       input[type="button"],
       input[type="submit"],
-      input[type="checkbox"],
-      input[type="radio"],
       select {
         min-height: 44px;
         min-width: 44px;
         padding: 0.5rem 1rem;
+      }
+
+      /* Checkbox/radio controls stay compact; their wrapping labels provide the touch target. */
+      input[type="checkbox"],
+      input[type="radio"] {
+        min-height: 0;
+        min-width: 0;
+        padding: 0;
       }
       
       /* Exception for icon-only buttons */

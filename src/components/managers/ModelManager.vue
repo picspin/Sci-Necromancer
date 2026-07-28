@@ -375,11 +375,89 @@
         </div>
       </div>
 
-      <!-- MCP Tools Panel -->
+      <!-- Skills & MCP Panel -->
       <div v-if="activePanel === 'mcp-tools'" class="space-y-4">
         <p class="text-sm text-text-secondary">
           {{ t('model_manager.mcp_description') }}
         </p>
+
+        <div class="grid gap-3 sm:grid-cols-2">
+          <div class="flex items-center justify-between rounded-lg bg-base-100 p-4">
+            <div>
+              <h4 class="text-sm font-medium text-text-primary">
+                {{ t('model_manager.skills_runtime') }}
+              </h4>
+              <p class="mt-0.5 text-xs text-text-secondary">
+                {{ t('model_manager.skills_runtime_help') }}
+              </p>
+            </div>
+            <label
+              class="relative inline-flex min-h-[44px] min-w-[44px] cursor-pointer items-center justify-center"
+            >
+              <input
+                v-model="localSettings.capabilities!.skillsEnabled"
+                type="checkbox"
+                class="sr-only peer"
+                :aria-label="t('model_manager.skills_runtime')"
+              />
+              <div
+                class="relative h-5 w-9 rounded-full bg-base-300 after:absolute after:left-0.5 after:top-0.5 after:h-4 after:w-4 after:rounded-full after:bg-white after:transition-all after:content-[''] peer-checked:bg-brand-primary peer-checked:after:translate-x-4"
+              ></div>
+            </label>
+          </div>
+          <div class="flex items-center justify-between rounded-lg bg-base-100 p-4">
+            <div>
+              <h4 class="text-sm font-medium text-text-primary">
+                {{ t('model_manager.mcp_runtime') }}
+              </h4>
+              <p class="mt-0.5 text-xs text-text-secondary">
+                {{ t('model_manager.mcp_runtime_help') }}
+              </p>
+            </div>
+            <label
+              class="relative inline-flex min-h-[44px] min-w-[44px] cursor-pointer items-center justify-center"
+            >
+              <input
+                v-model="localSettings.capabilities!.mcpEnabled"
+                type="checkbox"
+                class="sr-only peer"
+                :aria-label="t('model_manager.mcp_runtime')"
+              />
+              <div
+                class="relative h-5 w-9 rounded-full bg-base-300 after:absolute after:left-0.5 after:top-0.5 after:h-4 after:w-4 after:rounded-full after:bg-white after:transition-all after:content-[''] peer-checked:bg-brand-primary peer-checked:after:translate-x-4"
+              ></div>
+            </label>
+          </div>
+        </div>
+
+        <div class="rounded-lg bg-base-100 p-4">
+          <div class="flex items-start justify-between gap-4">
+            <div>
+              <h4 class="text-sm font-medium text-text-primary">
+                {{ t('model_manager.bundled_skill') }}
+              </h4>
+              <p class="mt-0.5 text-xs text-text-secondary">
+                {{ t('model_manager.bundled_skill_help') }}
+              </p>
+            </div>
+            <label class="inline-flex min-h-[44px] min-w-[44px] items-center justify-center">
+              <input
+                v-model="localSettings.capabilities!.bundledBlindReviewSkill"
+                type="checkbox"
+                :disabled="!localSettings.capabilities?.skillsEnabled"
+                :aria-label="t('model_manager.bundled_skill')"
+                class="rounded border-base-300 text-brand-primary focus:ring-brand-primary"
+                @change="syncBundledSkill"
+              />
+            </label>
+          </div>
+          <a
+            href="/skills/academic-abstract-blind-review.zip"
+            class="mt-2 inline-block text-xs text-brand-primary hover:underline"
+            download
+            >{{ t('model_manager.download_skill') }}</a
+          >
+        </div>
 
         <div class="rounded-lg bg-base-100 p-4">
           <div class="flex items-start justify-between gap-4">
@@ -391,7 +469,9 @@
                 {{ t('model_manager.blind_review_help') }}
               </p>
             </div>
-            <label class="relative inline-flex cursor-pointer items-center">
+            <label
+              class="relative inline-flex min-h-[44px] min-w-[44px] cursor-pointer items-center justify-center"
+            >
               <input
                 v-model="localSettings.blindReview!.enabled"
                 type="checkbox"
@@ -399,17 +479,22 @@
                 :aria-label="t('model_manager.blind_review_enabled')"
               />
               <div
-                class="h-6 w-11 rounded-full bg-base-300 after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:bg-white after:transition-all after:content-[''] peer-checked:bg-brand-primary peer-checked:after:translate-x-full"
+                class="relative h-5 w-9 rounded-full bg-base-300 after:absolute after:left-0.5 after:top-0.5 after:h-4 after:w-4 after:rounded-full after:bg-white after:transition-all after:content-[''] peer-checked:bg-brand-primary peer-checked:after:translate-x-4"
               ></div>
             </label>
           </div>
           <p class="mt-2 text-xs text-cyan-200">{{ t('model_manager.backend_managed') }}</p>
           <p class="mt-2 text-xs text-amber-200">{{ t('model_manager.external_data_notice') }}</p>
-          <fieldset class="mt-3 space-y-2" :disabled="!localSettings.blindReview?.enabled">
+          <fieldset
+            class="mt-3 space-y-2"
+            :disabled="
+              !localSettings.blindReview?.enabled || !localSettings.capabilities?.mcpEnabled
+            "
+          >
             <label
               v-for="reviewer in reviewerOptions"
               :key="reviewer.key"
-              class="flex items-center gap-2 text-sm text-text-secondary"
+              class="flex min-h-[44px] items-center gap-2 text-sm text-text-secondary"
             >
               <input
                 v-model="localSettings.blindReview!.reviewers[reviewer.key]"
@@ -421,6 +506,69 @@
           </fieldset>
         </div>
 
+        <div class="rounded-lg bg-base-100 p-4">
+          <h4 class="text-sm font-medium text-text-primary">
+            {{ t('model_manager.import_capability') }}
+          </h4>
+          <p class="mt-1 text-xs text-text-secondary">
+            {{ t('model_manager.import_capability_help') }}
+          </p>
+          <label
+            class="mt-3 inline-flex cursor-pointer items-center rounded-md border border-base-300 px-3 py-2 text-sm text-text-secondary hover:border-brand-primary hover:text-brand-primary"
+          >
+            {{ t('model_manager.choose_manifest') }}
+            <input
+              type="file"
+              accept="application/json,.json"
+              class="sr-only"
+              @change="importCapabilityManifest"
+            />
+          </label>
+          <p
+            v-if="capabilityImportMessage"
+            class="mt-2 text-xs"
+            :class="capabilityImportError ? 'text-red-300' : 'text-green-300'"
+          >
+            {{ capabilityImportMessage }}
+          </p>
+          <ul v-if="localSettings.capabilities?.imported.length" class="mt-3 space-y-2">
+            <li
+              v-for="capability in localSettings.capabilities.imported"
+              :key="capability.id"
+              class="flex items-center justify-between gap-3 rounded border border-base-300 p-2"
+            >
+              <label
+                class="flex min-h-[44px] min-w-0 items-center gap-2 text-sm text-text-secondary"
+              >
+                <input
+                  v-model="capability.enabled"
+                  type="checkbox"
+                  :disabled="
+                    !capability.adapter ||
+                    (capability.kind === 'skill'
+                      ? !localSettings.capabilities.skillsEnabled
+                      : !localSettings.capabilities.mcpEnabled)
+                  "
+                />
+                <span class="truncate">{{ capability.name }}</span>
+                <span class="rounded bg-base-300 px-1.5 py-0.5 text-[10px] uppercase">{{
+                  capability.kind
+                }}</span>
+                <span v-if="!capability.adapter" class="text-[10px] text-amber-200">
+                  {{ t('model_manager.registry_only') }}
+                </span>
+              </label>
+              <button
+                type="button"
+                class="text-xs text-red-300 hover:text-red-200"
+                @click="removeCapability(capability.id)"
+              >
+                {{ t('common.delete') }}
+              </button>
+            </li>
+          </ul>
+        </div>
+
         <!-- Supabase MCP -->
         <div class="p-4 bg-base-100 rounded-lg">
           <div class="flex items-center justify-between mb-3">
@@ -430,10 +578,17 @@
               </h4>
               <p class="text-xs text-text-secondary mt-0.5">{{ t('model_manager.cloud_sync') }}</p>
             </div>
-            <label class="relative inline-flex items-center cursor-pointer">
-              <input type="checkbox" v-model="localSettings.databaseEnabled" class="sr-only peer" />
+            <label
+              class="relative inline-flex min-h-[44px] min-w-[44px] items-center justify-center cursor-pointer"
+            >
+              <input
+                type="checkbox"
+                v-model="localSettings.databaseEnabled"
+                :disabled="!localSettings.capabilities?.mcpEnabled"
+                class="sr-only peer"
+              />
               <div
-                class="w-11 h-6 bg-base-300 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-brand-primary/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-brand-primary"
+                class="relative h-5 w-9 rounded-full bg-base-300 after:absolute after:left-0.5 after:top-0.5 after:h-4 after:w-4 after:rounded-full after:bg-white after:transition-all after:content-[''] peer-checked:bg-brand-primary peer-checked:after:translate-x-4"
               ></div>
             </label>
           </div>
@@ -450,15 +605,18 @@
                 {{ t('model_manager.image_mcp_help') }}
               </p>
             </div>
-            <label class="relative inline-flex items-center cursor-pointer">
+            <label
+              class="relative inline-flex min-h-[44px] min-w-[44px] items-center justify-center cursor-pointer"
+            >
               <input
                 type="checkbox"
                 :checked="localSettings.mcpConfig?.imageGeneration?.enabled || false"
+                :disabled="!localSettings.capabilities?.mcpEnabled"
                 @change="toggleImageGeneration"
                 class="sr-only peer"
               />
               <div
-                class="w-11 h-6 bg-base-300 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-brand-primary/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-brand-primary"
+                class="relative h-5 w-9 rounded-full bg-base-300 after:absolute after:left-0.5 after:top-0.5 after:h-4 after:w-4 after:rounded-full after:bg-white after:transition-all after:content-[''] peer-checked:bg-brand-primary peer-checked:after:translate-x-4"
               ></div>
             </label>
           </div>
@@ -574,6 +732,10 @@ import { useSettings } from '@/composables/useSettings';
 import type { AIProvider, Settings } from '@/types';
 import type { ExternalReviewer } from '@/types';
 import { normalizeBlindReviewSettings } from '@/lib/review/reviewSettings';
+import {
+  normalizeCapabilitySettings,
+  parseCapabilityManifest,
+} from '@/lib/capabilities/capabilityRegistry';
 
 const { t } = useI18n();
 
@@ -591,6 +753,7 @@ const cloneSettings = (value: Settings): Settings => ({
   ...value,
   mcpConfig: value.mcpConfig ? { ...value.mcpConfig } : undefined,
   blindReview: normalizeBlindReviewSettings(value.blindReview),
+  capabilities: normalizeCapabilitySettings(value.capabilities),
 });
 const localSettings = ref<Settings>(cloneSettings(settings.value));
 const reviewerOptions: Array<{ key: ExternalReviewer; label: string }> = [
@@ -598,6 +761,51 @@ const reviewerOptions: Array<{ key: ExternalReviewer; label: string }> = [
   { key: 'citecheck', label: 'model_manager.reviewer_citecheck' },
   { key: 'doi-mcp', label: 'model_manager.reviewer_doi' },
 ];
+const capabilityImportMessage = ref('');
+const capabilityImportError = ref(false);
+
+const syncBundledSkill = () => {
+  if (!localSettings.value.capabilities) return;
+  const enabled = localSettings.value.capabilities.bundledBlindReviewSkill;
+  localSettings.value.blindReview = {
+    ...normalizeBlindReviewSettings(localSettings.value.blindReview),
+    enabled,
+  };
+};
+
+const importCapabilityManifest = async (event: Event) => {
+  const input = event.target as HTMLInputElement;
+  const file = input.files?.[0];
+  if (!file) return;
+  capabilityImportMessage.value = '';
+  capabilityImportError.value = false;
+  try {
+    if (file.size > 64 * 1024) throw new Error('capabilities.file_too_large');
+    const capability = parseCapabilityManifest(await file.text(), file.name);
+    const settings = normalizeCapabilitySettings(localSettings.value.capabilities);
+    if (settings.imported.some((item) => item.id === capability.id)) {
+      throw new Error('capabilities.duplicate');
+    }
+    settings.imported = [...settings.imported, capability].slice(0, 20);
+    localSettings.value.capabilities = settings;
+    capabilityImportMessage.value = t('model_manager.import_success', { name: capability.name });
+  } catch (error) {
+    const key = error instanceof Error ? error.message : 'capabilities.invalid_manifest';
+    capabilityImportMessage.value = t(
+      key.startsWith('capabilities.') ? key : 'capabilities.invalid_manifest'
+    );
+    capabilityImportError.value = true;
+  } finally {
+    input.value = '';
+  }
+};
+
+const removeCapability = (id: string) => {
+  if (!localSettings.value.capabilities) return;
+  localSettings.value.capabilities.imported = localSettings.value.capabilities.imported.filter(
+    (capability) => capability.id !== id
+  );
+};
 
 // MCP Image Generation Config (reactive helper)
 const mcpImageConfig = computed({

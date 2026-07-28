@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="180" viewBox="0 0 960 180" role="img" aria-labelledby="title desc">
+  <title id="title">SCI-Necromancer</title>
+  <desc id="desc">A teal scientific manuscript furnace transforming raw research into a refined abstract.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" x2="1">
+      <stop stop-color="#172E35"/>
+      <stop offset="0.55" stop-color="#294D56"/>
+      <stop offset="1" stop-color="#3F3940"/>
+    </linearGradient>
+    <linearGradient id="jade" x1="0" y1="1" x2="1" y2="0">
+      <stop stop-color="#4A959F"/>
+      <stop offset="1" stop-color="#B4C3D7"/>
+    </linearGradient>
+    <filter id="glow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="4" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <rect width="960" height="180" rx="28" fill="url(#bg)"/>
+  <path d="M0 128C122 90 210 161 336 119S566 75 716 112s172 27 244 4v64H0Z" fill="#567A87" opacity=".28"/>
+  <g transform="translate(38 18)">
+    <circle cx="72" cy="72" r="58" fill="none" stroke="#4A959F" stroke-width="3" opacity=".75"/>
+    <circle cx="72" cy="72" r="45" fill="none" stroke="#B4C3D7" stroke-width="2" stroke-dasharray="4 7"/>
+    <path d="M42 113h60l-7-16V58l-12-12H61L49 58v39Z" fill="#172E35" stroke="#B4C3D7" stroke-width="3"/>
+    <path d="M55 63h34M55 75h34M59 87h26" stroke="#4A959F" stroke-width="3" stroke-linecap="round"/>
+    <circle cx="72" cy="108" r="13" fill="#936358" stroke="#D9B57A" stroke-width="2" filter="url(#glow)"/>
+    <path d="M72 22c-11 12-11 22 0 31 11-9 11-19 0-31Z" fill="url(#jade)" filter="url(#glow)"/>
+  </g>
+  <g font-family="Inter,Segoe UI,Arial,sans-serif">
+    <text x="190" y="82" fill="#E8EEF1" font-size="48" font-weight="750" letter-spacing="1">SCI-Necromancer</text>
+    <text x="193" y="119" fill="#B4C3D7" font-size="19" letter-spacing="4">ACADEMIC ALCHEMY · EVIDENCE BEFORE ELOQUENCE</text>
+    <g transform="translate(670 95)" font-size="14" font-weight="700" text-anchor="middle">
+      <circle cx="30" cy="54" r="25" fill="#4A959F"/><text x="30" y="59" fill="#fff">炼气</text>
+      <path d="M57 54h34" stroke="#B4C3D7" stroke-width="2"/><path d="m87 49 8 5-8 5" fill="none" stroke="#B4C3D7" stroke-width="2"/>
+      <circle cx="125" cy="54" r="25" fill="#567A87"/><text x="125" y="59" fill="#fff">筑基</text>
+      <path d="M152 54h34" stroke="#B4C3D7" stroke-width="2"/><path d="m182 49 8 5-8 5" fill="none" stroke="#B4C3D7" stroke-width="2"/>
+      <circle cx="220" cy="54" r="25" fill="#936358" stroke="#D9B57A" stroke-width="2"/><text x="220" y="59" fill="#fff">结丹</text>
+    </g>
+  </g>
+</svg>

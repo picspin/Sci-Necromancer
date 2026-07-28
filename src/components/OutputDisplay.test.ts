@@ -39,4 +39,37 @@ describe('OutputDisplay blind-review entry', () => {
       expect(screen.getAllByTestId('shared-blind-review')).toHaveLength(1);
     }
   );
+
+  it('does not expose internal RSNA fallback provenance from stored or model warnings', () => {
+    render(OutputDisplay, {
+      props: {
+        abstract: {
+          impact: '',
+          synopsis: '',
+          abstract: 'Generated abstract',
+          keywords: [],
+          complianceWarnings: [
+            'RSNA 2026 uses provisional RSNA 2023 fallback rules.',
+            'Verify the ethics approval statement.',
+          ],
+        },
+        conference: 'RSNA',
+        isLoading: false,
+        error: null,
+      },
+      global: {
+        plugins: [i18n],
+        stubs: {
+          BlindReviewControl: true,
+          ExportButtons: true,
+          LiveRegion: true,
+          AbstractBody: true,
+          SvgIcon: true,
+        },
+      },
+    });
+
+    expect(screen.queryByText(/provisional RSNA 2023 fallback/i)).toBeNull();
+    expect(screen.getByText('Verify the ethics approval statement.')).toBeTruthy();
+  });
 });

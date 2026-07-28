@@ -2,6 +2,7 @@ import { ref, computed } from 'vue';
 import type { Settings } from '@/types';
 import { LocalStorageService } from '@/services/databaseService';
 import { normalizeBlindReviewSettings } from '@/lib/review/reviewSettings';
+import { normalizeCapabilitySettings } from '@/lib/capabilities/capabilityRegistry';
 
 // Local storage service
 const STORAGE_KEY = 'app-settings';
@@ -14,6 +15,7 @@ const loadSettingsFromStorage = (): Settings => {
       return {
         ...parsed,
         blindReview: normalizeBlindReviewSettings(parsed.blindReview),
+        capabilities: normalizeCapabilitySettings(parsed.capabilities),
       };
     }
   } catch (error) {
@@ -27,6 +29,7 @@ const loadSettingsFromStorage = (): Settings => {
     maxTokens: 4000,
     databaseEnabled: false,
     blindReview: normalizeBlindReviewSettings(),
+    capabilities: normalizeCapabilitySettings(),
   };
 };
 
@@ -62,6 +65,7 @@ export function useSettings() {
       maxTokens: 4000,
       databaseEnabled: false,
       blindReview: normalizeBlindReviewSettings(),
+      capabilities: normalizeCapabilitySettings(),
     };
     saveSettings(defaultSettings);
   };

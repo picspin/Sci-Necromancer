@@ -15,12 +15,6 @@
         <div v-if="activeTab === 'abstract'" class="space-y-4 animate-fade-in">
           <ModeSelector :mode="abstractMode" @set-mode="setAbstractMode" />
 
-          <div
-            class="rounded-lg border border-amber-500/50 bg-amber-500/10 p-3 text-sm text-amber-100"
-          >
-            <strong>{{ t('rsna.provisional_title') }}</strong> {{ t('rsna.provisional_body') }}
-          </div>
-
           <div v-if="abstractMode === 'standard'" class="bg-base-100 p-4 rounded-lg">
             <label for="file-upload" class="block text-sm font-medium text-text-secondary mb-2">
               {{ t('forms.upload_file') }}

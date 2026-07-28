@@ -42,6 +42,7 @@ describe('RSNAAnalysisStep', () => {
     expect(wrapper.text()).toContain('Science');
     expect(wrapper.text()).toContain('Scientific Paper');
     expect(wrapper.text()).toContain('TRIPOD+AI for Abstracts');
+    expect(wrapper.text()).not.toContain('Detailed 2026 rules are provisional.');
 
     const categoryInputs = wrapper.findAll('input[name="rsna-category"]');
     expect(categoryInputs).toHaveLength(2);

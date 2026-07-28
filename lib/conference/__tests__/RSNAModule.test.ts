@@ -26,7 +26,7 @@ describe('RSNAModule validation', () => {
     });
 
     expect(result.isValid).toBe(true);
-    expect(result.warnings.join(' ')).toContain('provisional');
+    expect(result.warnings.join(' ')).toContain('current official RSNA requirements');
   });
 
   it('validates the distinct education structure', () => {

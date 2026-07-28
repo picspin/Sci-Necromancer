@@ -21,6 +21,10 @@ import {
   validateRSNADraft,
 } from '../conference/rsnaRules';
 import { assertBlindReviewAssessment } from '../review/blindReview';
+import {
+  hasEnabledCapabilityAdapter,
+  isCapabilityGroupEnabled,
+} from '../capabilities/capabilityRegistry';
 
 // Get settings from localStorage
 const getSettings = () => {
@@ -327,7 +331,11 @@ export async function generateImage(
   if (!finalApiKey) throw new Error('API key required');
 
   // Check if MCP image generation is enabled
-  if (settings.mcpConfig?.imageGeneration?.enabled) {
+  const imageMcpEnabled =
+    isCapabilityGroupEnabled(settings, 'mcp') &&
+    (settings.mcpConfig?.imageGeneration?.enabled ||
+      hasEnabledCapabilityAdapter(settings, 'mcp', 'image-generation'));
+  if (imageMcpEnabled) {
     return await generateImageViaMCP(imageState, creativeContext, finalApiKey, settings);
   }
 
