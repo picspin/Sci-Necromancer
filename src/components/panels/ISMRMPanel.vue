@@ -25,7 +25,7 @@
               accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
               @change="handleFileChange"
               class="block w-full text-sm text-text-secondary file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-brand-primary/20 file:text-brand-primary hover:file:bg-brand-primary/30"
-              aria-label="Upload PDF or DOCX file"
+              :aria-label="t('ui.upload_file')"
             />
             <div class="relative mt-2">
               <textarea
@@ -33,7 +33,7 @@
                 @input="handleTextChange"
                 :placeholder="t('forms.paste_text')"
                 class="w-full h-60 p-3 bg-base-100 border border-base-300 rounded-md focus:ring-2 focus:ring-brand-primary focus:outline-none transition"
-                aria-label="Input text for abstract generation"
+                :aria-label="t('ui.input_ismrm')"
               />
             </div>
           </div>
@@ -59,7 +59,7 @@
                   @click="handleAnalyze"
                   :disabled="isLoading || !inputText.trim()"
                   class="flex-1 flex items-center justify-center gap-2 bg-base-300 hover:bg-opacity-80 text-white font-bold py-3 px-4 rounded-lg transition-all duration-300 disabled:bg-base-300/50 disabled:cursor-not-allowed focus:outline-none focus:ring-3 focus:ring-brand-primary"
-                  aria-label="Analyze content to extract categories and keywords"
+                  :aria-label="t('buttons.analyze_content')"
                 >
                   <SvgIcon type="sparkles" class="h-5 w-5" />{{ t('buttons.analyze_content') }}
                 </button>
@@ -67,7 +67,7 @@
                   @click="handleGenerateAbstract"
                   :disabled="isLoading || !selectedAbstractType"
                   class="flex-1 flex items-center justify-center gap-2 bg-brand-primary hover:bg-brand-secondary text-white font-bold py-3 px-4 rounded-lg transition-all duration-300 disabled:bg-base-300/50 disabled:cursor-not-allowed focus:outline-none focus:ring-3 focus:ring-brand-primary"
-                  aria-label="Generate spec-compliant abstract"
+                  :aria-label="t('buttons.generate_abstract')"
                 >
                   <SvgIcon type="document" class="h-5 w-5" />{{ t('buttons.generate_abstract') }}
                 </button>
@@ -77,7 +77,7 @@
                 @click="handleGenerateCreative"
                 :disabled="isLoading || !inputText.trim()"
                 class="w-full flex items-center justify-center gap-2 bg-brand-primary hover:bg-brand-secondary text-white font-bold py-3 px-4 rounded-lg transition-all duration-300 disabled:bg-base-300/50 disabled:cursor-not-allowed focus:outline-none focus:ring-3 focus:ring-brand-primary"
-                aria-label="Generate creative abstract from core idea"
+                :aria-label="t('buttons.generate_creatively')"
               >
                 <SvgIcon type="sparkles" class="h-5 w-5" />{{
                   getMemeTranslation('Generate Creatively', t) || t('buttons.generate_creatively')
@@ -91,7 +91,7 @@
                 @click="handleSaveAbstract"
                 :disabled="!generatedAbstract || isLoading"
                 class="flex-1 flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-lg transition-all duration-300 disabled:bg-base-300/50 disabled:cursor-not-allowed"
-                title="Save abstract to Abstract Manager"
+                :title="t('tooltips.save_abstract')"
               >
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
@@ -113,7 +113,7 @@
                 @click="handleClear"
                 :disabled="isLoading"
                 class="flex-1 flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded-lg transition-all duration-300 disabled:bg-base-300/50 disabled:cursor-not-allowed"
-                title="Clear all data and reset"
+                :title="t('tooltips.clear_data')"
               >
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
@@ -139,7 +139,7 @@
               @click="handleDeepUpdate"
               :disabled="isLoading"
               class="w-full flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-700 text-white font-semibold py-2 px-4 rounded-lg transition-all duration-300 disabled:bg-base-300/50 disabled:cursor-not-allowed animate-fade-in"
-              title="Deep dive refinement using advanced prompts"
+              :title="t('tooltips.deep_update')"
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -171,6 +171,7 @@
         :error="error"
         :loading-message="loadingMessage"
         conference="ISMRM"
+        :source-text="inputText"
         :abstract-type="selectedAbstractType || undefined"
       />
     </div>
@@ -207,6 +208,7 @@ import { fileProcessingService } from '@/lib/file/FileProcessingService';
 import { useSettings } from '@/composables/useSettings';
 import { useAbstract } from '@/composables/useAbstract';
 import { getMemeTranslation } from '@/lib/i18n';
+import { localizeError } from '@/lib/i18n/errorMessages';
 
 // Import sub-components
 import TabButton from './ISMRMPanelComponents/TabButton.vue';
@@ -275,14 +277,10 @@ const handleFileChange = async (e: Event) => {
         inputText.value = result.content;
         if (analysisResult.value) resetWorkflow();
       } else if (result.error) {
-        const errorMessage = fileProcessingService.getErrorMessage(result.error);
-        error.value = errorMessage + ' You can also paste text directly into the text area.';
+        error.value = t('errors.file_processing_failed');
       }
     } catch (err) {
-      error.value =
-        err instanceof Error
-          ? err.message
-          : 'Failed to process file. Please try pasting the text directly.';
+      error.value = localizeError(err, t, 'errors.file_processing_failed');
     } finally {
       isLoading.value = false;
     }
@@ -298,14 +296,14 @@ const handleImageFileChange = async (e: Event) => {
       imageState.value = { ...imageState.value, file, base64 };
     } catch (err) {
       console.error('Error converting file to base64:', err);
-      error.value = 'Failed to read image file.';
+      error.value = t('errors.image_read_failed');
     }
   }
 };
 
 const handleAnalyze = async () => {
   if (!inputText.value.trim()) {
-    error.value = 'Please provide input text to analyze.';
+    error.value = t('errors.no_input');
     return;
   }
   isLoading.value = true;
@@ -351,7 +349,7 @@ const handleAnalyze = async () => {
     isModalOpen.value = true;
   } catch (e) {
     console.error('Analysis error:', e);
-    error.value = e instanceof Error ? e.message : 'An unknown error occurred during analysis.';
+    error.value = localizeError(e, t, 'errors.analysis_failed');
   } finally {
     isLoading.value = false;
   }
@@ -384,7 +382,7 @@ const handleGenerateAbstract = async () => {
     !impact.value ||
     !synopsis.value
   ) {
-    error.value = 'Please complete the analysis and selection steps before generating.';
+    error.value = t('errors.incomplete_analysis');
     return;
   }
   isLoading.value = true;
@@ -403,7 +401,7 @@ const handleGenerateAbstract = async () => {
     result.categories = selectedCategories.value;
     generatedAbstract.value = result;
   } catch (e) {
-    error.value = e instanceof Error ? e.message : 'An unknown error during abstract generation.';
+    error.value = localizeError(e, t, 'errors.generation_failed');
   } finally {
     isLoading.value = false;
   }
@@ -411,7 +409,7 @@ const handleGenerateAbstract = async () => {
 
 const handleGenerateCreative = async () => {
   if (!inputText.value.trim()) {
-    error.value = 'Please provide a core idea to expand.';
+    error.value = t('errors.no_core_idea');
     return;
   }
   isLoading.value = true;
@@ -426,7 +424,7 @@ const handleGenerateCreative = async () => {
     selectedAbstractType.value = 'Standard Abstract';
     generatedAbstract.value = result;
   } catch (e) {
-    error.value = e instanceof Error ? e.message : 'An unknown error during creative generation.';
+    error.value = localizeError(e, t, 'errors.creative_failed');
   } finally {
     isLoading.value = false;
   }
@@ -436,7 +434,7 @@ const handleSaveAbstract = async () => {
   if (!generatedAbstract.value) return;
 
   try {
-    const title = prompt('Enter a title for this abstract:');
+    const title = prompt(t('dialogs.abstract_title'));
     if (!title) return;
 
     await databaseService.saveAbstract({
@@ -456,14 +454,14 @@ const handleSaveAbstract = async () => {
       },
     });
 
-    alert('Abstract saved successfully!');
+    alert(t('dialogs.save_success'));
   } catch (e) {
-    error.value = e instanceof Error ? e.message : 'Failed to save abstract';
+    error.value = localizeError(e, t, 'errors.save_failed');
   }
 };
 
 const handleClear = () => {
-  if (confirm('Are you sure you want to clear all data? This will reset the workflow.')) {
+  if (confirm(t('dialogs.clear_confirm'))) {
     inputText.value = '';
     resetWorkflow();
     error.value = null;
@@ -504,7 +502,7 @@ Keywords: ${generatedAbstract.value.keywords.join(', ')}`;
     result.categories = selectedCategories.value;
     generatedAbstract.value = result;
   } catch (e) {
-    error.value = e instanceof Error ? e.message : 'Failed to perform deep update';
+    error.value = localizeError(e, t, 'errors.deep_update_failed');
   } finally {
     isLoading.value = false;
   }

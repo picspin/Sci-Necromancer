@@ -4,7 +4,7 @@
       @click="isOpen = !isOpen"
       @blur="handleBlur"
       class="inline-flex items-center justify-center w-5 h-5 text-xs font-bold text-brand-primary border-2 border-brand-primary rounded-full hover:bg-brand-primary hover:text-white transition-colors focus:outline-none focus:ring-3 focus:ring-brand-primary"
-      :aria-label="`Help: ${title}`"
+      :aria-label="t('ui.help_title', { title })"
       :aria-expanded="isOpen"
       type="button"
     >
@@ -25,7 +25,7 @@
           <button
             @click="isOpen = false"
             class="text-text-secondary hover:text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-primary rounded"
-            aria-label="Close help"
+            :aria-label="t('ui.close_help')"
             type="button"
           >
             <svg
@@ -52,6 +52,9 @@
 
 <script setup lang="ts">
 import { ref } from 'vue';
+import { useI18n } from 'vue-i18n';
+
+const { t } = useI18n();
 
 interface Props {
   title: string;

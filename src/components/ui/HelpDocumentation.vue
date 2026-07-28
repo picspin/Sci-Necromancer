@@ -4,18 +4,18 @@
       class="rounded-lg shadow-xl bg-base-200 border border-base-300 transition-all duration-300 overflow-hidden"
       :style="{ width: containerWidth + 'px', maxHeight: '70vh' }"
       role="dialog"
-      aria-label="网站使用与配置提示（中文）"
+      :aria-label="t('help.title')"
     >
       <!-- Header -->
       <div class="flex items-center justify-between p-3 border-b border-base-300">
         <div class="flex items-center gap-2">
           <SvgIcon type="document" class="h-5 w-5 text-brand-primary" />
-          <h2 class="text-sm font-semibold text-text-primary">网站使用与配置提示（中文）</h2>
+          <h2 class="text-sm font-semibold text-text-primary">{{ t('help.title') }}</h2>
         </div>
         <button
           @click="emit('close')"
           class="text-text-secondary hover:text-text-primary transition-colors focus:outline-none focus:ring-2 focus:ring-brand-primary rounded-md p-1"
-          aria-label="关闭帮助"
+          :aria-label="t('help.close')"
           type="button"
         >
           <svg
@@ -42,7 +42,7 @@
           class="overflow-y-auto p-2 space-y-1 border-r border-base-300 transition-all duration-300"
           :style="{ width: navWidth + 'px' }"
           role="navigation"
-          aria-label="帮助目录"
+          :aria-label="t('help.navigation')"
         >
           <template v-for="section in topLevelSections" :key="section.id">
             <!-- Top level section -->
@@ -126,6 +126,7 @@
 
 <script setup lang="ts">
 import { ref, computed, h } from 'vue';
+import { useI18n } from 'vue-i18n';
 import SvgIcon from './SvgIcon.vue';
 
 interface Props {
@@ -142,122 +143,40 @@ interface HelpSection {
   content: string;
 }
 
-const helpSections: HelpSection[] = [
-  {
-    id: '1',
-    title: '如何分析上传文件并生成不同格式论文（ISMRM、RSNA、ER、ESC 等）',
-    content: `步骤与说明：
-• 在首页选择目标会议（ISMRM、RSNA、ER、ESC 等）。
-• 选择分析模式：标准模式（已有论文）或创意扩展模式（一句话想法）。
-• 上传 PDF 或 DOCX 文件，或直接粘贴论文文本。
-• 点击"分析"，系统自动提取类别与关键词；可在弹窗中筛选、调整。
-• 选择建议的摘要类型（标准/注册/临床实践/ISMRT 等），再点击"生成"。
-• 系统会根据选定会议规范自动排版输出，可在导出面板下载为不同格式。
-
-技巧：
-• 文件较大时处理耗时更长，耐心等待即可；若上传失败，可尝试直接粘贴文本。
-• 分类概率匹配基于内容，支持多类别与关键词，可根据投稿策略进行微调。`,
-  },
-  {
-    id: '2',
-    title: '如何配置模型',
-    content: `概述：
-• 本系统支持 Google AI (Gemini) 与 OpenAI API 兼容提供商（如 OpenAI 官方、SiliconFlow 等）。
-• 可在「模型配置」面板选择提供商并填写密钥与模型。
-• 点击右上角的「模型配置」按钮打开配置面板。`,
-  },
-  {
-    id: '2.1',
-    title: 'Google AI 模型配置指南',
-    content: `配置步骤：
-• 在「模型配置」面板中选择 Google AI 提供商。
-• 在 API Key 输入框填入 Google AI 的密钥，将安全保存在本地。
-• 选择文本模型（如 gemini-2.5-flash）和图像模型（如 imagen-3.0）。
-• 保存设置后即可使用。
-
-建议：
-• 若需更强大的风格统一与结构化输出，建议使用 gemini-2.5-pro。
-• 网络较慢时，可稍等片刻重试。`,
-  },
-  {
-    id: '2.2',
-    title: 'OpenAI API 兼容模型配置指南',
-    content: `步骤：
-• 在「模型配置」中选择 OpenAI Compatible 提供商。
-• 填写 Base URL（如 https://api.openai.com/v1 或第三方供应商地址）与 API Key。
-• 点击每个模型下拉框旁边的刷新按钮拉取可用模型列表。
-• 在「文本模型/视觉模型/图像模型」下拉框中选择合适的模型。
-
-注意与建议：
-• 不同供应商的模型 ID 可能不同，请以实际返回列表为准。
-• 图像生成支持 SiliconFlow 等兼容 /v1/images/generations 的服务商。`,
-  },
-  {
-    id: '2.3',
-    title: '图像生成模型特殊配置与选择说明',
-    content: `说明：
-• 标准模式：上传已有图像，填写规格说明，点击「生成图像」进行处理。
-• 创意模式：先生成摘要，再在图像页选择「创意模式」，系统将根据摘要自动生成配图。
-• OpenAI 兼容路径支持图像生成与视觉分析。
-• Google 路径支持 Imagen 图像生成。
-
-MCP 工具配置：
-• 可在 MCP Tools 选项卡中启用图像生成工具。
-• 配置 Base URL、Model 与可选的自定义配置（JSON 格式）。`,
-  },
-  {
-    id: '2.4',
-    title: 'MCP 配置说明',
-    content: `MCP (Model Context Protocol) 工具配置：
-• 在「模型配置」→「MCP Tools」选项卡中启用对应工具。
-• Supabase 数据库：启用后可进行云端存储与同步（可选功能）。
-• 图像生成 MCP：配置独立的图像生成端点和模型。
-
-配置项说明：
-• Base URL：MCP 服务端点地址
-• Model：具有工具调用权限的模型
-• Custom Configuration：自定义 JSON 配置（如自定义请求头）`,
-  },
-  {
-    id: '3',
-    title: '文章摘要存储、读取与数据库及 Supabase MCP 功能说明',
-    content: `说明：
-• 本地存储：摘要会自动保存到浏览器 LocalStorage，关闭页面后数据仍然保留。
-• 云端同步（可选）：启用 Supabase 后可跨设备同步摘要数据。
-• 摘要管理器：点击右上角「摘要库」按钮，可查看、加载、删除已保存的摘要。
-• 支持将摘要导出为 JSON 格式进行备份。`,
-  },
-  {
-    id: '4',
-    title: '文章与图像导出功能与支持格式',
-    content: `支持的导出格式：
-• MD (Markdown)：纯文本格式，方便编辑和版本控制
-• PDF：标准文档格式，适合打印和正式提交
-• JSON：结构化数据格式，便于数据迁移和备份
-
-图像导出：
-• 生成的图像可直接下载保存
-• 支持常见图片格式
-
-使用方法：
-• 在生成输出面板右上角点击对应格式按钮即可导出
-• 导出前请确保内容已生成完成`,
-  },
-];
+const { t } = useI18n();
+const sectionDefs = [
+  { id: '1', key: 's1' },
+  { id: '2', key: 's2' },
+  { id: '2.1', key: 's21' },
+  { id: '2.2', key: 's22' },
+  { id: '2.3', key: 's23' },
+  { id: '2.4', key: 's24' },
+  { id: '3', key: 's3' },
+  { id: '4', key: 's4' },
+] as const;
+const helpSections = computed<HelpSection[]>(() =>
+  sectionDefs.map(({ id, key }) => ({
+    id,
+    title: t(`help.sections.${key}.title`),
+    content: t(`help.sections.${key}.content`),
+  }))
+);
 
 const selectedSection = ref<string | null>(null);
 const expandedSections = ref<Set<string>>(new Set());
 const hoverTimeout = ref<ReturnType<typeof setTimeout> | null>(null);
 
 // Get top-level sections (no dot in id)
-const topLevelSections = computed(() => helpSections.filter((s) => !s.id.includes('.')));
+const topLevelSections = computed(() => helpSections.value.filter((s) => !s.id.includes('.')));
 
 // Get sub-sections for a parent
 const getSubSections = (parentId: string) =>
-  helpSections.filter((s) => s.id.startsWith(parentId + '.'));
+  helpSections.value.filter((s) => s.id.startsWith(parentId + '.'));
 
 const currentSection = computed(() =>
-  selectedSection.value ? helpSections.find((s) => s.id === selectedSection.value) || null : null
+  selectedSection.value
+    ? helpSections.value.find((s) => s.id === selectedSection.value) || null
+    : null
 );
 
 // Show content panel when a section is selected

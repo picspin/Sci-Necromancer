@@ -1,6 +1,7 @@
 import { ref, computed } from 'vue';
 import type { Settings } from '@/types';
 import { LocalStorageService } from '@/services/databaseService';
+import { normalizeBlindReviewSettings } from '@/lib/review/reviewSettings';
 
 // Local storage service
 const STORAGE_KEY = 'app-settings';
@@ -9,7 +10,11 @@ const loadSettingsFromStorage = (): Settings => {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored) {
-      return JSON.parse(stored);
+      const parsed = JSON.parse(stored) as Settings;
+      return {
+        ...parsed,
+        blindReview: normalizeBlindReviewSettings(parsed.blindReview),
+      };
     }
   } catch (error) {
     console.error('Failed to load settings from localStorage:', error);
@@ -21,6 +26,7 @@ const loadSettingsFromStorage = (): Settings => {
     temperature: 0.7,
     maxTokens: 4000,
     databaseEnabled: false,
+    blindReview: normalizeBlindReviewSettings(),
   };
 };
 
@@ -55,6 +61,7 @@ export function useSettings() {
       temperature: 0.7,
       maxTokens: 4000,
       databaseEnabled: false,
+      blindReview: normalizeBlindReviewSettings(),
     };
     saveSettings(defaultSettings);
   };

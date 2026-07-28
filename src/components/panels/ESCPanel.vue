@@ -25,7 +25,7 @@
               accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
               @change="handleFileChange"
               class="block w-full text-sm text-text-secondary file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-brand-primary/20 file:text-brand-primary hover:file:bg-brand-primary/30"
-              aria-label="Upload PDF or DOCX file"
+              :aria-label="t('ui.upload_file')"
             />
             <div class="relative mt-2">
               <textarea
@@ -33,7 +33,7 @@
                 @input="handleTextChange"
                 :placeholder="t('forms.paste_text')"
                 class="w-full h-60 p-3 bg-base-100 border border-base-300 rounded-md focus:ring-2 focus:ring-brand-primary focus:outline-none transition"
-                aria-label="Input text for ESC abstract generation"
+                :aria-label="t('ui.input_esc')"
               />
             </div>
           </div>
@@ -146,6 +146,7 @@
         :error="error"
         :loading-message="loadingMessage"
         conference="ESC"
+        :source-text="inputText"
         :abstract-type="selectedAbstractType || 'ESC Scientific Abstract'"
       />
     </div>
@@ -235,6 +236,7 @@ import Modal from '@/components/ui/Modal.vue';
 import OutputDisplay from '@/components/OutputDisplay.vue';
 import { fileProcessingService } from '@/lib/file/FileProcessingService';
 import { useSettings } from '@/composables/useSettings';
+import { localizeError } from '@/lib/i18n/errorMessages';
 import { useAbstract } from '@/composables/useAbstract';
 import { useI18n } from 'vue-i18n';
 import { getMemeTranslation } from '@/lib/i18n';
@@ -251,7 +253,7 @@ const { abstractToLoad, clearLoadedAbstract } = useAbstract();
 
 // Global State
 const isLoading = ref<boolean>(false);
-const loadingMessage = ref<string>('Generating...');
+const loadingMessage = ref<string>(t('output.generating'));
 const error = ref<string | null>(null);
 const activeTab = ref<'abstract' | 'figure'>('abstract');
 const currentAbstractId = ref<string | null>(null);
@@ -307,7 +309,7 @@ const handleFileChange = async (e: Event) => {
     target.value = '';
 
     isLoading.value = true;
-    loadingMessage.value = `Processing ${file.name}...`;
+    loadingMessage.value = t('loading_messages.processing_file', { filename: file.name });
 
     try {
       if (file.type === 'text/plain' || file.name.toLowerCase().endsWith('.txt')) {
@@ -326,14 +328,14 @@ const handleFileChange = async (e: Event) => {
           inputText.value = result.content;
           if (analysisResult.value) resetWorkflow();
         } else if (result.error) {
-          error.value = fileProcessingService.getErrorMessage(result.error);
+          error.value = t('errors.file_processing_failed');
         } else {
-          error.value = 'Failed to extract text from the file.';
+          error.value = t('errors.file_read_failed');
         }
       }
     } catch (err) {
       console.error('File processing error:', err);
-      error.value = err instanceof Error ? err.message : 'Failed to process file.';
+      error.value = localizeError(err, t, 'errors.file_processing_failed');
     } finally {
       isLoading.value = false;
     }
@@ -342,11 +344,11 @@ const handleFileChange = async (e: Event) => {
 
 const handleAnalyze = async () => {
   if (!inputText.value.trim()) {
-    error.value = 'Please provide input text to analyze.';
+    error.value = t('errors.no_input');
     return;
   }
   isLoading.value = true;
-  loadingMessage.value = 'Analyzing content for ESC Congress submission...';
+  loadingMessage.value = t('loading_messages.analyzing_content');
   error.value = null;
   resetWorkflow();
   try {
@@ -357,7 +359,7 @@ const handleAnalyze = async () => {
     modalStep.value = 'analysis';
     isModalOpen.value = true;
   } catch (e) {
-    error.value = e instanceof Error ? e.message : 'An unknown error occurred during analysis.';
+    error.value = localizeError(e, t, 'errors.analysis_failed');
   } finally {
     isLoading.value = false;
   }
@@ -367,7 +369,7 @@ const handleAnalysisConfirmation = async (cats: Category[], keys: string[]) => {
   selectedCategories.value = cats;
   selectedKeywords.value = keys;
   isLoading.value = true;
-  loadingMessage.value = 'Suggesting ESC abstract types...';
+  loadingMessage.value = t('loading_messages.suggesting_abstract_types');
   try {
     // For ESC, we typically use Scientific Abstract type
     const suggestions: AbstractTypeSuggestion[] = [
@@ -376,7 +378,7 @@ const handleAnalysisConfirmation = async (cats: Category[], keys: string[]) => {
     typeSuggestions.value = suggestions;
     modalStep.value = 'type';
   } catch (e) {
-    error.value = e instanceof Error ? e.message : 'Failed to get abstract type suggestions.';
+    error.value = localizeError(e, t, 'errors.suggestion_failed');
     isModalOpen.value = false;
   } finally {
     isLoading.value = false;
@@ -395,11 +397,11 @@ const handleGenerateAbstract = async () => {
     selectedCategories.value.length === 0 ||
     selectedKeywords.value.length === 0
   ) {
-    error.value = 'Please complete the analysis and selection steps before generating.';
+    error.value = t('errors.incomplete_analysis');
     return;
   }
   isLoading.value = true;
-  loadingMessage.value = 'Generating ESC Congress scientific abstract...';
+  loadingMessage.value = t('loading_messages.generating_abstract');
   error.value = null;
   generatedAbstract.value = null;
   try {
@@ -412,7 +414,7 @@ const handleGenerateAbstract = async () => {
     );
     generatedAbstract.value = result;
   } catch (e) {
-    error.value = e instanceof Error ? e.message : 'An unknown error during abstract generation.';
+    error.value = localizeError(e, t, 'errors.generation_failed');
   } finally {
     isLoading.value = false;
   }
@@ -420,11 +422,11 @@ const handleGenerateAbstract = async () => {
 
 const handleGenerateCreative = async () => {
   if (!inputText.value.trim()) {
-    error.value = 'Please provide a core idea to expand.';
+    error.value = t('errors.no_core_idea');
     return;
   }
   isLoading.value = true;
-  loadingMessage.value = 'Creatively generating ESC abstract...';
+  loadingMessage.value = t('loading_messages.generating_creative');
   error.value = null;
   resetWorkflow();
   try {
@@ -432,7 +434,7 @@ const handleGenerateCreative = async () => {
     generatedAbstract.value = result;
     selectedKeywords.value = result.keywords;
   } catch (e) {
-    error.value = e instanceof Error ? e.message : 'An unknown error during creative generation.';
+    error.value = localizeError(e, t, 'errors.creative_failed');
   } finally {
     isLoading.value = false;
   }
@@ -475,7 +477,7 @@ Keywords: ${generatedAbstract.value.keywords.join(', ')}`;
     result.categories = selectedCategories.value;
     generatedAbstract.value = result;
   } catch (e) {
-    error.value = e instanceof Error ? e.message : 'Failed to perform deep update';
+    error.value = localizeError(e, t, 'errors.deep_update_failed');
   } finally {
     isLoading.value = false;
   }
@@ -493,18 +495,18 @@ const openSaveModal = () => {
 
 const handleSaveAbstract = async () => {
   if (!generatedAbstract.value || !selectedAbstractType.value) {
-    error.value = 'Please generate an abstract before saving.';
+    error.value = t('errors.no_abstract');
     return;
   }
 
   if (!saveTitle.value.trim()) {
-    error.value = 'Please enter a title for your abstract.';
+    error.value = t('errors.title_required');
     return;
   }
 
   try {
     isLoading.value = true;
-    loadingMessage.value = 'Saving abstract...';
+    loadingMessage.value = t('common.loading');
 
     const abstractToSave = {
       title: saveTitle.value.trim(),
@@ -527,7 +529,7 @@ const handleSaveAbstract = async () => {
     saveTitle.value = '';
     error.value = null;
   } catch (err) {
-    error.value = err instanceof Error ? err.message : 'Failed to save abstract';
+    error.value = localizeError(err, t, 'errors.save_failed');
   } finally {
     isLoading.value = false;
   }

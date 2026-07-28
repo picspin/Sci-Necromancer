@@ -10,18 +10,21 @@
       aria-hidden="true"
     />
     <p class="text-lg font-semibold" aria-live="polite">{{ message }}</p>
-    <p class="text-sm">This may take a few moments.</p>
+    <p class="text-sm">{{ t('loading_messages.please_wait') }}</p>
   </div>
 </template>
 
 <script setup lang="ts">
 import SvgIcon from '@/components/ui/SvgIcon.vue';
+import { useI18n } from 'vue-i18n';
+
+const { t } = useI18n();
 
 interface Props {
   message?: string;
 }
 
 withDefaults(defineProps<Props>(), {
-  message: 'Generating Content...',
+  message: '',
 });
 </script>

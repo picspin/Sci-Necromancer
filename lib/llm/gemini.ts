@@ -8,6 +8,7 @@ import {
   Category,
   AbstractType,
   AbstractTypeSuggestion,
+  BlindReviewModelAssessment,
 } from '../../types';
 import * as prompts from './prompts/ismrmPrompts';
 import {
@@ -22,6 +23,7 @@ import {
   normalizeRSNAKeywords,
   validateRSNADraft,
 } from '../conference/rsnaRules';
+import { assertBlindReviewAssessment } from '../review/blindReview';
 
 // Initialize AI client lazily with API key from settings
 let aiClient: any | null = null;
@@ -294,6 +296,14 @@ export const generateRSNAAbstract = async (
     ...validation.warnings,
   ];
   return draft;
+};
+
+export const reviewAbstractBlind = async (
+  prompt: string,
+  apiKey?: string
+): Promise<BlindReviewModelAssessment> => {
+  const raw = await callGeminiAPI<BlindReviewModelAssessment>(prompt, {}, apiKey);
+  return assertBlindReviewAssessment(raw);
 };
 
 export const generateImage = async (

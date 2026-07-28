@@ -27,7 +27,7 @@
           <button
             @click="emit('close')"
             class="text-text-secondary hover:text-text-primary transition-colors focus:outline-none focus:ring-3 focus:ring-brand-primary rounded-md p-1"
-            aria-label="Close modal"
+            :aria-label="t('ui.close_modal')"
             type="button"
           >
             <svg
@@ -57,6 +57,9 @@
 </template>
 
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n';
+
+const { t } = useI18n();
 import { ref, watch, onMounted, onUnmounted, nextTick } from 'vue';
 import { trapFocus, createFocusManager, generateId } from '@/lib/utils/accessibilityUtils';
 

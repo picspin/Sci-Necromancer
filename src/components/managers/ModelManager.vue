@@ -1,5 +1,5 @@
 <template>
-  <Modal @close="$emit('close')" title="Model Manager" size="lg">
+  <Modal @close="$emit('close')" :title="t('model_manager.title')" size="lg">
     <div class="space-y-6">
       <!-- Panel Navigation -->
       <div class="flex gap-2 border-b border-base-300">
@@ -12,7 +12,7 @@
               : 'border-transparent text-text-secondary hover:text-text-primary',
           ]"
         >
-          AI Providers
+          {{ t('model_manager.providers_tab') }}
         </button>
         <button
           @click="activePanel = 'mcp-tools'"
@@ -23,7 +23,7 @@
               : 'border-transparent text-text-secondary hover:text-text-primary',
           ]"
         >
-          MCP Tools
+          {{ t('model_manager.mcp_tab') }}
         </button>
       </div>
 
@@ -31,7 +31,9 @@
       <div v-if="activePanel === 'providers'" class="space-y-4">
         <!-- Provider Selection -->
         <div class="space-y-3">
-          <label class="block text-sm font-medium text-text-primary">AI Provider</label>
+          <label class="block text-sm font-medium text-text-primary">{{
+            t('model_manager.provider')
+          }}</label>
           <div class="flex gap-3">
             <button
               @click="handleProviderChange('google')"
@@ -42,7 +44,7 @@
                   : 'bg-base-200 text-text-secondary hover:bg-base-300',
               ]"
             >
-              Google AI
+              {{ t('model_manager.google_ai') }}
             </button>
             <button
               @click="handleProviderChange('openai')"
@@ -53,7 +55,7 @@
                   : 'bg-base-200 text-text-secondary hover:bg-base-300',
               ]"
             >
-              OpenAI Compatible
+              {{ t('model_manager.openai_compatible') }}
             </button>
           </div>
         </div>
@@ -65,7 +67,7 @@
         >
           <div>
             <label for="google-api-key" class="block text-sm font-medium text-text-secondary mb-1">
-              API Key
+              {{ t('model_manager.api_key') }}
             </label>
             <input
               type="password"
@@ -74,7 +76,7 @@
               placeholder="AIza..."
               class="w-full p-2 bg-base-200 border border-base-300 rounded-md text-sm focus:ring-2 focus:ring-brand-primary focus:outline-none transition"
             />
-            <p class="text-xs text-text-secondary mt-1">Get your API key from Google AI Studio</p>
+            <p class="text-xs text-text-secondary mt-1">{{ t('model_manager.google_key_help') }}</p>
           </div>
 
           <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -83,7 +85,7 @@
                 for="google-text-model"
                 class="block text-sm font-medium text-text-secondary mb-1"
               >
-                Text Model
+                {{ t('model_manager.text_model') }}
               </label>
               <div class="flex items-center gap-2">
                 <template v-if="googleModelIds.length">
@@ -135,7 +137,7 @@
                 for="google-image-model"
                 class="block text-sm font-medium text-text-secondary mb-1"
               >
-                Image Model
+                {{ t('model_manager.image_model') }}
               </label>
               <div class="flex items-center gap-2">
                 <template v-if="googleImageModelIds.length">
@@ -189,7 +191,7 @@
         >
           <div>
             <label for="openai-api-key" class="block text-sm font-medium text-text-secondary mb-1">
-              API Key
+              {{ t('model_manager.api_key') }}
             </label>
             <input
               type="password"
@@ -202,7 +204,7 @@
 
           <div>
             <label for="openai-base-url" class="block text-sm font-medium text-text-secondary mb-1">
-              Base URL
+              {{ t('model_manager.base_url') }}
             </label>
             <div class="flex items-center gap-2">
               <input
@@ -218,16 +220,18 @@
                 class="px-3 py-2 bg-brand-primary text-white rounded-md text-sm hover:bg-brand-secondary transition-colors"
                 :disabled="loadingModels"
               >
-                {{ loadingModels ? 'Loading...' : t('model_manager.load_models') }}
+                {{
+                  loadingModels ? t('model_manager.loading_models') : t('model_manager.load_models')
+                }}
               </button>
             </div>
-            <p class="text-xs text-text-secondary mt-1">Support OpenAI API based Providers</p>
+            <p class="text-xs text-text-secondary mt-1">{{ t('model_manager.openai_support') }}</p>
           </div>
 
           <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
             <div>
               <label for="text-model" class="block text-sm font-medium text-text-secondary mb-1">
-                Text Model
+                {{ t('model_manager.text_model') }}
               </label>
               <div class="flex items-center gap-2">
                 <template v-if="openAIModelIds.length">
@@ -274,7 +278,7 @@
 
             <div>
               <label for="vision-model" class="block text-sm font-medium text-text-secondary mb-1">
-                Vision Model
+                {{ t('model_manager.vision_model') }}
               </label>
               <div class="flex items-center gap-2">
                 <template v-if="openAIModelIds.length">
@@ -317,12 +321,12 @@
                   </svg>
                 </button>
               </div>
-              <p class="text-xs text-text-secondary mt-1">For analyzing uploaded images</p>
+              <p class="text-xs text-text-secondary mt-1">{{ t('model_manager.vision_help') }}</p>
             </div>
 
             <div>
               <label for="image-model" class="block text-sm font-medium text-text-secondary mb-1">
-                Image Model
+                {{ t('model_manager.image_model') }}
               </label>
               <div class="flex items-center gap-2">
                 <template v-if="openAIModelIds.length">
@@ -365,7 +369,7 @@
                   </svg>
                 </button>
               </div>
-              <p class="text-xs text-text-secondary mt-1">For generating/editing images</p>
+              <p class="text-xs text-text-secondary mt-1">{{ t('model_manager.image_help') }}</p>
             </div>
           </div>
         </div>
@@ -374,15 +378,57 @@
       <!-- MCP Tools Panel -->
       <div v-if="activePanel === 'mcp-tools'" class="space-y-4">
         <p class="text-sm text-text-secondary">
-          Configure Model Context Protocol (MCP) tools for extended functionality
+          {{ t('model_manager.mcp_description') }}
         </p>
+
+        <div class="rounded-lg bg-base-100 p-4">
+          <div class="flex items-start justify-between gap-4">
+            <div>
+              <h4 class="text-sm font-medium text-text-primary">
+                {{ t('model_manager.blind_review_title') }}
+              </h4>
+              <p class="mt-0.5 text-xs text-text-secondary">
+                {{ t('model_manager.blind_review_help') }}
+              </p>
+            </div>
+            <label class="relative inline-flex cursor-pointer items-center">
+              <input
+                v-model="localSettings.blindReview!.enabled"
+                type="checkbox"
+                class="sr-only peer"
+                :aria-label="t('model_manager.blind_review_enabled')"
+              />
+              <div
+                class="h-6 w-11 rounded-full bg-base-300 after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:bg-white after:transition-all after:content-[''] peer-checked:bg-brand-primary peer-checked:after:translate-x-full"
+              ></div>
+            </label>
+          </div>
+          <p class="mt-2 text-xs text-cyan-200">{{ t('model_manager.backend_managed') }}</p>
+          <p class="mt-2 text-xs text-amber-200">{{ t('model_manager.external_data_notice') }}</p>
+          <fieldset class="mt-3 space-y-2" :disabled="!localSettings.blindReview?.enabled">
+            <label
+              v-for="reviewer in reviewerOptions"
+              :key="reviewer.key"
+              class="flex items-center gap-2 text-sm text-text-secondary"
+            >
+              <input
+                v-model="localSettings.blindReview!.reviewers[reviewer.key]"
+                type="checkbox"
+                class="rounded border-base-300 text-brand-primary focus:ring-brand-primary"
+              />
+              {{ t(reviewer.label) }}
+            </label>
+          </fieldset>
+        </div>
 
         <!-- Supabase MCP -->
         <div class="p-4 bg-base-100 rounded-lg">
           <div class="flex items-center justify-between mb-3">
             <div>
-              <h4 class="text-sm font-medium text-text-primary">Supabase Database</h4>
-              <p class="text-xs text-text-secondary mt-0.5">Cloud sync and storage</p>
+              <h4 class="text-sm font-medium text-text-primary">
+                {{ t('model_manager.supabase_database') }}
+              </h4>
+              <p class="text-xs text-text-secondary mt-0.5">{{ t('model_manager.cloud_sync') }}</p>
             </div>
             <label class="relative inline-flex items-center cursor-pointer">
               <input type="checkbox" v-model="localSettings.databaseEnabled" class="sr-only peer" />
@@ -397,8 +443,12 @@
         <div class="p-4 bg-base-100 rounded-lg">
           <div class="flex items-center justify-between mb-3">
             <div>
-              <h4 class="text-sm font-medium text-text-primary">Image Generation (MCP)</h4>
-              <p class="text-xs text-text-secondary mt-0.5">Generate images via MCP tool calls</p>
+              <h4 class="text-sm font-medium text-text-primary">
+                {{ t('model_manager.image_mcp') }}
+              </h4>
+              <p class="text-xs text-text-secondary mt-0.5">
+                {{ t('model_manager.image_mcp_help') }}
+              </p>
             </div>
             <label class="relative inline-flex items-center cursor-pointer">
               <input
@@ -422,7 +472,7 @@
                 for="mcp-image-base-url"
                 class="block text-sm font-medium text-text-secondary mb-1"
               >
-                Base URL
+                {{ t('model_manager.base_url') }}
               </label>
               <input
                 type="text"
@@ -431,7 +481,9 @@
                 placeholder="https://chat.int.bayer.com/api/v2"
                 class="w-full p-2 bg-base-200 border border-base-300 rounded-md text-sm focus:ring-2 focus:ring-brand-primary focus:outline-none transition"
               />
-              <p class="text-xs text-text-secondary mt-1">MCP endpoint for image generation</p>
+              <p class="text-xs text-text-secondary mt-1">
+                {{ t('model_manager.image_mcp_endpoint') }}
+              </p>
             </div>
 
             <div>
@@ -439,7 +491,7 @@
                 for="mcp-image-model"
                 class="block text-sm font-medium text-text-secondary mb-1"
               >
-                Model
+                {{ t('model_manager.model') }}
               </label>
               <input
                 type="text"
@@ -449,7 +501,7 @@
                 class="w-full p-2 bg-base-200 border border-base-300 rounded-md text-sm focus:ring-2 focus:ring-brand-primary focus:outline-none transition"
               />
               <p class="text-xs text-text-secondary mt-1">
-                Model that has access to image generation tools
+                {{ t('model_manager.image_mcp_model_help') }}
               </p>
             </div>
 
@@ -458,7 +510,7 @@
                 for="mcp-image-config"
                 class="block text-sm font-medium text-text-secondary mb-1"
               >
-                Custom Configuration (JSON)
+                {{ t('model_manager.custom_config') }}
               </label>
               <textarea
                 id="mcp-image-config"
@@ -468,7 +520,7 @@
                 rows="3"
               ></textarea>
               <p class="text-xs text-text-secondary mt-1">
-                Optional: Custom headers or tool-specific configuration
+                {{ t('model_manager.custom_config_help') }}
               </p>
             </div>
           </div>
@@ -481,12 +533,10 @@
             <h4 class="text-sm font-medium text-text-primary">Nanobana Pro 3</h4>
           </div>
           <p class="text-xs text-text-secondary">
-            Google Gemini image generation is configured via environment variables. Set
-            <code class="bg-base-300 px-1 rounded">VITE_NANOBANA_API_KEY</code> in your
-            <code class="bg-base-300 px-1 rounded">.env</code> file.
+            {{ t('model_manager.nanobana_env') }}
           </p>
           <p class="text-xs text-text-secondary mt-1">
-            Get your API key from
+            {{ t('model_manager.get_key_from') }}
             <a
               href="https://aistudio.google.com/apikey"
               target="_blank"
@@ -503,13 +553,13 @@
           @click="$emit('close')"
           class="px-4 py-2 rounded-md text-text-secondary hover:bg-base-300 transition-colors"
         >
-          Cancel
+          {{ t('model_manager.cancel') }}
         </button>
         <button
           @click="handleSave"
           class="px-4 py-2 rounded-md bg-brand-primary hover:bg-brand-secondary text-white font-semibold transition-colors"
         >
-          Save Settings
+          {{ t('model_manager.save') }}
         </button>
       </div>
     </div>
@@ -522,6 +572,8 @@ import { useI18n } from 'vue-i18n';
 import Modal from '@/components/ui/Modal.vue';
 import { useSettings } from '@/composables/useSettings';
 import type { AIProvider, Settings } from '@/types';
+import type { ExternalReviewer } from '@/types';
+import { normalizeBlindReviewSettings } from '@/lib/review/reviewSettings';
 
 const { t } = useI18n();
 
@@ -535,7 +587,17 @@ type ConfigPanel = 'providers' | 'mcp-tools';
 
 // Local state
 const activePanel = ref<ConfigPanel>('providers');
-const localSettings = ref<Settings>({ ...settings.value });
+const cloneSettings = (value: Settings): Settings => ({
+  ...value,
+  mcpConfig: value.mcpConfig ? { ...value.mcpConfig } : undefined,
+  blindReview: normalizeBlindReviewSettings(value.blindReview),
+});
+const localSettings = ref<Settings>(cloneSettings(settings.value));
+const reviewerOptions: Array<{ key: ExternalReviewer; label: string }> = [
+  { key: 'pubmed', label: 'model_manager.reviewer_pubmed' },
+  { key: 'citecheck', label: 'model_manager.reviewer_citecheck' },
+  { key: 'doi-mcp', label: 'model_manager.reviewer_doi' },
+];
 
 // MCP Image Generation Config (reactive helper)
 const mcpImageConfig = computed({
@@ -561,7 +623,7 @@ const mcpImageConfig = computed({
 watch(
   settings,
   (newSettings) => {
-    localSettings.value = { ...newSettings };
+    localSettings.value = cloneSettings(newSettings);
   },
   { deep: true }
 );

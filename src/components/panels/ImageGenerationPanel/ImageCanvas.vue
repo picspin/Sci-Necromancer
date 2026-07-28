@@ -114,7 +114,7 @@
       <div v-else class="p-4">
         <img
           :src="image"
-          alt="Generated figure"
+          :alt="t('image_generation.generated_alt')"
           class="max-w-full h-auto rounded-lg shadow-lg transition-transform duration-200"
           :style="imageStyle"
         />

@@ -5,6 +5,7 @@ import {
   Category,
   AbstractType,
   AbstractTypeSuggestion,
+  BlindReviewModelAssessment,
 } from '../../types';
 import * as prompts from './prompts/ismrmPrompts';
 import {
@@ -19,6 +20,7 @@ import {
   normalizeRSNAKeywords,
   validateRSNADraft,
 } from '../conference/rsnaRules';
+import { assertBlindReviewAssessment } from '../review/blindReview';
 
 // Get settings from localStorage
 const getSettings = () => {
@@ -289,6 +291,22 @@ export async function generateRSNAAbstract(
     ...validation.warnings,
   ];
   return draft;
+}
+
+export async function reviewAbstractBlind(
+  prompt: string,
+  apiKey?: string
+): Promise<BlindReviewModelAssessment> {
+  const settings = getSettings();
+  const finalApiKey = apiKey || settings.openAIApiKey;
+  if (!finalApiKey) throw new Error('llm.api_key_missing');
+  const raw = await callOpenAIAPI(
+    prompt,
+    finalApiKey,
+    settings.openAIBaseUrl || 'https://api.openai.com/v1',
+    settings.openAITextModel || 'gpt-4o'
+  );
+  return assertBlindReviewAssessment(raw);
 }
 
 // ============================================================================

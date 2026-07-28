@@ -15,7 +15,7 @@
         backgroundColor: isActive ? colorScheme.primary : 'transparent',
         borderBottomColor: isActive ? colorScheme.accent : 'transparent',
       }"
-      :title="disabled ? 'Coming soon' : `Switch to ${label}`"
+      :title="disabled ? t('ui.coming_soon') : t('ui.switch_to', { label })"
     >
       <div class="flex flex-col items-center gap-1">
         <span class="font-semibold">{{ id }}</span>
@@ -32,7 +32,7 @@
         target="_blank"
         rel="noopener noreferrer"
         class="inline-flex items-center gap-1 text-xs text-brand-primary hover:text-brand-secondary hover:underline transition-colors"
-        :title="`Submit to ${label}`"
+        :title="t('ui.submit_to', { label })"
       >
         <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path
@@ -42,7 +42,7 @@
             d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
           />
         </svg>
-        Submit
+        {{ t('ui.submit') }}
       </a>
     </div>
   </div>
@@ -50,7 +50,10 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
+import { useI18n } from 'vue-i18n';
 import type { Conference } from '@/types';
+
+const { t } = useI18n();
 
 interface Props {
   id: Conference;

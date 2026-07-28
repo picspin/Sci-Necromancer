@@ -7,7 +7,7 @@
           <div
             class="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-primary mx-auto mb-2"
           ></div>
-          <p class="text-text-secondary">Loading conference modules...</p>
+          <p class="text-text-secondary">{{ t('ui.loading_modules') }}</p>
         </div>
       </div>
     </div>
@@ -41,7 +41,7 @@
               backgroundColor: localActiveConference === 'IMAGE' ? '#6366f1' : 'transparent',
               borderBottomColor: localActiveConference === 'IMAGE' ? '#818cf8' : 'transparent',
             }"
-            title="Image Generation Panel"
+            :title="t('ui.image_panel')"
           >
             <div class="flex flex-col items-center gap-1">
               <span class="font-semibold flex items-center gap-1">

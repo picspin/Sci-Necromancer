@@ -107,11 +107,17 @@
     "abstract": "摘要",
     "keywords": "关键词",
     "categories": "类别",
+    "category_type": { "main": "主分类", "sub": "子分类", "secondary": "次分类" },
     "word_count": "字数统计",
     "no_content": "您生成的内容将显示在这里。",
     "begin_prompt": "请在左侧面板提供输入开始。",
     "generating": "生成中...",
     "content_generated": "内容生成成功",
+    "generated_figure": "生成图像",
+    "download_image": "下载图像",
+    "copy": "复制",
+    "copy_title": "复制完整摘要到剪贴板",
+    "copy_success": "摘要已复制到剪贴板。",
     "word": "Word",
     "pdf": "PDF",
     "json": "JSON"
@@ -132,7 +138,40 @@
     "disconnected": "未连接",
     "validating": "验证中...",
     "database_activation": "数据库激活",
-    "enable_cloud_storage": "启用云存储"
+    "enable_cloud_storage": "启用云存储",
+    "providers_tab": "AI 提供商",
+    "mcp_tab": "MCP 工具",
+    "google_ai": "Google AI",
+    "openai_compatible": "OpenAI 兼容接口",
+    "google_key_help": "前往 Google AI Studio 获取 API 密钥",
+    "text_model": "文本模型",
+    "vision_model": "视觉模型",
+    "image_model": "图像模型",
+    "loading_models": "加载中…",
+    "openai_support": "支持 OpenAI 兼容 API 提供商",
+    "vision_help": "用于分析上传图像",
+    "image_help": "用于生成或编辑图像",
+    "mcp_description": "启用由后端统一管理的模型上下文协议工具。",
+    "supabase_database": "Supabase 数据库",
+    "cloud_sync": "云端同步与存储",
+    "image_mcp": "图像生成（MCP）",
+    "image_mcp_help": "通过 MCP 工具调用生成图像",
+    "image_mcp_endpoint": "图像生成 MCP 端点",
+    "image_mcp_model_help": "具有图像生成工具权限的模型",
+    "custom_config": "自定义配置（JSON）",
+    "custom_config_help": "可选的自定义请求头或工具配置",
+    "nanobana_env": "Google Gemini 图像生成由部署环境变量统一配置。",
+    "get_key_from": "前往 Google AI Studio 获取 API 密钥。",
+    "cancel": "取消",
+    "save": "保存设置",
+    "blind_review_title": "独立盲审",
+    "blind_review_help": "生成后运行独立只读审核。后端审核器不能证明投稿数据真实。",
+    "blind_review_enabled": "显示盲审入口",
+    "backend_managed": "由后端统一管理；浏览器无需填写端点、命令或密钥。",
+    "external_data_notice": "隐私提示：PubMed 接收标题/关键词；CiteCheck 与 DOI MCP 接收提取出的引文标识。请勿包含患者标识或机密信息。",
+    "reviewer_pubmed": "PubMed 相关文献检索",
+    "reviewer_citecheck": "CiteCheck MCP 引文审核",
+    "reviewer_doi": "DOI MCP 标识符验证"
   },
   "abstract_manager": {
     "title": "摘要管理器",
@@ -143,13 +182,58 @@
     "export": "导出",
     "created": "创建时间",
     "conference": "会议",
-    "type": "类型"
+    "type": "类型",
+    "close": "关闭摘要管理器",
+    "search_placeholder": "搜索摘要…",
+    "search_label": "按标题、影响、概要或关键词搜索摘要",
+    "filter_conference": "按会议筛选",
+    "all_conferences": "全部会议",
+    "filter_type": "按摘要类型筛选",
+    "all_types": "全部类型",
+    "standard": "标准摘要",
+    "clinical_practice": "临床实践",
+    "registered": "注册研究",
+    "sort_label": "摘要排序",
+    "newest": "最新优先",
+    "oldest": "最早优先",
+    "title_az": "标题 A-Z",
+    "title_za": "标题 Z-A",
+    "conference_az": "会议 A-Z",
+    "export_all": "导出全部摘要为 JSON",
+    "export_help": "将全部摘要导出为备份文件",
+    "import_help": "从备份文件导入摘要",
+    "import_label": "从 JSON 导入摘要",
+    "loading": "正在加载摘要…",
+    "no_results": "未找到摘要",
+    "load_help": "将此摘要载入编辑器",
+    "delete_help": "永久删除此摘要",
+    "cancel_delete": "取消删除操作",
+    "confirm_delete": "确认删除摘要",
+    "saved_count": "已保存 {{count}} 篇摘要",
+    "online": "在线",
+    "offline": "离线",
+    "pending_sync": "{{count}} 项等待同步",
+    "conflicts": "{{count}} 项冲突",
+    "last_sync": "上次同步",
+    "import": "导入",
+    "retry": "重试",
+    "adjust_filters": "请调整筛选条件",
+    "create_first": "创建第一篇摘要以开始使用",
+    "updated": "更新时间",
+    "synced": "已同步",
+    "load_named": "加载摘要：{{title}}",
+    "delete_named": "删除摘要：{{title}}",
+    "delete_warning": "确认永久删除此摘要吗？此操作无法撤销。"
   },
   "export": {
     "word": "导出到Word",
     "pdf": "导出到PDF",
     "copy_text": "复制文本",
-    "download_image": "下载图像"
+    "download_image": "下载图像",
+    "markdown_title": "导出为 Markdown（.md）",
+    "markdown_label": "导出为 Markdown",
+    "pdf_label": "导出为 PDF",
+    "json_label": "导出为 JSON"
   },
   "errors": {
     "no_input": "请提供输入文本进行分析。",
@@ -160,7 +244,28 @@
     "save_failed": "保存摘要失败",
     "load_failed": "加载摘要失败",
     "api_error": "API请求失败。请检查您的设置并重试。",
-    "network_error": "网络错误。请检查您的连接并重试。"
+    "network_error": "网络错误。请检查您的连接并重试。",
+    "unknown": "发生未知错误。",
+    "file_read_failed": "读取所选文件失败。",
+    "image_read_failed": "读取图像文件失败。",
+    "no_core_idea": "请提供需要扩展的核心构想。",
+    "generation_failed": "摘要生成失败。",
+    "creative_failed": "邪修生成失败。",
+    "analysis_failed": "内容分析失败。",
+    "suggestion_failed": "获取摘要类型建议失败。",
+    "deep_update_failed": "深度更新失败。",
+    "no_abstract": "请先生成摘要。",
+    "title_required": "请输入摘要标题。",
+    "api_key_missing": "尚未配置所选模型的 API 密钥。",
+    "delete_failed": "删除摘要失败。",
+    "export_failed": "导出摘要失败。",
+    "import_failed": "导入摘要失败。",
+    "pdf_export_failed": "导出 PDF 失败，请重试。"
+  },
+  "dialogs": {
+    "abstract_title": "请输入摘要标题：",
+    "save_success": "摘要保存成功。",
+    "clear_confirm": "确认清除全部数据并重置流程吗？"
   },
   "tooltips": {
     "creative_mode_disabled": "请先生成摘要以启用此模式。",
@@ -178,7 +283,61 @@
     "error_occurred": "发生错误",
     "content_updated": "内容已更新",
     "navigation_instructions": "使用方向键在选项间导航，回车或空格键选择",
-    "toggle_instructions": "使用回车或空格键切换选择"
+    "toggle_instructions": "使用回车或空格键切换选择",
+    "settings": "无障碍设置",
+    "dialog": "无障碍设置对话框",
+    "high_contrast": "高对比度模式",
+    "high_contrast_help": "提高对比度以改善可见性",
+    "toggle_high_contrast": "切换高对比度模式",
+    "font_size": "字体大小",
+    "font_size_help": "调整文字大小以提高可读性（最高支持 200% 缩放）",
+    "font_size_group": "字体大小选择",
+    "normal": "标准",
+    "large": "大号（125%）",
+    "extra_large": "超大号（150%）",
+    "reduce_motion": "减少动画",
+    "reduce_motion_help": "减少动画和过渡效果",
+    "toggle_motion": "切换减少动画",
+    "features": "无障碍功能",
+    "feature_touch": "交互元素提供易操作的触控区域",
+    "feature_keyboard": "支持键盘导航并显示焦点",
+    "feature_reader": "通过 ARIA 标签支持屏幕阅读器",
+    "feature_responsive": "布局适配手机和平板设备",
+    "reset": "重置无障碍设置",
+    "close": "关闭无障碍设置"
+  },
+  "analysis_ui": {
+    "complete": "分析完成",
+    "suggested_categories": "建议分类",
+    "suggested_keywords": "建议关键词",
+    "equator_title": "EQUATOR Network 报告规范",
+    "ecr_submission": "ECR 摘要投稿：",
+    "confirm_label": "确认选择并查看摘要类型建议",
+    "review_generated": "请审阅并编辑生成内容，然后选择分类和关键词。",
+    "esc_complete": "ESC Congress 分析完成",
+    "esc_description": "请审阅并确认 ESC Congress 摘要的建议分类和关键词。",
+    "esc_categories": "建议的 ESC 分类",
+    "confirm_proceed": "确认选择并继续",
+    "category_aria": "{{name}}，{{type}}分类，匹配度 {{percent}}%",
+    "keyword_aria": "关键词：{{keyword}}",
+    "type_aria": "{{type}}，匹配概率 {{percent}}%"
+  },
+  "ui": {
+    "upload_file": "上传 PDF 或 DOCX 文件",
+    "input_abstract": "输入用于生成摘要的文本",
+    "input_ismrm": "输入用于生成 ISMRM 摘要的文本",
+    "input_ecr": "输入用于生成 ECR 摘要的文本",
+    "input_esc": "输入用于生成 ESC 摘要的文本",
+    "close_help": "关闭帮助",
+    "close_modal": "关闭对话框",
+    "close_notification": "关闭通知",
+    "coming_soon": "即将开放",
+    "switch_to": "切换至 {{label}}",
+    "loading_modules": "正在加载会议模块…",
+    "image_panel": "图像生成面板",
+    "submit": "投稿",
+    "submit_to": "投稿至 {{label}}",
+    "help_title": "帮助：{{title}}"
   },
   "footer": {
     "copyright": "SCI邪修 - 学术投稿生成器"
@@ -217,7 +376,11 @@
     "max_size": "单张最大 {size}MB",
     "remove_image": "移除图片",
     "expand_list": "展开图片列表",
-    "collapse_list": "收起"
+    "collapse_list": "收起",
+    "describe_figure": "描述您的图像，例如：Nature 风格、生物医学研究、2×2 布局、灰度、标注箭头",
+    "detected_fields": "已识别字段：",
+    "keyword_help": "输入 research、journal、layout 或 color 等关键词以获取建议",
+    "generated_alt": "生成的科研图像"
   },
   "ecr": {
     "title": "欧洲放射学大会 (ECR)",
@@ -295,12 +458,111 @@
       "learning_center": "学习中心剧场（条件性）"
     }
   },
+  "help": {
+    "title": "网站使用与配置提示",
+    "close": "关闭帮助",
+    "navigation": "帮助目录",
+    "sections": {
+      "s1": {
+        "title": "分析上传文件并生成会议摘要",
+        "content": "步骤：\n• 选择目标会议（ISMRM、RSNA、ER/ECR 或 ESC）。\n• 已有论文选择标准分析，核心想法扩展选择邪修模式。\n• 上传 PDF 或 DOCX 文件，或直接粘贴论文文本。\n• 点击“分析”提取分类与关键词，并审阅建议。\n• 选择建议的摘要类型，再点击“生成”。\n• 审阅按会议规范组织的输出，并按需导出。\n\n提示：\n• 大文件处理时间更长；提取失败时可直接粘贴文本。\n• 分类概率属于基于内容的建议，应结合投稿策略调整。"
+      },
+      "s2": {
+        "title": "配置 AI 模型",
+        "content": "网站支持 Google AI（Gemini）和 OpenAI 兼容提供商。打开“模型配置”，选择提供商，填写凭据与模型后保存。凭据保存在浏览器存储中；调用所选提供商时会按其 API 流程发送。"
+      },
+      "s21": {
+        "title": "Google AI 配置",
+        "content": "• 在模型配置中选择 Google AI。\n• 填写 Google AI API 密钥。\n• 选择文本模型和图像模型。\n• 保存设置。\n\n请根据质量、成本、延迟及数据处理条款选择模型；提供商暂时不可用时可稍后重试。"
+      },
+      "s22": {
+        "title": "OpenAI 兼容接口配置",
+        "content": "• 选择 OpenAI 兼容接口。\n• 填写所选提供商的 Base URL 与 API 密钥。\n• 刷新模型列表，并选择文本、视觉和图像模型。\n\n不同提供商的模型标识和接口支持不同；请确认其图像生成功能兼容性。"
+      },
+      "s23": {
+        "title": "图像模型配置",
+        "content": "标准模式根据规格编辑已上传图像；创意模式使用已有摘要作为新配图的上下文。OpenAI 兼容提供商可能支持图像生成与视觉分析，Google 提供商可能支持 Imagen。图像 MCP 仍是单独配置的可选工具。"
+      },
+      "s24": {
+        "title": "MCP 与盲审配置",
+        "content": "可在“模型配置 → MCP 工具”中启用数据库和图像工具。盲审机制不同：PubMed、CiteCheck 与 DOI MCP 均由管理员在后端预部署，用户只需勾选复选框，无需配置端点、命令、软件包或令牌。后端不可用时会明确标记，绝不会视为已核验。"
+      },
+      "s3": {
+        "title": "摘要存储与同步",
+        "content": "已保存摘要保留在浏览器存储中。摘要管理器支持加载、删除、导出与导入。配置并启用 Supabase 后，可选的云端同步可能支持跨设备访问。"
+      },
+      "s4": {
+        "title": "摘要与图像导出",
+        "content": "摘要可导出为 Markdown、PDF 或 JSON；生成图像可按其可用格式下载。导出或投稿前，必须由作者完成独立核验。"
+      }
+    }
+  },
+  "blind_review": {
+    "title": "独立盲审",
+    "description": "将生成摘要与已提供的原始材料及可选后端证据服务进行对照。",
+    "external_data_notice": "启用外部审核器后会发送有限的引文检索数据；审核前请移除患者标识和机密信息。",
+    "button": "盲审",
+    "running": "盲审中…",
+    "report_title": "独立盲审报告",
+    "finding_title": "审核发现",
+    "external_title": "外部验证",
+    "no_findings": "模型审核器未发现明确问题，但这不构成准确性证明。",
+    "error": "盲审失败",
+    "unknown_error": "盲审因未知原因失败。",
+    "disabled": "设置中已关闭盲审。",
+    "no_content": "没有可供审核的生成内容。",
+    "invalid_model_report": "审核模型返回了无效报告。",
+    "external_request_failed": "后端证据审核请求失败。",
+    "external_no_query": "未提供可检索的引文、标题、关键词或正文。",
+    "external_none_found": "PubMed 未检索到相关记录；这不能证明该论断为假。",
+    "external_related_found": "已检索到相关文献；这不能核实所提交的数据集或结果。",
+    "external_not_provisioned": "后端尚未部署该审核器。",
+    "external_service_failed": "后端证据服务不可用，本次未执行核验。",
+    "disclaimer": "自动审核不能证明研究数据真实，也不能替代作者、机构、伦理、隐私、统计、法律、期刊或会议的正式审核。",
+    "status": {
+      "verified-with-limitations": "有限条件下已审核",
+      "action-required": "需要处理"
+    },
+    "recommendation": {
+      "pass-with-caveats": "附带限制通过",
+      "minor-revision": "小修",
+      "major-revision": "大修",
+      "reject": "问题解决前请勿使用"
+    },
+    "dimension": {
+      "ethics-and-consent": "伦理与知情同意",
+      "de-identification": "患者信息脱敏",
+      "data-integrity": "数据真实性",
+      "methodology": "研究方法",
+      "citation-integrity": "引文真实性",
+      "conference-compliance": "会议规范",
+      "reporting-guideline": "报告规范"
+    },
+    "severity": { "critical": "严重", "high": "高", "medium": "中", "low": "低", "info": "提示" },
+    "verification_status": {
+      "verified": "记录已核验",
+      "supported": "有证据支持",
+      "unsupported": "无证据支持",
+      "contradictory": "与证据矛盾",
+      "not-verifiable": "无法核验"
+    },
+    "reviewer": { "pubmed": "PubMed", "citecheck": "CiteCheck", "doi-mcp": "DOI MCP" },
+    "external_status": {
+      "verified": "检索完成",
+      "issues-found": "发现问题",
+      "unavailable": "不可用",
+      "not-run": "未运行"
+    }
+  },
   "ai_disclosure": {
     "short_title": "生成式 AI 严正声明：",
     "short_body": "AI 辅助分析、润色与生成可能不准确，不保证合规、录用或发表。",
     "review": "查看声明",
     "review_and_accept": "查看并确认",
     "title": "生成式 AI 辅助使用严正声明",
+    "version": "版本 {version}",
+    "openai_policy": "OpenAI 隐私政策",
+    "google_terms": "Google Gemini API 条款",
     "no_guarantee": "AI 输出可能不完整、过时、误导或错误。本服务不保证事实准确性、原创性、法规或会议合规性、适用性、录用、发表或任何展示形式安排。",
     "author_duty": "作者必须独立核验全部事实、患者信息、方法、样本量、统计结果、引文、授权、伦理审批、注册、资助、利益冲突、商业平衡及最新官方投稿要求。",
     "data_transfer": "使用 AI 功能时，文本、文件或图像会发送至“设置”中选择的模型供应商。发送机密或敏感资料前，请审阅该供应商的隐私与数据使用条款。",

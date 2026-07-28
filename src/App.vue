@@ -73,7 +73,7 @@
       @click="showHelp = true"
       class="fixed bottom-4 right-4 z-40 px-4 py-2 bg-brand-primary text-white rounded-full shadow-lg hover:bg-brand-secondary focus:outline-none focus:ring-3 focus:ring-brand-primary"
       :title="t('tooltips.help_documentation')"
-      aria-label="Open help and documentation"
+      :aria-label="t('tooltips.help_documentation')"
       type="button"
     >
       <span class="inline-flex items-center gap-2">

@@ -37,6 +37,73 @@ export interface AIAssistanceRecord {
   operations: string[];
   authorVerificationRequired: true;
 }
+
+export type BlindReviewDimension =
+  | 'ethics-and-consent'
+  | 'de-identification'
+  | 'data-integrity'
+  | 'methodology'
+  | 'citation-integrity'
+  | 'conference-compliance'
+  | 'reporting-guideline';
+export type BlindReviewSeverity = 'critical' | 'high' | 'medium' | 'low' | 'info';
+export type BlindReviewVerificationStatus =
+  | 'verified'
+  | 'supported'
+  | 'unsupported'
+  | 'contradictory'
+  | 'not-verifiable';
+export type BlindReviewRecommendation =
+  | 'pass-with-caveats'
+  | 'minor-revision'
+  | 'major-revision'
+  | 'reject';
+export type ExternalReviewer = 'pubmed' | 'citecheck' | 'doi-mcp';
+export type ExternalReviewerStatus = 'verified' | 'issues-found' | 'unavailable' | 'not-run';
+
+export interface BlindReviewFinding {
+  id: string;
+  dimension: BlindReviewDimension;
+  severity: BlindReviewSeverity;
+  claim: string;
+  evidence: string;
+  recommendation: string;
+  verificationStatus: BlindReviewVerificationStatus;
+}
+
+export interface BlindReviewModelAssessment {
+  recommendation: BlindReviewRecommendation;
+  summary: string;
+  findings: BlindReviewFinding[];
+}
+
+export interface ExternalVerificationRecord {
+  query: string;
+  status: BlindReviewVerificationStatus;
+  title?: string;
+  identifier?: string;
+  url?: string;
+  details?: string;
+}
+
+export interface ExternalVerificationResult {
+  reviewer: ExternalReviewer;
+  status: ExternalReviewerStatus;
+  checkedAt: string;
+  summary: string;
+  summaryKey?: string;
+  records: ExternalVerificationRecord[];
+}
+
+export interface BlindReviewReport {
+  version: 'blind-review-v1';
+  conference: Exclude<Conference, 'IMAGE' | 'JACC'>;
+  reviewedAt: string;
+  overallStatus: 'verified-with-limitations' | 'action-required';
+  modelAssessment: BlindReviewModelAssessment;
+  externalVerification: ExternalVerificationResult[];
+  disclaimer: 'blind_review.disclaimer';
+}
 export type AbstractType =
   // ISMRM Types
   | 'Standard Abstract'
@@ -142,6 +209,11 @@ export interface MCPConfig {
   // Future MCP tools can be added here
 }
 
+export interface BlindReviewSettings {
+  enabled: boolean;
+  reviewers: Record<ExternalReviewer, boolean>;
+}
+
 export interface Settings {
   provider: AIProvider;
   googleApiKey?: string;
@@ -157,6 +229,7 @@ export interface Settings {
   supabaseMCP?: SupabaseMCPConfig; // Legacy - moved to mcpConfig
   databaseEnabled?: boolean; // User preference for cloud storage
   mcpConfig?: MCPConfig; // New unified MCP configuration
+  blindReview?: BlindReviewSettings;
   // Nanobana Pro 3 (Google Gemini Image Generation) - API key from environment
   nanobanaApiKey?: string;
   nanobanaBaseUrl?: string;

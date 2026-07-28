@@ -107,11 +107,17 @@
     "abstract": "Abstract",
     "keywords": "Keywords",
     "categories": "Categories",
+    "category_type": { "main": "main", "sub": "sub", "secondary": "secondary" },
     "word_count": "Word Count",
     "no_content": "Your generated content will appear here.",
     "begin_prompt": "Begin by providing input on the left panel.",
     "generating": "Generating...",
     "content_generated": "Content generated successfully",
+    "generated_figure": "Generated Figure",
+    "download_image": "Download Image",
+    "copy": "Copy",
+    "copy_title": "Copy full abstract to clipboard",
+    "copy_success": "Abstract copied to clipboard.",
     "word": "Word",
     "pdf": "PDF",
     "json": "JSON"
@@ -132,7 +138,40 @@
     "disconnected": "Disconnected",
     "validating": "Validating...",
     "database_activation": "Database Activation",
-    "enable_cloud_storage": "Enable Cloud Storage"
+    "enable_cloud_storage": "Enable Cloud Storage",
+    "providers_tab": "AI Providers",
+    "mcp_tab": "MCP Tools",
+    "google_ai": "Google AI",
+    "openai_compatible": "OpenAI Compatible",
+    "google_key_help": "Get your API key from Google AI Studio",
+    "text_model": "Text Model",
+    "vision_model": "Vision Model",
+    "image_model": "Image Model",
+    "loading_models": "Loading...",
+    "openai_support": "Supports OpenAI-compatible API providers",
+    "vision_help": "For analyzing uploaded images",
+    "image_help": "For generating or editing images",
+    "mcp_description": "Enable backend-managed Model Context Protocol tools.",
+    "supabase_database": "Supabase Database",
+    "cloud_sync": "Cloud sync and storage",
+    "image_mcp": "Image Generation (MCP)",
+    "image_mcp_help": "Generate images through MCP tool calls",
+    "image_mcp_endpoint": "MCP endpoint for image generation",
+    "image_mcp_model_help": "Model with image-generation tool access",
+    "custom_config": "Custom Configuration (JSON)",
+    "custom_config_help": "Optional custom headers or tool-specific configuration",
+    "nanobana_env": "Google Gemini image generation is configured by deployment environment variables.",
+    "get_key_from": "Get your API key from Google AI Studio.",
+    "cancel": "Cancel",
+    "save": "Save Settings",
+    "blind_review_title": "Independent Blind Review",
+    "blind_review_help": "Run a separate read-only audit after generation. Backend reviewers never prove that submitted data are true.",
+    "blind_review_enabled": "Show the blind-review action",
+    "backend_managed": "Backend managed; no endpoint, command, or key is entered in the browser.",
+    "external_data_notice": "Privacy notice: PubMed receives the title/keywords; CiteCheck and DOI MCP receive extracted citation identifiers. Do not include patient identifiers or confidential information.",
+    "reviewer_pubmed": "PubMed related-literature search",
+    "reviewer_citecheck": "CiteCheck MCP citation audit",
+    "reviewer_doi": "DOI MCP identifier verification"
   },
   "abstract_manager": {
     "title": "Abstract Manager",
@@ -143,13 +182,58 @@
     "export": "Export",
     "created": "Created",
     "conference": "Conference",
-    "type": "Type"
+    "type": "Type",
+    "close": "Close abstract manager",
+    "search_placeholder": "Search abstracts...",
+    "search_label": "Search abstracts by title, impact, synopsis, or keywords",
+    "filter_conference": "Filter by conference",
+    "all_conferences": "All Conferences",
+    "filter_type": "Filter by abstract type",
+    "all_types": "All Types",
+    "standard": "Standard",
+    "clinical_practice": "Clinical Practice",
+    "registered": "Registered",
+    "sort_label": "Sort abstracts",
+    "newest": "Newest First",
+    "oldest": "Oldest First",
+    "title_az": "Title A-Z",
+    "title_za": "Title Z-A",
+    "conference_az": "Conference A-Z",
+    "export_all": "Export all abstracts to JSON",
+    "export_help": "Export all abstracts as a backup file",
+    "import_help": "Import abstracts from a backup file",
+    "import_label": "Import abstracts from JSON",
+    "loading": "Loading abstracts...",
+    "no_results": "No abstracts found",
+    "load_help": "Load this abstract into the editor",
+    "delete_help": "Delete this abstract permanently",
+    "cancel_delete": "Cancel delete operation",
+    "confirm_delete": "Confirm abstract deletion",
+    "saved_count": "{{count}} abstracts saved",
+    "online": "Online",
+    "offline": "Offline",
+    "pending_sync": "{{count}} pending sync",
+    "conflicts": "{{count}} conflicts",
+    "last_sync": "Last sync",
+    "import": "Import",
+    "retry": "Retry",
+    "adjust_filters": "Try adjusting your filters",
+    "create_first": "Create your first abstract to get started",
+    "updated": "Updated",
+    "synced": "Synced",
+    "load_named": "Load abstract: {{title}}",
+    "delete_named": "Delete abstract: {{title}}",
+    "delete_warning": "Delete this abstract permanently? This action cannot be undone."
   },
   "export": {
     "word": "Export to Word",
     "pdf": "Export to PDF",
     "copy_text": "Copy Text",
-    "download_image": "Download Image"
+    "download_image": "Download Image",
+    "markdown_title": "Export as Markdown (.md)",
+    "markdown_label": "Export as Markdown",
+    "pdf_label": "Export as PDF",
+    "json_label": "Export as JSON"
   },
   "errors": {
     "no_input": "Please provide input text to analyze.",
@@ -160,7 +244,28 @@
     "save_failed": "Failed to save abstract",
     "load_failed": "Failed to load abstract",
     "api_error": "API request failed. Please check your settings and try again.",
-    "network_error": "Network error. Please check your connection and try again."
+    "network_error": "Network error. Please check your connection and try again.",
+    "unknown": "An unknown error occurred.",
+    "file_read_failed": "Failed to read the selected file.",
+    "image_read_failed": "Failed to read the image file.",
+    "no_core_idea": "Please provide a core idea to expand.",
+    "generation_failed": "Abstract generation failed.",
+    "creative_failed": "Creative generation failed.",
+    "analysis_failed": "Content analysis failed.",
+    "suggestion_failed": "Failed to get abstract type suggestions.",
+    "deep_update_failed": "Deep update failed.",
+    "no_abstract": "Please generate an abstract first.",
+    "title_required": "Please enter a title for your abstract.",
+    "api_key_missing": "The selected model API key is not configured.",
+    "delete_failed": "Failed to delete the abstract.",
+    "export_failed": "Failed to export abstracts.",
+    "import_failed": "Failed to import abstracts.",
+    "pdf_export_failed": "Failed to export PDF. Please try again."
+  },
+  "dialogs": {
+    "abstract_title": "Enter a title for this abstract:",
+    "save_success": "Abstract saved successfully.",
+    "clear_confirm": "Clear all data and reset the workflow?"
   },
   "tooltips": {
     "creative_mode_disabled": "Generate an abstract first to enable this mode.",
@@ -169,7 +274,8 @@
     "clear_data": "Clear all data and reset",
     "github_repo": "GitHub Repository",
     "model_settings": "Model Settings",
-    "abstract_manager": "Abstract Manager"
+    "abstract_manager": "Abstract Manager",
+    "help_documentation": "Help and configuration guide"
   },
   "accessibility": {
     "skip_to_content": "Skip to main content",
@@ -177,7 +283,61 @@
     "error_occurred": "An error occurred",
     "content_updated": "Content has been updated",
     "navigation_instructions": "Use arrow keys to navigate between options, Enter or Space to select",
-    "toggle_instructions": "Use Enter or Space to toggle selection"
+    "toggle_instructions": "Use Enter or Space to toggle selection",
+    "settings": "Accessibility Settings",
+    "dialog": "Accessibility settings dialog",
+    "high_contrast": "High Contrast Mode",
+    "high_contrast_help": "Increase contrast for better visibility",
+    "toggle_high_contrast": "Toggle high contrast mode",
+    "font_size": "Font Size",
+    "font_size_help": "Adjust text size for better readability (supports up to 200% zoom)",
+    "font_size_group": "Font size selection",
+    "normal": "Normal",
+    "large": "Large (125%)",
+    "extra_large": "Extra Large (150%)",
+    "reduce_motion": "Reduce Motion",
+    "reduce_motion_help": "Minimize animations and transitions",
+    "toggle_motion": "Toggle reduced motion",
+    "features": "Accessibility Features",
+    "feature_touch": "Interactive elements provide accessible touch targets",
+    "feature_keyboard": "Keyboard navigation includes visible focus indicators",
+    "feature_reader": "Screen readers are supported with ARIA labels",
+    "feature_responsive": "Layouts adapt to mobile and tablet devices",
+    "reset": "Reset accessibility settings",
+    "close": "Close accessibility settings"
+  },
+  "analysis_ui": {
+    "complete": "Analysis Complete",
+    "suggested_categories": "Suggested Categories",
+    "suggested_keywords": "Suggested Keywords",
+    "equator_title": "EQUATOR Network reporting guidelines",
+    "ecr_submission": "ECR Abstract Submission:",
+    "confirm_label": "Confirm selections and view abstract type suggestions",
+    "review_generated": "Review and edit the generated content, then select categories and keywords.",
+    "esc_complete": "ESC Congress Analysis Complete",
+    "esc_description": "Review and confirm the suggested categories and keywords for the ESC Congress abstract.",
+    "esc_categories": "Suggested ESC Categories",
+    "confirm_proceed": "Confirm Selections & Proceed",
+    "category_aria": "{{name}}, {{type}} category, {{percent}}% match",
+    "keyword_aria": "Keyword: {{keyword}}",
+    "type_aria": "{{type}}, {{percent}}% match probability"
+  },
+  "ui": {
+    "upload_file": "Upload PDF or DOCX file",
+    "input_abstract": "Input text for abstract generation",
+    "input_ismrm": "Input text for ISMRM abstract generation",
+    "input_ecr": "Input text for ECR abstract generation",
+    "input_esc": "Input text for ESC abstract generation",
+    "close_help": "Close help",
+    "close_modal": "Close modal",
+    "close_notification": "Close notification",
+    "coming_soon": "Coming soon",
+    "switch_to": "Switch to {{label}}",
+    "loading_modules": "Loading conference modules...",
+    "image_panel": "Image Generation Panel",
+    "submit": "Submit",
+    "submit_to": "Submit to {{label}}",
+    "help_title": "Help: {{title}}"
   },
   "footer": {
     "copyright": "Sci-Evil - Academic Submission Generator"
@@ -216,7 +376,11 @@
     "max_size": "max {size}MB each",
     "remove_image": "Remove image",
     "expand_list": "Show all images",
-    "collapse_list": "Collapse"
+    "collapse_list": "Collapse",
+    "describe_figure": "Describe your figure, for example: Nature style, biomedical research, 2×2 layout, grayscale, labelled arrows",
+    "detected_fields": "Detected fields:",
+    "keyword_help": "Type keywords such as research, journal, layout, or color to get suggestions",
+    "generated_alt": "Generated scientific figure"
   },
   "ecr": {
     "title": "European Congress of Radiology (ECR)",
@@ -294,12 +458,117 @@
       "learning_center": "Learning Center Theater (conditional)"
     }
   },
+  "help": {
+    "title": "Website usage and configuration guide",
+    "close": "Close help",
+    "navigation": "Help contents",
+    "sections": {
+      "s1": {
+        "title": "Analyze uploaded files and generate conference abstracts",
+        "content": "Steps:\n• Select the target meeting (ISMRM, RSNA, ER/ECR, or ESC).\n• Choose standard analysis for an existing manuscript or creative expansion for a core idea.\n• Upload a PDF or DOCX file, or paste the manuscript text.\n• Select Analyze to extract categories and keywords, then review the suggestions.\n• Choose the suggested abstract type and select Generate.\n• Review the conference-formatted output and export it as needed.\n\nTips:\n• Large files take longer; paste the text directly if extraction fails.\n• Category probabilities are content-based suggestions and should be adjusted to fit the submission strategy."
+      },
+      "s2": {
+        "title": "Configure AI models",
+        "content": "The site supports Google AI (Gemini) and OpenAI-compatible providers. Open Model Settings, select a provider, enter its credential and models, then save. Credentials remain in browser storage unless the selected provider request sends them to its API."
+      },
+      "s21": {
+        "title": "Google AI configuration",
+        "content": "• Select Google AI in Model Settings.\n• Enter a Google AI API key.\n• Select a text model and image model.\n• Save the settings.\n\nUse a model appropriate to the required quality, cost, latency, and data-handling terms. Retry later if the provider is temporarily unavailable."
+      },
+      "s22": {
+        "title": "OpenAI-compatible configuration",
+        "content": "• Select OpenAI Compatible.\n• Enter the Base URL and API key for the chosen provider.\n• Refresh the model lists and select text, vision, and image models.\n\nModel identifiers and supported endpoints vary by provider. Confirm image-generation compatibility with that provider."
+      },
+      "s23": {
+        "title": "Image-model configuration",
+        "content": "Standard mode edits an uploaded image using supplied specifications. Creative mode uses an existing abstract as context for a new figure. OpenAI-compatible providers may support image generation and vision analysis; Google providers may support Imagen. Image MCP remains a separately configured optional tool."
+      },
+      "s24": {
+        "title": "MCP and blind-review configuration",
+        "content": "In Model Settings → MCP Tools, optional database and image tools can be enabled. Blind review is different: PubMed, CiteCheck, and DOI MCP are administrator-provisioned backend capabilities, so users only enable their checkboxes and never configure endpoints, commands, packages, or tokens. An unavailable backend is reported explicitly and is never treated as verified."
+      },
+      "s3": {
+        "title": "Abstract storage and synchronization",
+        "content": "Saved abstracts are retained in browser storage. The Abstract Manager can load, delete, export, and import them. Optional Supabase synchronization may support access across devices when it is configured and enabled."
+      },
+      "s4": {
+        "title": "Abstract and image export",
+        "content": "Abstracts can be exported as Markdown, PDF, or JSON. Generated images can be downloaded in their available image format. Complete and independently verify the content before exporting or submitting it."
+      }
+    }
+  },
+  "blind_review": {
+    "title": "Independent blind review",
+    "description": "Compare the generated abstract with the supplied source and optional backend evidence services.",
+    "external_data_notice": "Enabled external reviewers receive limited citation-search data. Remove patient identifiers and confidential information before review.",
+    "button": "Blind Review",
+    "running": "Reviewing…",
+    "report_title": "Independent Blind Review Report",
+    "finding_title": "Review findings",
+    "external_title": "External verification",
+    "no_findings": "No explicit issue was identified by the model reviewer. This is not proof of accuracy.",
+    "error": "Blind review failed",
+    "unknown_error": "The blind review failed for an unknown reason.",
+    "disabled": "Blind review is disabled in Settings.",
+    "no_content": "There is no generated content to review.",
+    "invalid_model_report": "The reviewer model returned an invalid report.",
+    "external_request_failed": "The backend evidence review request failed.",
+    "external_no_query": "No searchable citation, title, keyword, or text was provided.",
+    "external_none_found": "No related PubMed record was found; this does not prove the claim is false.",
+    "external_related_found": "Related literature was found; this does not verify the submitted dataset or result.",
+    "external_not_provisioned": "This reviewer is not provisioned on the backend.",
+    "external_service_failed": "The backend evidence service is unavailable; no verification was performed.",
+    "disclaimer": "Automated review cannot prove that research data are true and does not replace author, institutional, ethics, privacy, statistical, legal, journal, or conference review.",
+    "status": {
+      "verified-with-limitations": "Reviewed with limitations",
+      "action-required": "Action required"
+    },
+    "recommendation": {
+      "pass-with-caveats": "Pass with caveats",
+      "minor-revision": "Minor revision",
+      "major-revision": "Major revision",
+      "reject": "Do not use until resolved"
+    },
+    "dimension": {
+      "ethics-and-consent": "Ethics and consent",
+      "de-identification": "De-identification",
+      "data-integrity": "Data integrity",
+      "methodology": "Methodology",
+      "citation-integrity": "Citation integrity",
+      "conference-compliance": "Conference compliance",
+      "reporting-guideline": "Reporting guideline"
+    },
+    "severity": {
+      "critical": "Critical",
+      "high": "High",
+      "medium": "Medium",
+      "low": "Low",
+      "info": "Information"
+    },
+    "verification_status": {
+      "verified": "Verified record",
+      "supported": "Supported",
+      "unsupported": "Unsupported",
+      "contradictory": "Contradictory",
+      "not-verifiable": "Not verifiable"
+    },
+    "reviewer": { "pubmed": "PubMed", "citecheck": "CiteCheck", "doi-mcp": "DOI MCP" },
+    "external_status": {
+      "verified": "Search completed",
+      "issues-found": "Issues found",
+      "unavailable": "Unavailable",
+      "not-run": "Not run"
+    }
+  },
   "ai_disclosure": {
     "short_title": "Generative AI notice:",
     "short_body": "AI-assisted analysis, polishing and generation may be inaccurate and do not guarantee compliance or acceptance.",
     "review": "Review statement",
     "review_and_accept": "Review and accept",
     "title": "Serious notice on generative AI assistance",
+    "version": "Version {version}",
+    "openai_policy": "OpenAI Privacy Policy",
+    "google_terms": "Google Gemini API Terms",
     "no_guarantee": "AI output may be incomplete, outdated, misleading or incorrect. This service does not guarantee factual accuracy, originality, regulatory or conference compliance, suitability, acceptance, publication or any presentation assignment.",
     "author_duty": "The author must independently verify all facts, patient information, methods, sample sizes, statistics, citations, permissions, ethics approvals, registrations, funding, conflicts of interest, commercial balance and the latest official submission requirements.",
     "data_transfer": "Text, files or images used with AI features are sent to the model provider selected in Settings. Review that provider's privacy and data-use terms before sending confidential or sensitive material.",

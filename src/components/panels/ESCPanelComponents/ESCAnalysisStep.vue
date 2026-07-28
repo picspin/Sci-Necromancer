@@ -1,13 +1,12 @@
 <template>
   <div class="space-y-4">
-    <h2 class="text-xl font-bold text-text-primary">ESC Congress Analysis Complete</h2>
+    <h2 class="text-xl font-bold text-text-primary">{{ t('analysis_ui.esc_complete') }}</h2>
     <p class="text-text-secondary">
-      Please review and confirm the suggested categories and keywords for your ESC Congress
-      abstract.
+      {{ t('analysis_ui.esc_description') }}
     </p>
 
     <div>
-      <h3 class="font-semibold mb-2">Suggested ESC Categories</h3>
+      <h3 class="font-semibold mb-2">{{ t('analysis_ui.esc_categories') }}</h3>
       <div class="flex flex-wrap gap-2">
         <button
           v-for="cat in filteredCategories"
@@ -27,7 +26,7 @@
     </div>
 
     <div>
-      <h3 class="font-semibold mb-2">Suggested Keywords</h3>
+      <h3 class="font-semibold mb-2">{{ t('analysis_ui.suggested_keywords') }}</h3>
       <div class="flex flex-wrap gap-2">
         <button
           v-for="key in result.keywords"
@@ -49,14 +48,17 @@
       @click="handleConfirm"
       class="w-full bg-brand-primary hover:bg-brand-secondary text-white font-bold py-2 px-4 rounded-lg mt-4"
     >
-      Confirm Selections & Proceed
+      {{ t('analysis_ui.confirm_proceed') }}
     </button>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed } from 'vue';
+import { useI18n } from 'vue-i18n';
 import type { AnalysisResult, Category } from '@/types';
+
+const { t } = useI18n();
 
 interface Props {
   result: AnalysisResult;

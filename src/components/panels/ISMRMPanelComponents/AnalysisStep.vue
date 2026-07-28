@@ -1,14 +1,16 @@
 <template>
   <div class="space-y-4 max-h-[80vh] overflow-y-auto">
-    <h2 id="analysis-title" class="text-xl font-bold text-text-primary">Analysis Complete ✨</h2>
+    <h2 id="analysis-title" class="text-xl font-bold text-text-primary">
+      {{ t('analysis_ui.complete') }} ✨
+    </h2>
     <p id="analysis-description" class="text-text-secondary">
-      Review and edit the generated content, then select categories and keywords.
+      {{ t('analysis_ui.review_generated') }}
     </p>
 
     <!-- Impact Section -->
     <div>
       <label for="impact-input" class="font-semibold mb-2 block text-blue-600">
-        Impact Statement (40 words)
+        {{ t('analysis.impact') }}
       </label>
       <textarea
         id="impact-input"
@@ -20,14 +22,14 @@
         id="impact-word-count"
         :class="['text-sm mt-1', impactWordCount > 40 ? 'text-red-500' : 'text-green-600']"
       >
-        {{ impactWordCount }} / 40 words
+        {{ t('analysis.word_count', { count: impactWordCount, max: 40 }) }}
       </div>
     </div>
 
     <!-- Synopsis Section -->
     <div>
       <label for="synopsis-input" class="font-semibold mb-2 block text-green-600">
-        Synopsis (100 words)
+        {{ t('analysis.synopsis') }}
       </label>
       <textarea
         id="synopsis-input"
@@ -39,14 +41,14 @@
         id="synopsis-word-count"
         :class="['text-sm mt-1', synopsisWordCount > 100 ? 'text-red-500' : 'text-green-600']"
       >
-        {{ synopsisWordCount }} / 100 words
+        {{ t('analysis.word_count', { count: synopsisWordCount, max: 100 }) }}
       </div>
     </div>
 
     <!-- Categories Section -->
     <div>
       <h3 id="categories-heading" class="font-semibold mb-2 text-purple-600">
-        Categories (sorted by probability)
+        {{ t('analysis.categories') }}
       </h3>
       <div
         class="flex flex-wrap gap-2"
@@ -67,19 +69,27 @@
           ]"
           role="checkbox"
           :aria-checked="selectedCats.some((c) => c.name === cat.name)"
-          :aria-label="`${cat.name} (${cat.type} category, ${Math.round(cat.probability * 100)}% match)`"
+          :aria-label="
+            t('analysis_ui.category_aria', {
+              name: cat.name,
+              type: t(`output.category_type.${cat.type}`),
+              percent: Math.round(cat.probability * 100),
+            })
+          "
           tabindex="0"
         >
           {{ cat.name }}
           <span class="text-xs opacity-70">{{ Math.round(cat.probability * 100) }}%</span>
         </button>
       </div>
-      <p id="categories-help" class="sr-only">Use Enter or Space to toggle category selection</p>
+      <p id="categories-help" class="sr-only">{{ t('accessibility.toggle_instructions') }}</p>
     </div>
 
     <!-- Keywords Section -->
     <div>
-      <h3 id="keywords-heading" class="font-semibold mb-2 text-orange-600">Keywords</h3>
+      <h3 id="keywords-heading" class="font-semibold mb-2 text-orange-600">
+        {{ t('analysis.keywords') }}
+      </h3>
       <div
         class="flex flex-wrap gap-2"
         role="group"
@@ -99,29 +109,32 @@
           ]"
           role="checkbox"
           :aria-checked="selectedKeys.includes(key)"
-          :aria-label="`Keyword: ${key}`"
+          :aria-label="t('analysis_ui.keyword_aria', { keyword: key })"
           tabindex="0"
         >
           {{ key }}
         </button>
       </div>
-      <p id="keywords-help" class="sr-only">Use Enter or Space to toggle keyword selection</p>
+      <p id="keywords-help" class="sr-only">{{ t('accessibility.toggle_instructions') }}</p>
     </div>
 
     <button
       @click="handleConfirm"
       class="w-full bg-brand-primary hover:bg-brand-secondary text-white font-bold py-2 px-4 rounded-lg mt-4 focus:outline-none focus:ring-3 focus:ring-brand-primary min-h-[44px]"
-      aria-label="Confirm selections and view abstract type suggestions"
+      :aria-label="t('analysis_ui.confirm_label')"
       tabindex="0"
     >
-      Confirm & View Abstract Types
+      {{ t('analysis.confirm_selections') }}
     </button>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed } from 'vue';
+import { useI18n } from 'vue-i18n';
 import type { AnalysisResult, Category } from '@/types';
+
+const { t } = useI18n();
 
 interface Props {
   result: AnalysisResult;

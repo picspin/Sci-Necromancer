@@ -4,12 +4,15 @@
     role="alert"
     aria-live="assertive"
   >
-    <strong class="font-bold">Error: </strong>
+    <strong class="font-bold">{{ t('common.error') }}: </strong>
     <span class="block sm:inline">{{ message }}</span>
   </div>
 </template>
 
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n';
+
+const { t } = useI18n();
 interface Props {
   message: string;
 }

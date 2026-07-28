@@ -2,17 +2,19 @@
   <Modal
     :is-open="isOpen"
     @close="emit('close')"
-    title="Accessibility Settings"
+    :title="t('accessibility.settings')"
     size="md"
-    aria-label="Accessibility settings dialog"
+    :aria-label="t('accessibility.dialog')"
   >
     <div class="space-y-6">
       <!-- High Contrast Mode -->
       <div class="space-y-2">
         <div class="flex items-center justify-between">
           <div>
-            <h3 class="text-base font-semibold text-text-primary">High Contrast Mode</h3>
-            <p class="text-sm text-text-secondary">Increase contrast for better visibility</p>
+            <h3 class="text-base font-semibold text-text-primary">
+              {{ t('accessibility.high_contrast') }}
+            </h3>
+            <p class="text-sm text-text-secondary">{{ t('accessibility.high_contrast_help') }}</p>
           </div>
           <button
             @click="toggleHighContrast"
@@ -22,7 +24,7 @@
             ]"
             role="switch"
             :aria-checked="isHighContrast"
-            aria-label="Toggle high contrast mode"
+            :aria-label="t('accessibility.toggle_high_contrast')"
           >
             <span
               :class="[
@@ -36,11 +38,13 @@
 
       <!-- Font Size -->
       <div class="space-y-2">
-        <h3 class="text-base font-semibold text-text-primary">Font Size</h3>
+        <h3 class="text-base font-semibold text-text-primary">
+          {{ t('accessibility.font_size') }}
+        </h3>
         <p class="text-sm text-text-secondary mb-3">
-          Adjust text size for better readability (supports up to 200% zoom)
+          {{ t('accessibility.font_size_help') }}
         </p>
-        <div class="flex gap-2" role="radiogroup" aria-label="Font size selection">
+        <div class="flex gap-2" role="radiogroup" :aria-label="t('accessibility.font_size_group')">
           <button
             @click="setFontSize('normal')"
             :class="[
@@ -51,9 +55,9 @@
             ]"
             role="radio"
             :aria-checked="theme.fontSize === 'normal'"
-            aria-label="Normal font size"
+            :aria-label="t('accessibility.normal')"
           >
-            Normal
+            {{ t('accessibility.normal') }}
           </button>
           <button
             @click="setFontSize('large')"
@@ -65,9 +69,9 @@
             ]"
             role="radio"
             :aria-checked="theme.fontSize === 'large'"
-            aria-label="Large font size (125%)"
+            :aria-label="t('accessibility.large')"
           >
-            Large
+            {{ t('accessibility.large') }}
           </button>
           <button
             @click="setFontSize('x-large')"
@@ -79,9 +83,9 @@
             ]"
             role="radio"
             :aria-checked="theme.fontSize === 'x-large'"
-            aria-label="Extra large font size (150%)"
+            :aria-label="t('accessibility.extra_large')"
           >
-            X-Large
+            {{ t('accessibility.extra_large') }}
           </button>
         </div>
       </div>
@@ -90,8 +94,10 @@
       <div class="space-y-2">
         <div class="flex items-center justify-between">
           <div>
-            <h3 class="text-base font-semibold text-text-primary">Reduce Motion</h3>
-            <p class="text-sm text-text-secondary">Minimize animations and transitions</p>
+            <h3 class="text-base font-semibold text-text-primary">
+              {{ t('accessibility.reduce_motion') }}
+            </h3>
+            <p class="text-sm text-text-secondary">{{ t('accessibility.reduce_motion_help') }}</p>
           </div>
           <button
             @click="toggleReducedMotion"
@@ -101,7 +107,7 @@
             ]"
             role="switch"
             :aria-checked="theme.reducedMotion"
-            aria-label="Toggle reduced motion"
+            :aria-label="t('accessibility.toggle_motion')"
           >
             <span
               :class="[
@@ -122,12 +128,12 @@
             aria-hidden="true"
           />
           <div class="text-sm text-text-secondary">
-            <p class="font-medium text-text-primary mb-1">Accessibility Features</p>
+            <p class="font-medium text-text-primary mb-1">{{ t('accessibility.features') }}</p>
             <ul class="space-y-1 list-disc list-inside">
-              <li>All interactive elements have minimum 44x44px touch targets</li>
-              <li>Full keyboard navigation support with visible focus indicators</li>
-              <li>Screen reader compatible with ARIA labels</li>
-              <li>Responsive design for mobile and tablet devices</li>
+              <li>{{ t('accessibility.feature_touch') }}</li>
+              <li>{{ t('accessibility.feature_keyboard') }}</li>
+              <li>{{ t('accessibility.feature_reader') }}</li>
+              <li>{{ t('accessibility.feature_responsive') }}</li>
             </ul>
           </div>
         </div>
@@ -138,16 +144,16 @@
         <button
           @click="resetTheme"
           class="px-4 py-2 rounded-md text-text-secondary hover:bg-base-300 transition-colors focus:outline-none focus:ring-3 focus:ring-brand-primary min-h-[44px]"
-          aria-label="Reset all accessibility settings to default"
+          :aria-label="t('accessibility.reset')"
         >
-          Reset to Default
+          {{ t('accessibility.reset') }}
         </button>
         <button
           @click="emit('close')"
           class="px-6 py-2 rounded-md bg-brand-primary hover:bg-brand-secondary text-white font-semibold transition-colors focus:outline-none focus:ring-3 focus:ring-brand-primary min-h-[44px]"
-          aria-label="Close accessibility settings"
+          :aria-label="t('accessibility.close')"
         >
-          Done
+          {{ t('accessibility.close') }}
         </button>
       </div>
     </div>
@@ -158,6 +164,7 @@
 import Modal from './Modal.vue';
 import SvgIcon from './SvgIcon.vue';
 import { useTheme } from '@/composables/useTheme';
+import { useI18n } from '@/composables/useI18n';
 
 interface Props {
   isOpen: boolean;
@@ -168,6 +175,8 @@ defineProps<Props>();
 const emit = defineEmits<{
   close: [];
 }>();
+
+const { t } = useI18n();
 
 const { theme, toggleHighContrast, setFontSize, toggleReducedMotion, resetTheme, isHighContrast } =
   useTheme();

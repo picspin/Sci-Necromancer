@@ -23,7 +23,7 @@
             <button
               @click="removeNotification(notification.id)"
               class="ml-2 text-lg leading-none hover:opacity-70 transition-opacity"
-              aria-label="Close notification"
+              :aria-label="t('ui.close_notification')"
             >
               ×
             </button>
@@ -35,10 +35,12 @@
 </template>
 
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n';
 import { useNotifications } from '@/composables/useNotifications';
 import type { NotificationType } from '@/lib/utils/notificationService';
 
 const { notifications, removeNotification } = useNotifications();
+const { t } = useI18n();
 
 const getNotificationStyles = (type: NotificationType): string => {
   switch (type) {

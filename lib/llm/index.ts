@@ -8,6 +8,7 @@ import {
   AbstractType,
   AbstractTypeSuggestion,
   RSNAClassification,
+  BlindReviewModelAssessment,
 } from '../../types';
 import {
   normalizeRSNAAnalysis,
@@ -71,6 +72,12 @@ const getService = () => {
 
 const getAuxiliaryLocale = (): 'en' | 'zh' =>
   localStorage.getItem('i18nextLng')?.toLowerCase().startsWith('zh') ? 'zh' : 'en';
+
+export async function reviewAbstractBlind(prompt: string): Promise<BlindReviewModelAssessment> {
+  requireAIDisclosureAcceptance();
+  const apiKey = getApiKey();
+  return getService().reviewAbstractBlind(prompt, apiKey);
+}
 
 export const analyzeContent = (text: string): Promise<AnalysisResult> => {
   requireAIDisclosureAcceptance();

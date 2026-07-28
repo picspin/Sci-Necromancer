@@ -1,13 +1,12 @@
 <template>
   <div class="space-y-4">
     <h2 id="type-suggestion-title" class="text-xl font-bold text-text-primary">
-      Recommended Abstract Type
+      {{ t('abstract_types.title') }}
     </h2>
     <p id="type-suggestion-description" class="text-text-secondary">
-      Based on your content, we recommend the following abstract types. Please select one to
-      proceed.
+      {{ t('abstract_types.description') }}
     </p>
-    <p class="sr-only">Use arrow keys to navigate between options, Enter or Space to select</p>
+    <p class="sr-only">{{ t('accessibility.navigation_instructions') }}</p>
     <div
       class="space-y-2"
       role="radiogroup"
@@ -22,13 +21,22 @@
         class="w-full text-left p-3 bg-base-100 hover:bg-base-300/50 border border-base-300 rounded-lg transition-all focus:outline-none focus:ring-3 focus:ring-brand-primary min-h-[44px]"
         role="radio"
         :aria-checked="selectedIndex === index"
-        :aria-label="`${suggestion.type} with ${(suggestion.probability * 100).toFixed(0)}% match probability`"
+        :aria-label="
+          t('analysis_ui.type_aria', {
+            type: suggestion.type,
+            percent: (suggestion.probability * 100).toFixed(0),
+          })
+        "
         tabindex="0"
       >
         <div class="flex justify-between items-center">
           <span class="font-semibold text-text-primary">{{ suggestion.type }}</span>
           <span class="text-xs font-mono px-2 py-1 bg-brand-primary/20 text-brand-primary rounded">
-            {{ `${(suggestion.probability * 100).toFixed(0)}% match` }}
+            {{
+              t('abstract_types.match_probability', {
+                percent: (suggestion.probability * 100).toFixed(0),
+              })
+            }}
           </span>
         </div>
       </button>
@@ -38,7 +46,10 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue';
+import { useI18n } from 'vue-i18n';
 import type { AbstractTypeSuggestion, AbstractType } from '@/types';
+
+const { t } = useI18n();
 
 interface Props {
   suggestions: AbstractTypeSuggestion[];

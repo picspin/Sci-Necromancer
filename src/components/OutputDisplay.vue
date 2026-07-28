@@ -4,7 +4,9 @@
     <LiveRegion :message="liveRegionMessage" :priority="error ? 'assertive' : 'polite'" />
 
     <div class="flex justify-between items-center mb-4 border-b border-base-300 pb-2">
-      <h2 id="output-heading" class="text-lg font-bold text-text-primary">Generated Output</h2>
+      <h2 id="output-heading" class="text-lg font-bold text-text-primary">
+        {{ t('output.title') }}
+      </h2>
       <ExportButtons :abstract="abstract" :conference="conference" :abstract-type="abstractType" />
     </div>
     <div
@@ -23,8 +25,8 @@
         class="text-center text-text-secondary flex flex-col items-center justify-center h-full"
       >
         <SvgIcon type="logo" class="h-16 w-16 text-base-300 mb-4" />
-        <p>Your generated content will appear here.</p>
-        <p class="text-sm mt-1">Begin by providing input on the left panel.</p>
+        <p>{{ t('output.no_content') }}</p>
+        <p class="text-sm mt-1">{{ t('output.begin_prompt') }}</p>
       </div>
 
       <div class="space-y-6">
@@ -89,11 +91,18 @@
             {{ t('ai_disclosure.record_verify') }}
           </p>
         </div>
+
+        <BlindReviewControl
+          v-if="abstract && reviewConference"
+          :abstract="abstract"
+          :conference="reviewConference"
+          :source-text="sourceText"
+        />
         <!-- Show Impact & Synopsis even before full abstract is generated -->
         <div v-if="displayImpact" class="animate-fade-in">
           <h3 class="flex items-center gap-2 text-md font-semibold text-blue-600 mb-2">
             <SvgIcon type="impact" class="h-5 w-5" />
-            Impact
+            {{ t('output.impact') }}
           </h3>
           <div
             class="bg-base-100 p-4 rounded-lg text-text-secondary text-sm prose max-w-none prose-p:my-2"
@@ -105,7 +114,7 @@
         <div v-if="displaySynopsis" class="animate-fade-in">
           <h3 class="flex items-center gap-2 text-md font-semibold text-green-600 mb-2">
             <SvgIcon type="document" class="h-5 w-5" />
-            Synopsis
+            {{ t('output.synopsis') }}
           </h3>
           <div
             class="bg-base-100 p-4 rounded-lg text-text-secondary text-sm prose max-w-none prose-p:my-2"
@@ -117,7 +126,7 @@
         <div v-if="categories && categories.length > 0" class="animate-fade-in">
           <h3 class="flex items-center gap-2 text-md font-semibold text-purple-600 mb-2">
             <SvgIcon type="tag" class="h-5 w-5" />
-            Categories
+            {{ t('output.categories') }}
           </h3>
           <div class="bg-base-100 p-4 rounded-lg">
             <div class="flex flex-wrap gap-2">
@@ -133,7 +142,7 @@
                       : 'bg-gray-600/20 text-gray-600',
                 ]"
               >
-                {{ cat.name }} ({{ cat.type }})
+                {{ cat.name }} ({{ t(`output.category_type.${cat.type}`) }})
               </span>
             </div>
           </div>
@@ -142,7 +151,7 @@
         <div v-if="keywords && keywords.length > 0" class="animate-fade-in">
           <h3 class="flex items-center gap-2 text-md font-semibold text-orange-600 mb-2">
             <SvgIcon type="tag" class="h-5 w-5" />
-            Keywords
+            {{ t('output.keywords') }}
           </h3>
           <div class="bg-base-100 p-4 rounded-lg text-text-secondary text-sm">
             {{ keywords.join(', ') }}
@@ -153,12 +162,12 @@
           <div class="flex justify-between items-center mb-2">
             <h3 class="flex items-center gap-2 text-md font-semibold text-brand-primary">
               <SvgIcon type="document" class="h-5 w-5" />
-              Abstract <span v-if="abstractType">({{ abstractType }})</span>
+              {{ t('output.abstract') }} <span v-if="abstractType">({{ abstractType }})</span>
             </h3>
             <button
               @click="copyToClipboard"
               class="flex items-center gap-2 text-sm px-3 py-1.5 bg-brand-primary hover:bg-brand-secondary text-white rounded-md transition-all duration-200"
-              title="Copy full abstract to clipboard"
+              :title="t('output.copy_title')"
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -174,7 +183,7 @@
                   d="M15.666 3.888A2.25 2.25 0 0013.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 01-.75.75H9a.75.75 0 01-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 01-2.25 2.25H6.75A2.25 2.25 0 014.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 011.927-.184"
                 />
               </svg>
-              Copy
+              {{ t('output.copy') }}
             </button>
           </div>
           <div class="bg-base-100 p-4 rounded-lg text-text-secondary text-sm">
@@ -189,19 +198,23 @@
           <div class="flex justify-between items-center mb-2">
             <h3 class="flex items-center gap-2 text-md font-semibold text-brand-primary">
               <SvgIcon type="image" class="h-5 w-5" />
-              Generated Figure
+              {{ t('output.generated_figure') }}
             </h3>
             <button
               @click="handleDownloadImage"
               class="flex items-center gap-2 text-sm px-3 py-1.5 bg-brand-primary hover:bg-brand-secondary text-white rounded-md transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-brand-primary"
-              aria-label="Download generated figure"
+              :aria-label="t('output.download_image')"
             >
               <SvgIcon type="download" class="h-4 w-4" />
-              Download Image
+              {{ t('output.download_image') }}
             </button>
           </div>
           <div class="bg-base-100 p-2 rounded-lg">
-            <img :src="image" alt="Generated Figure" class="rounded-md w-full object-contain" />
+            <img
+              :src="image"
+              :alt="t('output.generated_figure')"
+              class="rounded-md w-full object-contain"
+            />
           </div>
         </div>
       </div>
@@ -219,6 +232,7 @@ import LiveRegion from '@/components/ui/LiveRegion.vue';
 import AbstractBody from '@/components/ui/AbstractBody.vue';
 import LoadingSpinner from '@/components/ui/LoadingSpinner.vue';
 import ErrorMessage from '@/components/ui/ErrorMessage.vue';
+import BlindReviewControl from '@/components/review/BlindReviewControl.vue';
 
 interface Props {
   abstract: AbstractData | null;
@@ -232,11 +246,13 @@ interface Props {
   loadingMessage?: string;
   conference?: Conference;
   abstractType?: AbstractType;
+  sourceText?: string;
 }
 
 const props = withDefaults(defineProps<Props>(), {
   conference: 'ISMRM',
   image: null,
+  sourceText: '',
 });
 const { t } = useI18n();
 
@@ -244,6 +260,11 @@ const hasOutput = computed(() => props.abstract || props.image || props.impact |
 
 const displayImpact = computed(() => props.impact || props.abstract?.impact);
 const displaySynopsis = computed(() => props.synopsis || props.abstract?.synopsis);
+const reviewConference = computed(() =>
+  ['ISMRM', 'RSNA', 'ER', 'ESC'].includes(props.conference)
+    ? (props.conference as Exclude<Conference, 'IMAGE' | 'JACC'>)
+    : null
+);
 const rsnaRoute = computed(() => {
   const route = props.abstract?.rsna;
   if (!route) return '';
@@ -262,9 +283,9 @@ const rsnaRoute = computed(() => {
 });
 
 const liveRegionMessage = computed(() => {
-  if (props.isLoading) return props.loadingMessage || 'Generating content...';
-  if (props.error) return `Error: ${props.error}`;
-  if (hasOutput.value) return 'Content generated successfully';
+  if (props.isLoading) return props.loadingMessage || t('output.generating');
+  if (props.error) return `${t('common.error')}: ${props.error}`;
+  if (hasOutput.value) return t('output.content_generated');
   return '';
 });
 
@@ -272,7 +293,7 @@ const copyToClipboard = () => {
   if (!props.abstract) return;
   const fullText = `IMPACT:\n${props.abstract.impact}\n\nSYNOPSIS:\n${props.abstract.synopsis}\n\nABSTRACT:\n${props.abstract.abstract}\n\nKEYWORDS:\n${props.abstract.keywords.join(', ')}`;
   navigator.clipboard.writeText(fullText);
-  alert('Abstract copied to clipboard!');
+  alert(t('output.copy_success'));
 };
 
 const formatTimestamp = (value: string) => new Date(value).toLocaleString();

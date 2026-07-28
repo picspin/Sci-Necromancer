@@ -13,21 +13,26 @@
         <div class="flex items-center justify-between p-6 border-b">
           <div>
             <h2 id="abstract-manager-title" class="text-2xl font-bold text-gray-900">
-              Abstract Manager
+              {{ t('abstract_manager.title') }}
             </h2>
             <p class="text-sm text-gray-600 mt-1">
-              {{ abstracts.length }} abstracts saved
+              {{ t('abstract_manager.saved_count', { count: abstracts.length }) }}
               <template v-if="syncStatus">
                 <span class="ml-2">
-                  • {{ syncStatus.isOnline ? '🟢 Online' : '🔴 Offline' }}
+                  •
+                  {{
+                    syncStatus.isOnline
+                      ? `🟢 ${t('abstract_manager.online')}`
+                      : `🔴 ${t('abstract_manager.offline')}`
+                  }}
                   <span v-if="syncStatus.pendingChanges > 0" class="text-orange-600">
-                    • {{ syncStatus.pendingChanges }} pending sync
+                    • {{ t('abstract_manager.pending_sync', { count: syncStatus.pendingChanges }) }}
                   </span>
                   <span v-if="syncStatus.conflictCount > 0" class="text-red-600">
-                    • {{ syncStatus.conflictCount }} conflicts
+                    • {{ t('abstract_manager.conflicts', { count: syncStatus.conflictCount }) }}
                   </span>
                   <span v-if="syncStatus.lastSync" class="text-gray-500">
-                    • Last sync: {{ formatDate(syncStatus.lastSync) }}
+                    • {{ t('abstract_manager.last_sync') }}: {{ formatDate(syncStatus.lastSync) }}
                   </span>
                 </span>
               </template>
@@ -36,7 +41,7 @@
           <button
             @click="$emit('close')"
             class="text-gray-400 hover:text-gray-600 text-2xl font-bold"
-            aria-label="Close abstract manager"
+            :aria-label="t('abstract_manager.close')"
           >
             ×
           </button>
@@ -49,10 +54,10 @@
             <div class="flex-1 min-w-64">
               <input
                 type="text"
-                placeholder="Search abstracts..."
+                :placeholder="t('abstract_manager.search_placeholder')"
                 v-model="searchQuery"
                 class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                aria-label="Search abstracts by title, impact, synopsis, or keywords"
+                :aria-label="t('abstract_manager.search_label')"
               />
             </div>
 
@@ -60,9 +65,9 @@
             <select
               v-model="selectedConference"
               class="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              aria-label="Filter by conference"
+              :aria-label="t('abstract_manager.filter_conference')"
             >
-              <option value="all">All Conferences</option>
+              <option value="all">{{ t('abstract_manager.all_conferences') }}</option>
               <option value="ISMRM">ISMRM</option>
               <option value="RSNA">RSNA</option>
               <option value="ER">ER</option>
@@ -72,13 +77,15 @@
             <select
               v-model="selectedType"
               class="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              aria-label="Filter by abstract type"
+              :aria-label="t('abstract_manager.filter_type')"
             >
-              <option value="all">All Types</option>
-              <option value="Standard Abstract">Standard</option>
-              <option value="MRI in Clinical Practice Abstract">Clinical Practice</option>
+              <option value="all">{{ t('abstract_manager.all_types') }}</option>
+              <option value="Standard Abstract">{{ t('abstract_manager.standard') }}</option>
+              <option value="MRI in Clinical Practice Abstract">
+                {{ t('abstract_manager.clinical_practice') }}
+              </option>
               <option value="ISMRT Abstract">ISMRT</option>
-              <option value="Registered Abstract">Registered</option>
+              <option value="Registered Abstract">{{ t('abstract_manager.registered') }}</option>
             </select>
 
             <!-- Sort -->
@@ -86,36 +93,36 @@
               :value="`${sortBy}-${sortOrder}`"
               @change="handleSortChange"
               class="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              aria-label="Sort abstracts"
+              :aria-label="t('abstract_manager.sort_label')"
             >
-              <option value="date-desc">Newest First</option>
-              <option value="date-asc">Oldest First</option>
-              <option value="title-asc">Title A-Z</option>
-              <option value="title-desc">Title Z-A</option>
-              <option value="conference-asc">Conference A-Z</option>
+              <option value="date-desc">{{ t('abstract_manager.newest') }}</option>
+              <option value="date-asc">{{ t('abstract_manager.oldest') }}</option>
+              <option value="title-asc">{{ t('abstract_manager.title_az') }}</option>
+              <option value="title-desc">{{ t('abstract_manager.title_za') }}</option>
+              <option value="conference-asc">{{ t('abstract_manager.conference_az') }}</option>
             </select>
 
             <!-- Actions -->
             <button
               @click="exportAbstracts"
               class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
-              aria-label="Export all abstracts to JSON file"
-              title="Export all abstracts as a backup file"
+              :aria-label="t('abstract_manager.export_all')"
+              :title="t('abstract_manager.export_help')"
             >
-              Export
+              {{ t('abstract_manager.export') }}
             </button>
 
             <label
               class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors cursor-pointer"
-              title="Import abstracts from a backup file"
+              :title="t('abstract_manager.import_help')"
             >
-              Import
+              {{ t('abstract_manager.import') }}
               <input
                 type="file"
                 accept=".json"
                 @change="importAbstracts"
                 class="hidden"
-                aria-label="Import abstracts from JSON file"
+                :aria-label="t('abstract_manager.import_label')"
               />
             </label>
           </div>
@@ -124,18 +131,18 @@
         <!-- Content -->
         <div class="flex-1 overflow-hidden">
           <div v-if="loading" class="flex items-center justify-center h-full">
-            <div class="text-lg text-gray-600">Loading abstracts...</div>
+            <div class="text-lg text-gray-600">{{ t('abstract_manager.loading') }}</div>
           </div>
 
           <div v-else-if="error" class="flex items-center justify-center h-full">
             <div class="text-red-600 text-center">
-              <p class="text-lg font-semibold">Error</p>
+              <p class="text-lg font-semibold">{{ t('common.error') }}</p>
               <p>{{ error }}</p>
               <button
                 @click="loadAbstracts"
                 class="mt-4 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
               >
-                Retry
+                {{ t('abstract_manager.retry') }}
               </button>
             </div>
           </div>
@@ -145,12 +152,12 @@
             class="flex items-center justify-center h-full"
           >
             <div class="text-gray-500 text-center">
-              <p class="text-lg">No abstracts found</p>
+              <p class="text-lg">{{ t('abstract_manager.no_results') }}</p>
               <p class="text-sm mt-2">
                 {{
                   searchQuery || selectedConference !== 'all' || selectedType !== 'all'
-                    ? 'Try adjusting your filters'
-                    : 'Create your first abstract to get started'
+                    ? t('abstract_manager.adjust_filters')
+                    : t('abstract_manager.create_first')
                 }}
               </p>
             </div>
@@ -185,9 +192,14 @@
                     </p>
 
                     <div class="flex items-center gap-4 text-xs text-gray-500">
-                      <span>Updated: {{ formatDate(abstract.updatedAt) }}</span>
-                      <span>Keywords: {{ abstract.keywords.length }}</span>
-                      <span v-if="abstract.userId" class="text-green-600">☁️ Synced</span>
+                      <span
+                        >{{ t('abstract_manager.updated') }}:
+                        {{ formatDate(abstract.updatedAt) }}</span
+                      >
+                      <span>{{ t('output.keywords') }}: {{ abstract.keywords.length }}</span>
+                      <span v-if="abstract.userId" class="text-green-600"
+                        >☁️ {{ t('abstract_manager.synced') }}</span
+                      >
                     </div>
                   </div>
 
@@ -195,18 +207,18 @@
                     <button
                       @click="handleLoadAbstract(abstract)"
                       class="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 transition-colors"
-                      :aria-label="`Load abstract: ${abstract.title}`"
-                      title="Load this abstract into the editor"
+                      :aria-label="t('abstract_manager.load_named', { title: abstract.title })"
+                      :title="t('abstract_manager.load_help')"
                     >
-                      Load
+                      {{ t('abstract_manager.load') }}
                     </button>
                     <button
                       @click="showDeleteConfirm = abstract.id"
                       class="px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700 transition-colors"
-                      :aria-label="`Delete abstract: ${abstract.title}`"
-                      title="Delete this abstract permanently"
+                      :aria-label="t('abstract_manager.delete_named', { title: abstract.title })"
+                      :title="t('abstract_manager.delete_help')"
                     >
-                      Delete
+                      {{ t('abstract_manager.delete') }}
                     </button>
                   </div>
                 </div>
@@ -228,26 +240,26 @@
       >
         <div class="bg-white rounded-lg p-6 max-w-md w-full mx-4">
           <h3 id="delete-confirm-title" class="text-lg font-semibold text-gray-900 mb-4">
-            Confirm Delete
+            {{ t('abstract_manager.confirm_delete') }}
           </h3>
           <p class="text-gray-600 mb-6">
-            Are you sure you want to delete this abstract? This action cannot be undone.
+            {{ t('abstract_manager.delete_warning') }}
           </p>
           <div class="flex gap-3 justify-end">
             <button
               @click="showDeleteConfirm = null"
               class="px-4 py-2 text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50"
-              aria-label="Cancel delete operation"
+              :aria-label="t('abstract_manager.cancel_delete')"
             >
-              Cancel
+              {{ t('common.cancel') }}
             </button>
             <button
               @click="handleDeleteAbstract(showDeleteConfirm)"
               class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
-              aria-label="Confirm delete abstract"
+              :aria-label="t('abstract_manager.confirm_delete')"
               ref="deleteConfirmButton"
             >
-              Delete
+              {{ t('common.delete') }}
             </button>
           </div>
         </div>
@@ -258,9 +270,13 @@
 
 <script setup lang="ts">
 import { ref, watch, nextTick, onMounted, onUnmounted } from 'vue';
+import { useI18n } from 'vue-i18n';
 import type { SavedAbstract, SyncStatus } from '@/types';
 import { useSettings } from '@/composables/useSettings';
 import { useAbstract } from '@/composables/useAbstract';
+import { localizeError } from '@/lib/i18n/errorMessages';
+
+const { t, locale } = useI18n();
 
 interface Props {
   isVisible: boolean;
@@ -353,7 +369,7 @@ const loadAbstracts = async () => {
     console.log('abstracts.value set to:', abstracts.value.length, 'items');
   } catch (err) {
     console.error('Error loading abstracts:', err);
-    error.value = err instanceof Error ? err.message : 'Failed to load abstracts';
+    error.value = localizeError(err, t, 'errors.load_failed');
   } finally {
     loading.value = false;
   }
@@ -449,7 +465,7 @@ const handleDeleteAbstract = async (id: string) => {
     abstracts.value = abstracts.value.filter((abstract) => abstract.id !== id);
     showDeleteConfirm.value = null;
   } catch (err) {
-    error.value = err instanceof Error ? err.message : 'Failed to delete abstract';
+    error.value = localizeError(err, t, 'errors.delete_failed');
   }
 };
 
@@ -459,7 +475,7 @@ const handleLoadAbstract = (abstract: SavedAbstract) => {
 };
 
 const formatDate = (date: Date) => {
-  return new Intl.DateTimeFormat('en-US', {
+  return new Intl.DateTimeFormat(locale.value.toLowerCase().startsWith('zh') ? 'zh-CN' : 'en-US', {
     year: 'numeric',
     month: 'short',
     day: 'numeric',
@@ -512,7 +528,7 @@ const exportAbstracts = async () => {
       );
     }
   } catch (err) {
-    error.value = err instanceof Error ? err.message : 'Failed to export abstracts';
+    error.value = localizeError(err, t, 'errors.export_failed');
   }
 };
 
@@ -572,7 +588,7 @@ const importAbstracts = async (event: Event) => {
     // Reset the file input
     target.value = '';
   } catch (err) {
-    error.value = err instanceof Error ? err.message : 'Failed to import abstracts';
+    error.value = localizeError(err, t, 'errors.import_failed');
   }
 };
 </script>

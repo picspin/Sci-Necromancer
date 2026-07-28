@@ -21,7 +21,7 @@
         @input="handleInput"
         @keydown="handleKeydown"
         @blur="handleBlur"
-        placeholder="Describe your figure... e.g., 'Nature style, biomedical research, 2x2 grid layout, grayscale, labeled arrows'"
+        :placeholder="t('image_generation.describe_figure')"
         class="w-full h-32 p-3 bg-base-200 border border-base-300 rounded-md focus:ring-2 focus:ring-brand-primary focus:outline-none transition resize-none text-sm"
       />
 
@@ -52,7 +52,7 @@
 
     <!-- Parsed fields preview -->
     <div v-if="parsedFields.length > 0" class="mt-3">
-      <p class="text-xs text-text-secondary mb-2">Detected fields:</p>
+      <p class="text-xs text-text-secondary mb-2">{{ t('image_generation.detected_fields') }}</p>
       <div class="flex flex-wrap gap-2">
         <span
           v-for="field in parsedFields"
@@ -76,10 +76,7 @@
 
     <!-- Helper text -->
     <p class="text-xs text-text-secondary mt-2">
-      Type keywords like <span class="font-mono bg-base-200 px-1 rounded">research</span>,
-      <span class="font-mono bg-base-200 px-1 rounded">journal</span>,
-      <span class="font-mono bg-base-200 px-1 rounded">layout</span>,
-      <span class="font-mono bg-base-200 px-1 rounded">color</span> to get suggestions
+      {{ t('image_generation.keyword_help') }}
     </p>
   </div>
 </template>

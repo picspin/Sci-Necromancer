@@ -1,21 +1,20 @@
 <template>
   <div class="space-y-4">
-    <h2 class="text-xl font-bold text-text-primary">ECR Analysis Complete</h2>
+    <h2 class="text-xl font-bold text-text-primary">{{ t('ecr.analysis_complete') }}</h2>
     <p class="text-text-secondary">
-      Please review and confirm the suggested categories, keywords, and research type for your ECR
-      abstract.
+      {{ t('ecr.analysis_description') }}
     </p>
 
     <!-- Research Type Selection with EQUATOR Guidelines -->
     <div>
       <h3 class="font-semibold mb-2 flex items-center gap-2">
-        Research Type
+        {{ t('ecr.research_type') }}
         <a
           href="http://equator-network.org/"
           target="_blank"
           rel="noopener noreferrer"
           class="text-xs text-brand-primary hover:underline"
-          title="EQUATOR Network - Reporting Guidelines"
+          :title="t('analysis_ui.equator_title')"
         >
           (EQUATOR Network)
         </a>
@@ -41,7 +40,7 @@
             class="text-xs text-brand-primary hover:underline mt-1 inline-block"
             @click.stop
           >
-            View guidelines
+            {{ t('ecr.view_guidelines') }}
           </a>
         </button>
       </div>
@@ -58,13 +57,13 @@
           rel="noopener noreferrer"
           class="text-brand-primary hover:underline"
         >
-          PubMed Reference
+          {{ t('ecr.pubmed_reference') }}
         </a>
       </p>
     </div>
 
     <div>
-      <h3 class="font-semibold mb-2">Suggested ECR Categories</h3>
+      <h3 class="font-semibold mb-2">{{ t('ecr.categories_title') }}</h3>
       <div class="flex flex-wrap gap-2">
         <button
           v-for="cat in filteredCategories"
@@ -84,7 +83,7 @@
     </div>
 
     <div>
-      <h3 class="font-semibold mb-2">Suggested Keywords</h3>
+      <h3 class="font-semibold mb-2">{{ t('ecr.keywords_title') }}</h3>
       <div class="flex flex-wrap gap-2">
         <button
           v-for="key in result.keywords"
@@ -115,7 +114,7 @@
             d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
           />
         </svg>
-        <span class="text-sm font-medium">ECR Abstract Submission:</span>
+        <span class="text-sm font-medium">{{ t('ecr.submission_link') }}:</span>
         <a
           href="https://www.myesr.org/abstractsubmission"
           target="_blank"
@@ -132,15 +131,18 @@
       :disabled="!selectedResearchType"
       class="w-full bg-brand-primary hover:bg-brand-secondary text-white font-bold py-2 px-4 rounded-lg mt-4 disabled:opacity-50 disabled:cursor-not-allowed"
     >
-      Confirm Selections & Proceed
+      {{ t('ecr.confirm_proceed') }}
     </button>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed } from 'vue';
+import { useI18n } from 'vue-i18n';
 import type { AnalysisResult, Category } from '@/types';
 import { ECR_RESEARCH_TYPES, type ResearchTypeGuideline } from '@/lib/conference/modules/ERModule';
+
+const { t } = useI18n();
 
 interface Props {
   result: AnalysisResult;

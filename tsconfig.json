@@ -27,7 +27,16 @@
     },
     "types": ["vite/client"]
   },
-  "include": ["src/**/*.ts", "src/**/*.vue", "lib/**/*.ts", "vite.config.ts", "types/**/*.d.ts"],
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.vue",
+    "lib/**/*.ts",
+    "services/blindReviewService.ts",
+    "api/blind-review.ts",
+    "api/_review/externalReview.ts",
+    "vite.config.ts",
+    "types/**/*.d.ts"
+  ],
   "exclude": [
     "node_modules",
     "dist",

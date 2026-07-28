@@ -21,7 +21,9 @@
     <div class="space-y-4">
       <div>
         <h2 class="text-xl font-bold text-text-primary">{{ t('ai_disclosure.title') }}</h2>
-        <p class="mt-1 text-xs text-text-secondary">Version {{ AI_DISCLOSURE_VERSION }}</p>
+        <p class="mt-1 text-xs text-text-secondary">
+          {{ t('ai_disclosure.version', { version: AI_DISCLOSURE_VERSION }) }}
+        </p>
       </div>
       <div class="max-h-[55vh] space-y-3 overflow-y-auto text-sm text-text-secondary">
         <p>{{ t('ai_disclosure.no_guarantee') }}</p>
@@ -33,14 +35,14 @@
             href="https://openai.com/policies/privacy-policy/"
             target="_blank"
             rel="noopener noreferrer"
-            >OpenAI Privacy Policy</a
+            >{{ t('ai_disclosure.openai_policy') }}</a
           >
           <a
             class="text-brand-primary underline"
             href="https://ai.google.dev/gemini-api/terms"
             target="_blank"
             rel="noopener noreferrer"
-            >Google Gemini API Terms</a
+            >{{ t('ai_disclosure.google_terms') }}</a
           >
         </p>
         <p>{{ t('ai_disclosure.no_fabrication') }}</p>
