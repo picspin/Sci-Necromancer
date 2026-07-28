@@ -93,12 +93,12 @@
     "add_keyword": "添加一个 RSNA 受控关键词…",
     "keyword_constraint": "请选择 3–7 个",
     "confirm_selections": "确认选择并查看摘要类型",
-    "word_count": "{{count}} / {{max}} 词"
+    "word_count": "{count} / {max} 词"
   },
   "abstract_types": {
     "title": "推荐摘要类型",
     "description": "根据您的内容，我们推荐以下摘要类型。请选择一个继续。",
-    "match_probability": "{{percent}}% 匹配"
+    "match_probability": "{percent}% 匹配"
   },
   "output": {
     "title": "生成输出",
@@ -228,11 +228,11 @@
     "delete_help": "永久删除此摘要",
     "cancel_delete": "取消删除操作",
     "confirm_delete": "确认删除摘要",
-    "saved_count": "已保存 {{count}} 篇摘要",
+    "saved_count": "已保存 {count} 篇摘要",
     "online": "在线",
     "offline": "离线",
-    "pending_sync": "{{count}} 项等待同步",
-    "conflicts": "{{count}} 项冲突",
+    "pending_sync": "{count} 项等待同步",
+    "conflicts": "{count} 项冲突",
     "last_sync": "上次同步",
     "import": "导入",
     "retry": "重试",
@@ -240,8 +240,8 @@
     "create_first": "创建第一篇摘要以开始使用",
     "updated": "更新时间",
     "synced": "已同步",
-    "load_named": "加载摘要：{{title}}",
-    "delete_named": "删除摘要：{{title}}",
+    "load_named": "加载摘要：{title}",
+    "delete_named": "删除摘要：{title}",
     "delete_warning": "确认永久删除此摘要吗？此操作无法撤销。"
   },
   "export": {
@@ -337,9 +337,9 @@
     "esc_description": "请审阅并确认 ESC Congress 摘要的建议分类和关键词。",
     "esc_categories": "建议的 ESC 分类",
     "confirm_proceed": "确认选择并继续",
-    "category_aria": "{{name}}，{{type}}分类，匹配度 {{percent}}%",
-    "keyword_aria": "关键词：{{keyword}}",
-    "type_aria": "{{type}}，匹配概率 {{percent}}%"
+    "category_aria": "{name}，{type}分类，匹配度 {percent}%",
+    "keyword_aria": "关键词：{keyword}",
+    "type_aria": "{type}，匹配概率 {percent}%"
   },
   "ui": {
     "upload_file": "上传 PDF 或 DOCX 文件",
@@ -351,12 +351,12 @@
     "close_modal": "关闭对话框",
     "close_notification": "关闭通知",
     "coming_soon": "即将开放",
-    "switch_to": "切换至 {{label}}",
+    "switch_to": "切换至 {label}",
     "loading_modules": "正在加载会议模块…",
     "image_panel": "图像生成面板",
     "submit": "投稿",
-    "submit_to": "投稿至 {{label}}",
-    "help_title": "帮助：{{title}}"
+    "submit_to": "投稿至 {label}",
+    "help_title": "帮助：{title}"
   },
   "footer": {
     "copyright": "SCI邪修 - 学术投稿生成器"

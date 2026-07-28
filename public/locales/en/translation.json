@@ -80,7 +80,7 @@
     "generating_creative": "✨ Creatively generating abstract...",
     "generating_figure": "Generating figure...",
     "deep_diving": "🔬 Deep diving into content...",
-    "processing_file": "📄 Processing {{filename}}...",
+    "processing_file": "📄 Processing {filename}...",
     "please_wait": "This may take a few moments..."
   },
   "analysis": {
@@ -93,12 +93,12 @@
     "add_keyword": "Add a controlled RSNA keyword…",
     "keyword_constraint": "select 3–7",
     "confirm_selections": "Confirm & View Abstract Types",
-    "word_count": "{{count}} / {{max}} words"
+    "word_count": "{count} / {max} words"
   },
   "abstract_types": {
     "title": "Recommended Abstract Type",
     "description": "Based on your content, we recommend the following abstract types. Please select one to proceed.",
-    "match_probability": "{{percent}}% match"
+    "match_probability": "{percent}% match"
   },
   "output": {
     "title": "Generated Output",
@@ -228,11 +228,11 @@
     "delete_help": "Delete this abstract permanently",
     "cancel_delete": "Cancel delete operation",
     "confirm_delete": "Confirm abstract deletion",
-    "saved_count": "{{count}} abstracts saved",
+    "saved_count": "{count} abstracts saved",
     "online": "Online",
     "offline": "Offline",
-    "pending_sync": "{{count}} pending sync",
-    "conflicts": "{{count}} conflicts",
+    "pending_sync": "{count} pending sync",
+    "conflicts": "{count} conflicts",
     "last_sync": "Last sync",
     "import": "Import",
     "retry": "Retry",
@@ -240,8 +240,8 @@
     "create_first": "Create your first abstract to get started",
     "updated": "Updated",
     "synced": "Synced",
-    "load_named": "Load abstract: {{title}}",
-    "delete_named": "Delete abstract: {{title}}",
+    "load_named": "Load abstract: {title}",
+    "delete_named": "Delete abstract: {title}",
     "delete_warning": "Delete this abstract permanently? This action cannot be undone."
   },
   "export": {
@@ -337,9 +337,9 @@
     "esc_description": "Review and confirm the suggested categories and keywords for the ESC Congress abstract.",
     "esc_categories": "Suggested ESC Categories",
     "confirm_proceed": "Confirm Selections & Proceed",
-    "category_aria": "{{name}}, {{type}} category, {{percent}}% match",
-    "keyword_aria": "Keyword: {{keyword}}",
-    "type_aria": "{{type}}, {{percent}}% match probability"
+    "category_aria": "{name}, {type} category, {percent}% match",
+    "keyword_aria": "Keyword: {keyword}",
+    "type_aria": "{type}, {percent}% match probability"
   },
   "ui": {
     "upload_file": "Upload PDF or DOCX file",
@@ -351,12 +351,12 @@
     "close_modal": "Close modal",
     "close_notification": "Close notification",
     "coming_soon": "Coming soon",
-    "switch_to": "Switch to {{label}}",
+    "switch_to": "Switch to {label}",
     "loading_modules": "Loading conference modules...",
     "image_panel": "Image Generation Panel",
     "submit": "Submit",
-    "submit_to": "Submit to {{label}}",
-    "help_title": "Help: {{title}}"
+    "submit_to": "Submit to {label}",
+    "help_title": "Help: {title}"
   },
   "footer": {
     "copyright": "Sci-Evil - Academic Submission Generator"
