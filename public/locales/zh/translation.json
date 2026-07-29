@@ -253,12 +253,15 @@
     "model_load_failed": "模型列表加载失败（HTTP {status}），可手动填写模型 ID。",
     "api_key_required": "请先填写 API 密钥再加载模型列表。",
     "member_benefits_title": "会员权益",
+    "member_benefits_summary": "会员可直接使用平台托管模型、每日领取学分，并将生成摘要同步至个人云端空间。",
+    "member_model_text_help": "会员托管文本生成",
+    "member_model_image_help": "会员托管图像生成",
     "become_member": "成为会员",
     "view_account": "查看账户",
     "member_rule_signup": "完成验证的新账户会自动且仅一次获得 5 学分。",
     "member_rule_checkin": "每日签到 +1 学分；第 7 天共获得 +2，随后重新开始周期。",
     "member_rule_abstract": "一次托管摘要任务消耗 1 学分，包含分析、初次生成、一次再次生成和一次深度更新。",
-    "member_rule_image": "每次托管 Imagen 4 或 GPT Image 1 生图消耗 1 学分；对应能力的 BYOK 始终优先。",
+    "member_rule_image": "每次托管 Nanobanana pro 或 GPT-Image 生图消耗 1 学分；对应能力的 BYOK 始终优先。",
     "member_rule_storage": "云端默认保存 30 篇摘要（每篇 10 KB）；可消耗学分永久扩容至 100/500 篇。"
   },
   "capabilities": {
@@ -483,6 +486,7 @@
     "google_byok": "Google 个人 API",
     "openai_byok": "OpenAI 兼容个人 API",
     "member_provider": "会员",
+    "image_model_pending": "🎨 生图模型待配置",
     "more_journal_styles": "更多核心出版风格",
     "select_more_journal_style": "选择其他出版风格",
     "confirm_managed_fallback": "个人生图 API 调用失败。是否改用已选择的会员托管生图服务并消耗 1 学分？取消则不调用托管模型，也不扣费。",
@@ -616,6 +620,10 @@
         "title": "MCP 与盲审配置",
         "content": "可在“模型配置 → MCP 工具”中启用数据库和图像工具。盲审机制不同：PubMed、CiteCheck 与 DOI MCP 均由管理员在后端预部署，用户只需勾选复选框，无需配置端点、命令、软件包或令牌。后端不可用时会明确标记，绝不会视为已核验。"
       },
+      "s25": {
+        "title": "期刊视觉风格与示意图布局",
+        "content": "图像切片提供 LANCET、NATURE、NEJM、SCIENCE 及 JAMA & BMJ、RADIOLOGY、IEEE/ICML/NeurIPS、CELL、PNAS 风格。选择期刊与布局后，图像规格会同步显示相应视觉品味和结构规则，结构化 JSON 也会使用同一选择。\n\nJAMA & BMJ 采用克制的英伦临床编辑风格；RADIOLOGY 强调 Medical Imaging 与诊断图像；IEEE/ICML/NeurIPS 强调算法和数据流；CELL 强调生物机制与图形摘要。七种布局分别适配时序流程、中心靶点、输入-处理-输出、跨尺度嵌套、前后对照、组织场景和模块矩阵。"
+      },
       "s3": {
         "title": "摘要存储与同步",
         "content": "已保存摘要保留在浏览器存储中。摘要管理器支持加载、删除、导出与导入。配置并启用 Supabase 后，可选的云端同步可能支持跨设备访问。"
@@ -623,6 +631,10 @@
       "s4": {
         "title": "摘要与图像导出",
         "content": "摘要可导出为 Markdown、PDF 或 JSON；生成图像可按其可用格式下载。导出或投稿前，必须由作者完成独立核验。"
+      },
+      "s5": {
+        "title": "会员权益",
+        "content": "• 新注册并完成验证后自动获得 5 学分。\n• 每日主动签到 +1；连续第 7 天额外 +1，随后重新计数。\n• 可按需启用 GLM-5.2、Nanobanana pro 与 GPT-Image 托管模型。\n• 默认云端保存 30 篇摘要，每篇上限 10 KB；可使用学分扩容。\n• 已配置对应 BYOK 时优先使用个人 API，不消耗会员学分。\n\nAI 生成与润色可能不准确；使用者必须独立核验数据、伦理、引用及投稿合规性。"
       }
     }
   },

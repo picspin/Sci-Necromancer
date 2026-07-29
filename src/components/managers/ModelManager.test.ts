@@ -68,9 +68,13 @@ describe('ModelManager blind-review settings', () => {
 
     await fireEvent.click(screen.getByRole('button', { name: 'Member benefits' }));
     expect((screen.getByLabelText('GLM-5.2 - Text') as HTMLInputElement).disabled).toBe(true);
-    expect((screen.getByLabelText('Imagen 4 - Image') as HTMLInputElement).disabled).toBe(true);
-    expect((screen.getByLabelText('GPT Image 1 - Image') as HTMLInputElement).disabled).toBe(true);
+    expect((screen.getByLabelText('Nanobanana pro - Image') as HTMLInputElement).disabled).toBe(
+      true
+    );
+    expect((screen.getByLabelText('GPT-Image - Image') as HTMLInputElement).disabled).toBe(true);
     expect(screen.getByRole('button', { name: 'Become a member' })).toBeTruthy();
+    expect(screen.getByText(/5 credits/)).toBeTruthy();
+    expect(screen.getByText(/30 abstracts/)).toBeTruthy();
     expect(screen.queryByLabelText('Supabase cloud save')).toBeNull();
   });
 

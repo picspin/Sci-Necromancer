@@ -151,8 +151,10 @@ const sectionDefs = [
   { id: '2.2', key: 's22' },
   { id: '2.3', key: 's23' },
   { id: '2.4', key: 's24' },
+  { id: '2.5', key: 's25' },
   { id: '3', key: 's3' },
   { id: '4', key: 's4' },
+  { id: '5', key: 's5' },
 ] as const;
 const helpSections = computed<HelpSection[]>(() =>
   sectionDefs.map(({ id, key }) => ({

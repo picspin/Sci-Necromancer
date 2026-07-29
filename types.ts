@@ -419,6 +419,7 @@ export interface ImageSpecField {
 // State for the image specs smart completion form
 export interface ImageSpecsState {
   rawInput: string; // User's raw text input
+  customInstructions: string; // User-owned research intent and constraints outside the managed template block
   parsedFields: ImageSpecField[]; // Extracted structured fields
   jsonOutput: string; // Final JSON for LLM API
   selectedJournalStyle: JournalStyleId;
@@ -464,6 +465,8 @@ export interface StructuredImagePrompt {
   research_type: string;
   journal_style: string;
   layout: string;
+  visual_taste?: string;
+  layout_rules?: string;
   color_palette: string;
   aspect_ratio: string;
   resolution: string;

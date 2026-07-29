@@ -11,6 +11,12 @@ import type {
   TriggerMapping,
   StructuredImagePrompt,
 } from '@/types';
+import type { JournalStyleTemplate, SchematicLayout } from './imageTemplateRegistry';
+
+interface ImageSpecTemplateOverrides {
+  journalStyle: JournalStyleTemplate;
+  schematicLayout: SchematicLayout;
+}
 
 // ============================================================================
 // FIELD DEFINITIONS & TRIGGER MAPPINGS
@@ -281,11 +287,14 @@ export class ImageSpecsEngine {
   /**
    * Convert fields to structured JSON for LLM API
    */
-  toJSON(fields: ImageSpecField[]): string {
+  toJSON(fields: ImageSpecField[], templates?: ImageSpecTemplateOverrides): string {
     const prompt: StructuredImagePrompt = {
       research_type: this.getFieldValue(fields, 'research') || 'biomedical',
-      journal_style: this.getFieldValue(fields, 'journal') || 'Nature',
-      layout: this.getFieldValue(fields, 'layout') || 'single',
+      journal_style:
+        templates?.journalStyle.label || this.getFieldValue(fields, 'journal') || 'Nature',
+      layout: templates?.schematicLayout.label || this.getFieldValue(fields, 'layout') || 'single',
+      visual_taste: templates?.journalStyle.taste,
+      layout_rules: templates?.schematicLayout.structure,
       color_palette: this.getFieldValue(fields, 'style') || 'professional',
       aspect_ratio: this.extractAspectRatio(this.getFieldValue(fields, 'format')),
       resolution: this.getFieldValue(fields, 'format') || '1024x1024',

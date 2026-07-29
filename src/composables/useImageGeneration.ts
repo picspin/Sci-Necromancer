@@ -20,6 +20,9 @@ import {
   JOURNAL_STYLE_TEMPLATES,
   SCHEMATIC_LAYOUTS,
   composeScientificImagePrompt,
+  composeTemplateSpecsText,
+  extractResearchIntent,
+  hasManagedImageTemplate,
   recommendSchematicLayout,
 } from '@/src/services/imageTemplateRegistry';
 import * as llm from '@/lib/llm';
@@ -36,6 +39,7 @@ import { hasImageByok } from '@/lib/llm/capabilityRouting';
 
 const createInitialSpecsState = (): ImageSpecsState => ({
   rawInput: '',
+  customInstructions: '',
   parsedFields: [],
   jsonOutput: '{}',
   selectedJournalStyle: 'nature',
@@ -104,6 +108,12 @@ export function useImageGeneration() {
   );
   const googleByokAvailable = computed(() => hasImageByok(settings.value, 'nano-banana-pro'));
   const openAIByokAvailable = computed(() => hasImageByok(settings.value, 'gpt-image-2'));
+  const googleByokModelId = computed(() =>
+    googleByokAvailable.value ? settings.value.googleImageModel?.trim() || null : null
+  );
+  const openAIByokModelId = computed(() =>
+    openAIByokAvailable.value ? settings.value.openAIImageModel?.trim() || null : null
+  );
   const nanoBananaAvailable = computed(() =>
     Boolean(
       hasManagedBalance.value &&
@@ -144,7 +154,7 @@ export function useImageGeneration() {
   };
 
   const finalPrompt = computed(() => {
-    let researchIntent = state.value.specsState.rawInput.trim();
+    let researchIntent = state.value.specsState.customInstructions.trim();
 
     // Add abstract intent if in text-to-image mode
     if (state.value.mode === 'text-to-image' && state.value.abstractIntent) {
@@ -324,28 +334,69 @@ export function useImageGeneration() {
   // ============================================================================
 
   const updateSpecs = (input: string, cursorPos: number) => {
-    state.value.specsState.rawInput = input;
-    state.value.specsState.cursorPosition = cursorPos;
+    const customInstructions = extractResearchIntent(input);
+    state.value.specsState.customInstructions = customInstructions;
+    let synchronizedInput = input;
 
     if (!state.value.specsState.layoutManuallySelected) {
-      state.value.specsState.selectedSchematicLayout = recommendSchematicLayout(input).layoutId;
+      const recommendedLayout = recommendSchematicLayout(customInstructions).layoutId;
+      if (recommendedLayout !== state.value.specsState.selectedSchematicLayout) {
+        state.value.specsState.selectedSchematicLayout = recommendedLayout;
+        if (hasManagedImageTemplate(input)) {
+          synchronizedInput = composeTemplateSpecsText({
+            journalStyleId: state.value.specsState.selectedJournalStyle,
+            layoutId: recommendedLayout,
+            researchIntent: customInstructions,
+          });
+        }
+      }
     }
 
-    // Parse input to extract structured fields
+    state.value.specsState.rawInput = synchronizedInput;
+    state.value.specsState.cursorPosition =
+      synchronizedInput === input ? cursorPos : synchronizedInput.length;
+
+    refreshStructuredSpecs(synchronizedInput);
+
+    // Get suggestions for autocomplete
+    const suggestions = imageSpecsEngine.getSuggestions(
+      synchronizedInput,
+      state.value.specsState.cursorPosition
+    );
+    state.value.specsState.suggestions = suggestions.map((s) => s.text);
+    state.value.specsState.showSuggestions = suggestions.length > 0;
+  };
+
+  const refreshStructuredSpecs = (input: string) => {
     const parsedFields = imageSpecsEngine.parseInput(input);
     state.value.specsState.parsedFields = parsedFields;
 
-    // Generate JSON output
-    if (parsedFields.length > 0) {
-      state.value.specsState.jsonOutput = imageSpecsEngine.toJSON(parsedFields);
-    } else {
-      state.value.specsState.jsonOutput = '{}';
-    }
+    const journalStyle = JOURNAL_STYLE_TEMPLATES.find(
+      ({ id }) => id === state.value.specsState.selectedJournalStyle
+    );
+    const schematicLayout = SCHEMATIC_LAYOUTS.find(
+      ({ id }) => id === state.value.specsState.selectedSchematicLayout
+    );
+    state.value.specsState.jsonOutput =
+      journalStyle && schematicLayout
+        ? imageSpecsEngine.toJSON(parsedFields, { journalStyle, schematicLayout })
+        : '{}';
+  };
 
-    // Get suggestions for autocomplete
-    const suggestions = imageSpecsEngine.getSuggestions(input, cursorPos);
-    state.value.specsState.suggestions = suggestions.map((s) => s.text);
-    state.value.specsState.showSuggestions = suggestions.length > 0;
+  const syncTemplateSpecs = () => {
+    const customInstructions =
+      state.value.specsState.customInstructions ||
+      extractResearchIntent(state.value.specsState.rawInput);
+    state.value.specsState.customInstructions = customInstructions;
+    const rawInput = composeTemplateSpecsText({
+      journalStyleId: state.value.specsState.selectedJournalStyle,
+      layoutId: state.value.specsState.selectedSchematicLayout,
+      researchIntent: customInstructions,
+    });
+    state.value.specsState.rawInput = rawInput;
+    state.value.specsState.cursorPosition = rawInput.length;
+    state.value.specsState.showSuggestions = false;
+    refreshStructuredSpecs(rawInput);
   };
 
   const getSuggestions = (input: string, cursorPos: number): CompletionSuggestion[] => {
@@ -376,11 +427,13 @@ export function useImageGeneration() {
 
   const selectJournalStyle = (styleId: JournalStyleId) => {
     state.value.specsState.selectedJournalStyle = styleId;
+    syncTemplateSpecs();
   };
 
   const selectSchematicLayout = (layoutId: SchematicLayoutId) => {
     state.value.specsState.selectedSchematicLayout = layoutId;
     state.value.specsState.layoutManuallySelected = true;
+    syncTemplateSpecs();
   };
 
   const clearSpecs = () => {
@@ -546,6 +599,8 @@ export function useImageGeneration() {
     selectedImageRoute,
     googleByokAvailable,
     openAIByokAvailable,
+    googleByokModelId,
+    openAIByokModelId,
     nanoBananaAvailable,
     gptImageAvailable,
 

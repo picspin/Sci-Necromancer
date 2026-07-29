@@ -253,13 +253,16 @@
     "model_load_failed": "Could not load models (HTTP {status}). You can enter a model ID manually.",
     "api_key_required": "Enter an API key before loading models.",
     "member_benefits_title": "Member benefits",
+    "member_benefits_summary": "Members can use managed models, claim daily credits, and sync generated abstracts to their private cloud space.",
+    "member_model_text_help": "Managed text generation for members",
+    "member_model_image_help": "Managed image generation for members",
     "become_member": "Become a member",
     "view_account": "View account",
-    "member_rule_signup": "A verified new account automatically receives 5 bonus once.",
-    "member_rule_checkin": "Daily check-in gives +1 bonus; day 7 gives +2 total and restarts the cycle.",
-    "member_rule_abstract": "One managed abstract workflow costs 1 bonus and includes analysis, initial generation, one regeneration, and one deep update.",
-    "member_rule_image": "Each managed Imagen 4 or GPT Image 1 generation costs 1 bonus. Capability-specific BYOK always takes priority.",
-    "member_rule_storage": "Cloud storage includes 30 abstracts (10 KB each); permanent 100/500 upgrades cost bonus."
+    "member_rule_signup": "A verified new account automatically receives 5 credits once.",
+    "member_rule_checkin": "Daily check-in gives +1 credit; day 7 gives +2 total and restarts the cycle.",
+    "member_rule_abstract": "One managed abstract workflow costs 1 credit and includes analysis, initial generation, one regeneration, and one deep update.",
+    "member_rule_image": "Each managed Nanobanana pro or GPT-Image generation costs 1 credit. Capability-specific BYOK always takes priority.",
+    "member_rule_storage": "Cloud storage includes 30 abstracts (10 KB each); permanent 100/500 upgrades cost credits."
   },
   "capabilities": {
     "invalid_json": "The capability manifest is not valid JSON.",
@@ -483,6 +486,7 @@
     "google_byok": "Google BYOK",
     "openai_byok": "OpenAI-compatible BYOK",
     "member_provider": "Member",
+    "image_model_pending": "🎨 image model not configured",
     "more_journal_styles": "More core publication styles",
     "select_more_journal_style": "Select another publication style",
     "confirm_managed_fallback": "Your personal image API failed. Use the selected managed image provider for 1 bonus? Cancel makes no managed call and incurs no charge.",
@@ -616,6 +620,10 @@
         "title": "MCP and blind-review configuration",
         "content": "In Model Settings → MCP Tools, optional database and image tools can be enabled. Blind review is different: PubMed, CiteCheck, and DOI MCP are administrator-provisioned backend capabilities, so users only enable their checkboxes and never configure endpoints, commands, packages, or tokens. An unavailable backend is reported explicitly and is never treated as verified."
       },
+      "s25": {
+        "title": "Journal styles and schematic layouts",
+        "content": "The Image panel includes LANCET, NATURE, NEJM, SCIENCE, JAMA & BMJ, RADIOLOGY, IEEE/ICML/NeurIPS, CELL, and PNAS styles. Selecting a journal and layout synchronizes the visual taste and structural rules shown in Image Specs and used in its structured JSON.\n\nJAMA & BMJ uses restrained British clinical editorial design; RADIOLOGY prioritizes Medical Imaging and diagnostic content; IEEE/ICML/NeurIPS emphasizes algorithms and data flow; CELL emphasizes biological mechanisms and graphical abstracts. Seven layouts cover sequential flow, central targets, input-process-output, nested scales, comparisons, contextual scenes, and modular evidence grids."
+      },
       "s3": {
         "title": "Abstract storage and synchronization",
         "content": "Saved abstracts are retained in browser storage. The Abstract Manager can load, delete, export, and import them. Optional Supabase synchronization may support access across devices when it is configured and enabled."
@@ -623,6 +631,10 @@
       "s4": {
         "title": "Abstract and image export",
         "content": "Abstracts can be exported as Markdown, PDF, or JSON. Generated images can be downloaded in their available image format. Complete and independently verify the content before exporting or submitting it."
+      },
+      "s5": {
+        "title": "Member benefits",
+        "content": "• New verified accounts receive 5 credits automatically.\n• Active daily check-in grants +1; day 7 grants one additional credit, then the streak restarts.\n• Members may enable managed GLM-5.2, Nanobanana pro, and GPT-Image models.\n• Private cloud storage includes 30 abstracts up to 10 KB each, with credit-based upgrades.\n• A matching BYOK configuration takes priority and does not consume member credits.\n\nAI generation and polishing may be inaccurate. Users must independently verify data, ethics, citations, and submission compliance."
       }
     }
   },

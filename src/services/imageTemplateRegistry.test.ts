@@ -3,6 +3,9 @@ import {
   JOURNAL_STYLE_TEMPLATES,
   SCHEMATIC_LAYOUTS,
   composeScientificImagePrompt,
+  composeTemplateSpecsText,
+  extractResearchIntent,
+  hasManagedImageTemplate,
   recommendSchematicLayout,
 } from './imageTemplateRegistry';
 
@@ -54,5 +57,32 @@ describe('scientific image template registry', () => {
     expect(prompt).toContain('Before vs. After');
     expect(prompt).toContain('baseline and post-treatment MRI biomarkers');
     expect(prompt).toContain('Do not invent');
+  });
+
+  it('renders editable specs from the selected journal and layout without nesting old templates', () => {
+    const jama = composeTemplateSpecsText({
+      journalStyleId: 'jama-bmj',
+      layoutId: 'linear-sequential',
+      researchIntent: 'biomedical cohort pathway\nresolution: 2048x2048\ncolor: muted',
+    });
+    const radiology = composeTemplateSpecsText({
+      journalStyleId: 'radiology',
+      layoutId: 'before-after',
+      researchIntent: jama,
+    });
+
+    expect(jama).toContain('JAMA & BMJ');
+    expect(jama).toContain('British clinical');
+    expect(jama).toContain('Linear / Sequential Flow');
+    expect(radiology).toContain('RADIOLOGY');
+    expect(radiology).toContain('Medical Imaging');
+    expect(radiology).toContain('Before vs. After');
+    expect(radiology).not.toContain('Linear / Sequential Flow');
+    expect(hasManagedImageTemplate(radiology)).toBe(true);
+    expect(extractResearchIntent(radiology)).toBe(
+      'biomedical cohort pathway\nresolution: 2048x2048\ncolor: muted'
+    );
+    expect(radiology.match(/Research intent and custom constraints:/g)).toHaveLength(1);
+    expect(radiology.match(/2048x2048/g)).toHaveLength(1);
   });
 });

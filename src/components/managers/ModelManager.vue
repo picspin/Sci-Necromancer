@@ -188,7 +188,12 @@
           <h3 class="font-semibold text-text-primary">
             {{ t('model_manager.member_benefits_title') }}
           </h3>
-          <p class="mt-1 text-xs">{{ t('membership.sign_in_help') }}</p>
+          <p class="mt-1 text-xs">{{ t('model_manager.member_benefits_summary') }}</p>
+          <ul class="mt-3 grid gap-1 text-xs sm:grid-cols-3">
+            <li>• {{ t('model_manager.member_rule_signup') }}</li>
+            <li>• {{ t('model_manager.member_rule_checkin') }}</li>
+            <li>• {{ t('model_manager.member_rule_storage') }}</li>
+          </ul>
           <button
             v-if="!isAuthenticated"
             type="button"
@@ -210,7 +215,10 @@
           </div>
         </div>
         <label class="setting-row">
-          <strong>GLM-5.2 - Text</strong>
+          <span>
+            <strong>GLM-5.2 - Text</strong>
+            <small>{{ t('model_manager.member_model_text_help') }}</small>
+          </span>
           <input
             v-model="localSettings.memberManagedTextEnabled"
             type="checkbox"
@@ -220,22 +228,28 @@
           />
         </label>
         <label class="setting-row">
-          <strong>Imagen 4 - Image</strong>
+          <span>
+            <strong>🍌 Nanobanana pro - Image</strong>
+            <small>{{ t('model_manager.member_model_image_help') }}</small>
+          </span>
           <input
             v-model="localSettings.memberManagedNanoBananaEnabled"
             type="checkbox"
             :disabled="!isAuthenticated"
-            aria-label="Imagen 4 - Image"
+            aria-label="Nanobanana pro - Image"
             class="setting-checkbox"
           />
         </label>
         <label class="setting-row">
-          <strong>GPT Image 1 - Image</strong>
+          <span>
+            <strong>GPT-Image - Image</strong>
+            <small>{{ t('model_manager.member_model_image_help') }}</small>
+          </span>
           <input
             v-model="localSettings.memberManagedGptImageEnabled"
             type="checkbox"
             :disabled="!isAuthenticated"
-            aria-label="GPT Image 1 - Image"
+            aria-label="GPT-Image - Image"
             class="setting-checkbox"
           />
         </label>
