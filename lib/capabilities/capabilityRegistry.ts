@@ -15,6 +15,7 @@ export const DEFAULT_CAPABILITY_SETTINGS: CapabilitySettings = {
   skillsEnabled: true,
   mcpEnabled: true,
   bundledBlindReviewSkill: true,
+  managedEnabledIds: [],
   imported: [],
 };
 
@@ -124,6 +125,16 @@ export function normalizeCapabilitySettings(
     skillsEnabled: value?.skillsEnabled !== false,
     mcpEnabled: value?.mcpEnabled !== false,
     bundledBlindReviewSkill: value?.bundledBlindReviewSkill !== false,
+    managedEnabledIds: Array.isArray(value?.managedEnabledIds)
+      ? [
+          ...new Set(
+            value.managedEnabledIds
+              .filter((id): id is string => typeof id === 'string')
+              .map((id) => id.trim().slice(0, 100))
+              .filter(Boolean)
+          ),
+        ].slice(0, 20)
+      : [],
     imported,
   };
 }

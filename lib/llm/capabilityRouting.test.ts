@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Settings } from '../../types';
-import { resolveImageRoute, resolveTextRoute } from './capabilityRouting';
+import { resolveBlindReviewRoute, resolveImageRoute, resolveTextRoute } from './capabilityRouting';
 
 const base = (): Settings => ({ provider: 'openai' });
 
@@ -33,5 +33,22 @@ describe('capability-specific BYOK routing', () => {
       anthropicTextModel: 'claude-model',
     };
     expect(resolveTextRoute(settings, false)).toBe('byok');
+  });
+
+  it('enables the managed blind-review route for the research agent without the general text toggle', () => {
+    const settings: Settings = {
+      provider: 'openai',
+      memberManagedTextEnabled: false,
+      capabilities: {
+        skillsEnabled: true,
+        mcpEnabled: true,
+        bundledBlindReviewSkill: true,
+        managedEnabledIds: ['mga-pubmed', 'mga-research-verification-agent'],
+        imported: [],
+      },
+    };
+
+    expect(resolveTextRoute(settings, true)).toBe('unavailable');
+    expect(resolveBlindReviewRoute(settings, true)).toBe('managed');
   });
 });

@@ -1,4 +1,4 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node';
+import type { VercelRequest, VercelResponse } from './vercelTypes.js';
 
 // Environment variables
 const NANOBANA_API_KEY = process.env.NANOBANA_API_KEY || '';

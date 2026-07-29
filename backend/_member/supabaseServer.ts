@@ -1,5 +1,5 @@
 import { createClient, type SupabaseClient, type User } from '@supabase/supabase-js';
-import type { VercelRequest } from '@vercel/node';
+import type { VercelRequest } from '../_types/vercel.js';
 import { MemberServiceError, type MemberRpcClient } from './memberService.js';
 
 function requiredEnv(name: string): string {

@@ -143,23 +143,12 @@
 
         <!-- Generation Provider + Single Action -->
         <div class="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-3">
-          <label class="block">
-            <span class="mb-1 block text-xs font-medium text-text-secondary">
-              {{ t('image_generation.image_provider') }}
-            </span>
-            <select
-              :value="state.imageProvider"
-              @change="handleProviderChange"
-              class="h-12 w-full rounded-lg border border-base-300 bg-base-100 px-3 text-sm text-text-primary"
-            >
-              <option value="nano-banana-pro" :disabled="!nanoBananaAvailable">
-                Nano Banana Pro{{ nanoBananaAvailable ? '' : ' 🔒' }}
-              </option>
-              <option value="gpt-image-2" :disabled="!gptImageAvailable">
-                GPT Image{{ gptImageAvailable ? '' : ' 🔒' }}
-              </option>
-            </select>
-          </label>
+          <FloatingSelect
+            :model-value="state.imageProvider"
+            :label="t('image_generation.image_provider')"
+            :options="imageProviderOptions"
+            @update:model-value="setImageProvider($event as ImageGenerationProvider)"
+          />
           <button
             @click="generateImage"
             :disabled="!canGenerate || state.isLoading || !managedImageAvailable"
@@ -236,6 +225,7 @@ import ImageSpecsForm from './ImageSpecsForm.vue';
 import AbstractSelector from './AbstractSelector.vue';
 import TemplateButtons from './TemplateButtons.vue';
 import StackedImagePreview from './StackedImagePreview.vue';
+import FloatingSelect, { type FloatingSelectOption } from '@/components/ui/FloatingSelect.vue';
 
 const { t } = useI18n();
 
@@ -249,6 +239,8 @@ const {
   uploadedImagesCount,
   canUploadMore,
   managedImageAvailable,
+  googleByokAvailable,
+  openAIByokAvailable,
   nanoBananaAvailable,
   gptImageAvailable,
   imageConstraints,
@@ -277,6 +269,34 @@ const {
 const currentSuggestions = computed((): CompletionSuggestion[] => {
   return getSuggestions(state.value.specsState.rawInput, state.value.specsState.cursorPosition);
 });
+const imageProviderOptions = computed<FloatingSelectOption[]>(() => [
+  {
+    value: 'google-byok',
+    label: t('image_generation.google_byok') + (googleByokAvailable.value ? '' : ' 🔒'),
+    disabled: !googleByokAvailable.value,
+  },
+  {
+    value: 'openai-byok',
+    label: t('image_generation.openai_byok') + (openAIByokAvailable.value ? '' : ' 🔒'),
+    disabled: !openAIByokAvailable.value,
+  },
+  {
+    value: 'nano-banana-pro',
+    label:
+      'Imagen 4 · ' +
+      t('image_generation.member_provider') +
+      (nanoBananaAvailable.value ? '' : ' 🔒'),
+    disabled: !nanoBananaAvailable.value,
+  },
+  {
+    value: 'gpt-image-2',
+    label:
+      'GPT Image 1 · ' +
+      t('image_generation.member_provider') +
+      (gptImageAvailable.value ? '' : ' 🔒'),
+    disabled: !gptImageAvailable.value,
+  },
+]);
 
 // Handle multiple image file upload
 const handleImageUpload = async (event: Event) => {
@@ -295,10 +315,6 @@ const handleSpecsUpdate = (value: string, cursorPos: number) => {
 // Handle suggestion selection
 const handleSuggestionSelect = (suggestion: CompletionSuggestion) => {
   applySuggestion(suggestion.text);
-};
-
-const handleProviderChange = (event: Event) => {
-  setImageProvider((event.target as HTMLSelectElement).value as ImageGenerationProvider);
 };
 
 // Handle clear all

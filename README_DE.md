@@ -23,7 +23,7 @@ Die Anwendung unterstützt Analyse, Sprachoptimierung, Formatierung, Abbildungen
 
 ![Architektur](public/readme-assets/architecture.svg)
 
-Vue 3 stellt die gemeinsame Oberfläche und Kongress-Slices bereit. Deterministische Regeln begrenzen Modellprompts und validieren Ergebnisse. Die optionale Skills-&-MCP-Schicht ergänzt einen schreibgeschützten Blind-Review-Skill sowie serverseitig bereitgestellte PubMed-, CiteCheck- und DOI-Prüfung. Standardmäßig wird lokal gespeichert; Supabase ist optional.
+Vue 3 stellt die gemeinsame Oberfläche und Kongress-Slices bereit. Deterministische Regeln begrenzen Modellprompts und validieren Ergebnisse. Die optionale Skills-&-MCP-Schicht ergänzt einen schreibgeschützten Blind-Review-Skill, einen MGA-Agenten zur Forschungsverifikation für Mitglieder sowie freigegebene PubMed-, Semantic-Scholar-, Hubble-Abstract-, CiteCheck- und DOI-Prüfung. Standardmäßig wird lokal gespeichert; Supabase ist optional.
 
 ## Funktionen
 

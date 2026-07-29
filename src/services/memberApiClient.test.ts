@@ -2,6 +2,63 @@ import { describe, expect, it, vi } from 'vitest';
 import { createMemberApiClient, MemberApiError } from './memberApiClient';
 
 describe('member API client', () => {
+  it('lists and runs managed research capabilities through one member endpoint', async () => {
+    const fetcher = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            capabilities: [
+              {
+                id: 'mga-pubmed',
+                kind: 'mcp',
+                labelKey: 'model_manager.capability_pubmed',
+                descriptionKey: 'model_manager.capability_pubmed_help',
+                readOnly: true,
+                memberOnly: true,
+                bonusCost: 0,
+              },
+            ],
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } }
+        )
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            output: { type: 'text', text: '{"recommendation":"minor-revision"}' },
+            bonusBalance: 4,
+            workflowId: 'task-1',
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } }
+        )
+      );
+    const client = createMemberApiClient({
+      baseUrl: 'https://api.example.test',
+      getAccessToken: async () => 'member-jwt',
+      fetcher,
+    });
+
+    await expect(client.getCapabilities()).resolves.toMatchObject({
+      capabilities: [{ id: 'mga-pubmed', readOnly: true }],
+    });
+    await client.runCapability({
+      idempotencyKey: 'research-1',
+      capabilityId: 'mga-research-verification-agent',
+      enabledCapabilityIds: ['mga-pubmed'],
+      prompt: 'Verify this abstract.',
+    });
+
+    expect(fetcher.mock.calls[0][0]).toBe('https://api.example.test/api/member/capabilities');
+    expect(fetcher.mock.calls[1][0]).toBe('https://api.example.test/api/member/capabilities');
+    expect(fetcher.mock.calls[1][1]).toEqual(
+      expect.objectContaining({
+        method: 'POST',
+        headers: expect.objectContaining({ 'Idempotency-Key': 'research-1' }),
+      })
+    );
+  });
+
   it('sends the Supabase access token and idempotency key for managed generation', async () => {
     const fetcher = vi.fn().mockResolvedValue(
       new Response(

@@ -16,7 +16,7 @@ const { generateImage, setImageProvider, panelState } = vi.hoisted(() => ({
     loadingMessage: '',
     error: null,
     zoomLevel: 100,
-    imageProvider: 'byok',
+    imageProvider: 'google-byok',
     specsState: {
       rawInput: 'Create a scientific figure',
       parsedFields: [],
@@ -43,6 +43,10 @@ vi.mock('@/composables/useImageGeneration', async () => {
       canUploadMore: computed(() => true),
       imageConstraints: { maxFiles: 8, maxFileSizeMB: 2 },
       managedImageAvailable: computed(() => true),
+      googleByokAvailable: computed(() => true),
+      openAIByokAvailable: computed(() => true),
+      nanoBananaAvailable: computed(() => false),
+      gptImageAvailable: computed(() => false),
       setMode: vi.fn(),
       setImageProvider,
       uploadImages: vi.fn(),
@@ -85,8 +89,12 @@ describe('ImageGenerationPanel provider controls', () => {
 
     expect(screen.getAllByRole('button', { name: 'Generate image' })).toHaveLength(1);
     expect(screen.queryByRole('button', { name: /Nanobana/i })).toBeNull();
-    await fireEvent.update(screen.getByLabelText('Image provider'), 'gpt-image-2');
-    expect(setImageProvider).toHaveBeenCalledWith('gpt-image-2');
+    expect(screen.getByRole('option', { name: 'Google BYOK' })).toBeTruthy();
+    expect(screen.getByRole('option', { name: 'OpenAI-compatible BYOK' })).toBeTruthy();
+    expect(screen.getByRole('option', { name: /Imagen 4 · Member/ })).toBeTruthy();
+    expect(screen.getByRole('option', { name: /GPT Image 1 · Member/ })).toBeTruthy();
+    await fireEvent.update(screen.getByLabelText('Image provider'), 'openai-byok');
+    expect(setImageProvider).toHaveBeenCalledWith('openai-byok');
     await fireEvent.click(screen.getByRole('button', { name: 'Generate image' }));
     expect(generateImage).toHaveBeenCalledOnce();
   });

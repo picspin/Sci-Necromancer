@@ -5,6 +5,10 @@ import {
   type MemberStatus,
   type ManagedImageInput,
 } from '@/src/services/memberApiClient';
+import {
+  hasEnabledMGAResearchAgent,
+  MGA_RESEARCH_AGENT_ID,
+} from '@/lib/capabilities/managedResearchCapabilities';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL?.trim() || '';
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY?.trim() || '';
@@ -57,6 +61,16 @@ export function canUseManagedText(): boolean {
   return Boolean(session.value && memberStatus.value && readManagedTextPreference());
 }
 
+export function canUseManagedResearchVerification(): boolean {
+  if (!session.value || !memberStatus.value) return false;
+  try {
+    const capabilities = JSON.parse(localStorage.getItem('app-settings') || '{}')?.capabilities;
+    return hasEnabledMGAResearchAgent(capabilities);
+  } catch {
+    return false;
+  }
+}
+
 export async function generateManagedText(input: {
   prompt: string;
   idempotencyKey: string;
@@ -80,6 +94,27 @@ export async function generateManagedText(input: {
   } catch (generationError) {
     await refreshStatus();
     throw generationError;
+  }
+}
+
+export async function generateManagedResearchVerification(input: {
+  prompt: string;
+  idempotencyKey: string;
+  enabledCapabilityIds: string[];
+}): Promise<{ text: string; workflowId: string }> {
+  try {
+    const result = await api.runCapability({
+      ...input,
+      capabilityId: MGA_RESEARCH_AGENT_ID,
+    });
+    if (memberStatus.value) memberStatus.value.bonusBalance = result.bonusBalance;
+    if (result.output.type !== 'text' || !result.output.text) {
+      throw new Error('managed_text_response_invalid');
+    }
+    return { text: result.output.text, workflowId: result.workflowId };
+  } catch (verificationError) {
+    await refreshStatus();
+    throw verificationError;
   }
 }
 

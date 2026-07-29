@@ -12,6 +12,7 @@ describe('capability registry', () => {
       skillsEnabled: true,
       mcpEnabled: true,
       bundledBlindReviewSkill: true,
+      managedEnabledIds: [],
       imported: [],
     });
   });
@@ -47,6 +48,7 @@ describe('capability registry', () => {
         skillsEnabled: true,
         mcpEnabled: true,
         bundledBlindReviewSkill: true,
+        managedEnabledIds: [],
         imported: [
           {
             id: 'mcp-image',

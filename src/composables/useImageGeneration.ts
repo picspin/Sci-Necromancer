@@ -28,7 +28,7 @@ import { requireAIDisclosureAcceptance } from '@/lib/compliance/aiDisclosure';
 import { useSettings } from '@/src/composables/useSettings';
 import { useI18n } from 'vue-i18n';
 import { localizeError } from '@/lib/i18n/errorMessages';
-import { resolveImageRoute } from '@/lib/llm/capabilityRouting';
+import { hasImageByok } from '@/lib/llm/capabilityRouting';
 
 // ============================================================================
 // INITIAL STATE
@@ -48,7 +48,7 @@ const createInitialSpecsState = (): ImageSpecsState => ({
 
 const createInitialState = (): ImageGenerationState => ({
   mode: 'standard',
-  imageProvider: 'nano-banana-pro',
+  imageProvider: 'google-byok',
   imageFile: null,
   imageBase64: null,
   uploadedImages: [], // Multi-image support
@@ -96,27 +96,39 @@ export function useImageGeneration() {
   const canUploadMore = computed(
     () => state.value.uploadedImages.length < IMAGE_UPLOAD_CONSTRAINTS.maxFiles
   );
-  const selectedImageRoute = computed(() => {
-    if (state.value.imageProvider === 'byok') return 'unavailable';
-    return resolveImageRoute(
-      settings.value,
-      state.value.imageProvider,
+  const hasManagedBalance = computed(
+    () =>
       membership.isAuthenticated.value &&
-        Boolean(membership.status.value) &&
-        (membership.status.value?.bonusBalance || 0) > 0
-    );
+      Boolean(membership.status.value) &&
+      (membership.status.value?.bonusBalance || 0) > 0
+  );
+  const googleByokAvailable = computed(() => hasImageByok(settings.value, 'nano-banana-pro'));
+  const openAIByokAvailable = computed(() => hasImageByok(settings.value, 'gpt-image-2'));
+  const nanoBananaAvailable = computed(() =>
+    Boolean(
+      hasManagedBalance.value &&
+      (settings.value.memberManagedNanoBananaEnabled ?? settings.value.memberManagedImageEnabled)
+    )
+  );
+  const gptImageAvailable = computed(() =>
+    Boolean(hasManagedBalance.value && settings.value.memberManagedGptImageEnabled)
+  );
+  const selectedImageRoute = computed<'byok' | 'managed' | 'unavailable'>(() => {
+    if (state.value.imageProvider === 'google-byok') {
+      return googleByokAvailable.value ? 'byok' : 'unavailable';
+    }
+    if (state.value.imageProvider === 'openai-byok') {
+      return openAIByokAvailable.value ? 'byok' : 'unavailable';
+    }
+    return state.value.imageProvider === 'nano-banana-pro'
+      ? nanoBananaAvailable.value
+        ? 'managed'
+        : 'unavailable'
+      : gptImageAvailable.value
+        ? 'managed'
+        : 'unavailable';
   });
   const managedImageAvailable = computed(() => selectedImageRoute.value !== 'unavailable');
-  const routeAvailable = (provider: 'nano-banana-pro' | 'gpt-image-2') =>
-    resolveImageRoute(
-      settings.value,
-      provider,
-      membership.isAuthenticated.value &&
-        Boolean(membership.status.value) &&
-        (membership.status.value?.bonusBalance || 0) > 0
-    ) !== 'unavailable';
-  const nanoBananaAvailable = computed(() => routeAvailable('nano-banana-pro'));
-  const gptImageAvailable = computed(() => routeAvailable('gpt-image-2'));
   const managedFallbackAvailable = (provider: 'nano-banana-pro' | 'gpt-image-2') => {
     const enabled =
       provider === 'nano-banana-pro'
@@ -406,7 +418,11 @@ export function useImageGeneration() {
       }
 
       const provider =
-        state.value.imageProvider === 'byok' ? 'nano-banana-pro' : state.value.imageProvider;
+        state.value.imageProvider === 'google-byok'
+          ? 'nano-banana-pro'
+          : state.value.imageProvider === 'openai-byok'
+            ? 'gpt-image-2'
+            : state.value.imageProvider;
       const runManagedImage = async () => {
         if (
           state.value.uploadedImages.reduce((total, image) => total + image.base64.length, 0) >
@@ -528,6 +544,8 @@ export function useImageGeneration() {
     canUploadMore,
     managedImageAvailable,
     selectedImageRoute,
+    googleByokAvailable,
+    openAIByokAvailable,
     nanoBananaAvailable,
     gptImageAvailable,
 

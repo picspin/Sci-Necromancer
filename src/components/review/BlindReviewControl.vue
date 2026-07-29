@@ -138,7 +138,7 @@ import {
   hasEnabledCapabilityAdapter,
   normalizeCapabilitySettings,
 } from '@/lib/capabilities/capabilityRegistry';
-import { resolveTextRoute } from '@/lib/llm/capabilityRouting';
+import { resolveBlindReviewRoute } from '@/lib/llm/capabilityRouting';
 import { useMembership } from '@/composables/useMembership';
 
 const props = defineProps<{
@@ -163,7 +163,7 @@ const blindReviewAvailable = computed(
       hasEnabledCapabilityAdapter(settings.value, 'skill', 'academic-abstract-blind-review'))
 );
 const reviewRoute = computed(() =>
-  resolveTextRoute(settings.value, isAuthenticated.value && Boolean(status.value))
+  resolveBlindReviewRoute(settings.value, isAuthenticated.value && Boolean(status.value))
 );
 const usesManagedReview = computed(() => reviewRoute.value === 'managed');
 

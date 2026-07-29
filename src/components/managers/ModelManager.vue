@@ -61,183 +61,181 @@
           v-if="localSettings.provider === 'google'"
           class="grid gap-3 rounded-lg bg-base-100 p-4 sm:grid-cols-2"
         >
-          <label class="sm:col-span-2">
-            <span class="field-label">{{ t('model_manager.api_key') }}</span>
-            <input
-              v-model="localSettings.googleApiKey"
-              type="password"
-              class="field-input"
-              autocomplete="off"
-            />
-          </label>
-          <label>
-            <span class="field-label">{{ t('model_manager.text_model') }}</span>
-            <input
+          <JumpingInput
+            v-model="localSettings.googleApiKey"
+            :label="t('model_manager.api_key')"
+            type="password"
+            autocomplete="off"
+            class="sm:col-span-2"
+          />
+          <div>
+            <FloatingSelect
               v-model="localSettings.model"
-              type="text"
-              class="field-input"
-              list="text-model-options"
-              placeholder="gemini-3.6-flash"
+              :label="t('model_manager.text_model')"
+              :options="textModelOptions"
             />
-          </label>
-          <label>
-            <span class="field-label">{{ t('model_manager.image_model') }}</span>
-            <input
+            <button type="button" class="manual-model-link" @click="showCustomTextModel = true">
+              {{ t('model_manager.manual_model') }}
+            </button>
+            <JumpingInput
+              v-if="showCustomTextModel"
+              v-model.trim="localSettings.model"
+              :label="t('model_manager.custom_text_model')"
+            />
+          </div>
+          <div>
+            <FloatingSelect
               v-model="localSettings.googleImageModel"
-              type="text"
-              class="field-input"
-              list="image-model-options"
-              placeholder="gemini-3-pro-image"
+              :label="t('model_manager.image_model')"
+              :options="imageModelOptions"
             />
-          </label>
+            <button type="button" class="manual-model-link" @click="showCustomImageModel = true">
+              {{ t('model_manager.manual_model') }}
+            </button>
+            <JumpingInput
+              v-if="showCustomImageModel"
+              v-model.trim="localSettings.googleImageModel"
+              :label="t('model_manager.custom_image_model')"
+            />
+          </div>
         </div>
 
         <div
           v-else-if="localSettings.provider === 'openai'"
           class="grid gap-3 rounded-lg bg-base-100 p-4 sm:grid-cols-2"
         >
-          <label class="sm:col-span-2">
-            <span class="field-label">{{ t('model_manager.api_key') }}</span>
-            <input
-              v-model="localSettings.openAIApiKey"
-              type="password"
-              class="field-input"
-              autocomplete="off"
-            />
-          </label>
-          <label class="sm:col-span-2">
-            <span class="field-label">{{ t('model_manager.base_url') }}</span>
-            <input
-              v-model="localSettings.openAIBaseUrl"
-              type="url"
-              class="field-input"
-              placeholder="https://api.openai.com/v1"
-            />
-          </label>
-          <label>
-            <span class="field-label">{{ t('model_manager.text_model') }}</span>
-            <input
+          <JumpingInput
+            v-model="localSettings.openAIApiKey"
+            :label="t('model_manager.api_key')"
+            type="password"
+            autocomplete="off"
+            class="sm:col-span-2"
+          />
+          <JumpingInput
+            v-model="localSettings.openAIBaseUrl"
+            :label="t('model_manager.base_url')"
+            type="url"
+            autocomplete="url"
+            class="sm:col-span-2"
+          />
+          <div>
+            <FloatingSelect
               v-model="localSettings.openAITextModel"
-              type="text"
-              class="field-input"
-              list="text-model-options"
-              placeholder="gpt-5"
+              :label="t('model_manager.text_model')"
+              :options="textModelOptions"
             />
-          </label>
-          <label>
-            <span class="field-label">{{ t('model_manager.image_model') }}</span>
-            <input
+            <button type="button" class="manual-model-link" @click="showCustomTextModel = true">
+              {{ t('model_manager.manual_model') }}
+            </button>
+            <JumpingInput
+              v-if="showCustomTextModel"
+              v-model.trim="localSettings.openAITextModel"
+              :label="t('model_manager.custom_text_model')"
+            />
+          </div>
+          <div>
+            <FloatingSelect
               v-model="localSettings.openAIImageModel"
-              type="text"
-              class="field-input"
-              list="image-model-options"
-              placeholder="gpt-image-1"
+              :label="t('model_manager.image_model')"
+              :options="imageModelOptions"
             />
-          </label>
+            <button type="button" class="manual-model-link" @click="showCustomImageModel = true">
+              {{ t('model_manager.manual_model') }}
+            </button>
+            <JumpingInput
+              v-if="showCustomImageModel"
+              v-model.trim="localSettings.openAIImageModel"
+              :label="t('model_manager.custom_image_model')"
+            />
+          </div>
         </div>
 
         <div v-else class="grid gap-3 rounded-lg bg-base-100 p-4 sm:grid-cols-2">
-          <label class="sm:col-span-2">
-            <span class="field-label">{{ t('model_manager.api_key') }}</span>
-            <input
-              v-model="localSettings.anthropicApiKey"
-              type="password"
-              class="field-input"
-              autocomplete="off"
-            />
-          </label>
-          <label class="sm:col-span-2">
-            <span class="field-label">{{ t('model_manager.base_url') }}</span>
-            <input
-              v-model="localSettings.anthropicBaseUrl"
-              type="url"
-              class="field-input"
-              placeholder="https://api.anthropic.com"
-            />
-          </label>
-          <label class="sm:col-span-2">
-            <span class="field-label">{{ t('model_manager.text_model') }}</span>
-            <input
+          <JumpingInput
+            v-model="localSettings.anthropicApiKey"
+            :label="t('model_manager.api_key')"
+            type="password"
+            autocomplete="off"
+            class="sm:col-span-2"
+          />
+          <JumpingInput
+            v-model="localSettings.anthropicBaseUrl"
+            :label="t('model_manager.base_url')"
+            type="url"
+            autocomplete="url"
+            class="sm:col-span-2"
+          />
+          <div class="sm:col-span-2">
+            <FloatingSelect
               v-model="localSettings.anthropicTextModel"
-              type="text"
-              class="field-input"
-              list="text-model-options"
-              placeholder="claude-sonnet"
+              :label="t('model_manager.text_model')"
+              :options="textModelOptions"
             />
-          </label>
+            <button type="button" class="manual-model-link" @click="showCustomTextModel = true">
+              {{ t('model_manager.manual_model') }}
+            </button>
+            <JumpingInput
+              v-if="showCustomTextModel"
+              v-model.trim="localSettings.anthropicTextModel"
+              :label="t('model_manager.custom_text_model')"
+            />
+          </div>
         </div>
-
-        <datalist id="text-model-options">
-          <option v-for="model in modelCatalog.text" :key="model" :value="model" />
-        </datalist>
-        <datalist id="image-model-options">
-          <option v-for="model in modelCatalog.image" :key="model" :value="model" />
-        </datalist>
       </section>
 
       <section v-else-if="activePanel === 'member-services'" class="space-y-3">
-        <MemberAccount />
         <div class="rounded-lg border border-base-300 bg-base-100 p-4 text-sm text-text-secondary">
           <h3 class="font-semibold text-text-primary">
             {{ t('model_manager.member_benefits_title') }}
           </h3>
-          <ul class="mt-2 list-disc space-y-1 pl-5 text-xs">
-            <li>{{ t('model_manager.member_rule_signup') }}</li>
-            <li>{{ t('model_manager.member_rule_checkin') }}</li>
-            <li>{{ t('model_manager.member_rule_abstract') }}</li>
-            <li>{{ t('model_manager.member_rule_image') }}</li>
-            <li>{{ t('model_manager.member_rule_storage') }}</li>
-          </ul>
+          <p class="mt-1 text-xs">{{ t('membership.sign_in_help') }}</p>
+          <button
+            v-if="!isAuthenticated"
+            type="button"
+            class="mt-3 text-sm font-semibold text-brand-primary underline-offset-4 hover:underline"
+            @click="openMemberAccount"
+          >
+            {{ t('model_manager.become_member') }}
+          </button>
+          <div v-else class="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-xs text-text-primary">
+            <span>{{ memberStatus?.bonusBalance ?? 0 }} {{ t('membership.credit_unit') }}</span>
+            <span>
+              {{ t('membership.cloud_usage') }}：{{ memberStatus?.abstractCount ?? 0 }}/{{
+                memberStatus?.abstractQuota ?? 30
+              }}
+            </span>
+            <button type="button" class="text-brand-primary" @click="openMemberAccount">
+              {{ t('model_manager.view_account') }}
+            </button>
+          </div>
         </div>
         <label class="setting-row">
-          <span>
-            <strong>Gemini 3.6 Flash</strong>
-            <small>{{ t('model_manager.managed_text_help') }}</small>
-          </span>
+          <strong>GLM-5.2 - Text</strong>
           <input
             v-model="localSettings.memberManagedTextEnabled"
             type="checkbox"
             :disabled="!isAuthenticated"
-            aria-label="Gemini 3.6 Flash"
+            aria-label="GLM-5.2 - Text"
             class="setting-checkbox"
           />
         </label>
         <label class="setting-row">
-          <span>
-            <strong>Nano Banana Pro</strong>
-            <small>{{ t('model_manager.managed_image_help') }}</small>
-          </span>
+          <strong>Imagen 4 - Image</strong>
           <input
             v-model="localSettings.memberManagedNanoBananaEnabled"
             type="checkbox"
             :disabled="!isAuthenticated"
-            aria-label="Nano Banana Pro"
+            aria-label="Imagen 4 - Image"
             class="setting-checkbox"
           />
         </label>
         <label class="setting-row">
-          <span>
-            <strong>GPT Image</strong>
-            <small>{{ t('model_manager.managed_image_help') }}</small>
-          </span>
+          <strong>GPT Image 1 - Image</strong>
           <input
             v-model="localSettings.memberManagedGptImageEnabled"
             type="checkbox"
             :disabled="!isAuthenticated"
-            aria-label="GPT Image"
-            class="setting-checkbox"
-          />
-        </label>
-        <label class="setting-row">
-          <span>
-            <strong>Supabase cloud save</strong>
-            <small>{{ t('model_manager.cloud_save_help') }}</small>
-          </span>
-          <input
-            v-model="localSettings.databaseEnabled"
-            type="checkbox"
-            :disabled="!isAuthenticated"
-            aria-label="Supabase cloud save"
+            aria-label="GPT Image 1 - Image"
             class="setting-checkbox"
           />
         </label>
@@ -308,6 +306,59 @@
               {{ t(reviewer.label) }}
             </label>
           </div>
+        </div>
+
+        <div
+          v-if="isAuthenticated"
+          class="rounded-lg border border-base-300 bg-base-100 p-4 space-y-3"
+        >
+          <div>
+            <h4 class="text-sm font-medium text-text-primary">
+              {{ t('model_manager.managed_research_capabilities') }}
+            </h4>
+            <p class="text-xs text-text-secondary">
+              {{ t('model_manager.managed_research_capabilities_help') }}
+            </p>
+          </div>
+          <p v-if="managedCapabilitiesLoading" class="text-xs text-text-secondary">
+            {{ t('common.loading') }}
+          </p>
+          <p v-else-if="managedCapabilitiesError" class="text-xs text-red-400">
+            {{ t('model_manager.managed_capabilities_unavailable') }}
+          </p>
+          <label
+            v-for="capability in managedCapabilities"
+            v-else
+            :key="capability.id"
+            class="setting-row !p-0"
+          >
+            <span>
+              <strong>{{ t(capability.labelKey) }}</strong>
+              <small>{{ t(capability.descriptionKey) }}</small>
+            </span>
+            <span class="flex-row items-center gap-2">
+              <small v-if="capability.bonusCost">
+                {{ capability.bonusCost }} {{ t('membership.credit_unit') }}
+              </small>
+              <input
+                type="checkbox"
+                :checked="localSettings.capabilities!.managedEnabledIds.includes(capability.id)"
+                :disabled="
+                  (capability.kind === 'mcp' && !localSettings.capabilities!.mcpEnabled) ||
+                  (capability.kind === 'agent' &&
+                    (!localSettings.capabilities!.skillsEnabled || !hasManagedResearchSource))
+                "
+                :aria-label="t(capability.labelKey)"
+                class="setting-checkbox"
+                @change="
+                  toggleManagedCapability(
+                    capability.id,
+                    ($event.target as HTMLInputElement).checked
+                  )
+                "
+              />
+            </span>
+          </label>
         </div>
 
         <div class="rounded-lg border border-dashed border-base-300 p-4 space-y-3">
@@ -386,10 +437,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import Modal from '@/components/ui/Modal.vue';
-import MemberAccount from '@/components/membership/MemberAccount.vue';
+import FloatingSelect, { type FloatingSelectOption } from '@/components/ui/FloatingSelect.vue';
+import JumpingInput from '@/components/ui/JumpingInput.vue';
 import { useSettings } from '@/composables/useSettings';
 import { useMembership } from '@/composables/useMembership';
 import type { AIProvider, ExternalReviewer, Settings } from '@/types';
@@ -399,11 +451,16 @@ import {
   parseCapabilityManifest,
 } from '@/lib/capabilities/capabilityRegistry';
 import { loadProviderModels, type ModelCatalog } from '@/src/services/modelCatalogService';
+import type { ManagedCapabilityDescriptor } from '@/src/services/memberApiClient';
+import {
+  isMGAResearchToolId,
+  MGA_RESEARCH_AGENT_ID,
+} from '@/lib/capabilities/managedResearchCapabilities';
 
 const { t } = useI18n();
-const emit = defineEmits<{ close: [] }>();
+const emit = defineEmits<{ close: []; openMember: [] }>();
 const { settings, saveSettings } = useSettings();
-const { isAuthenticated } = useMembership();
+const { isAuthenticated, status: memberStatus, memberApi } = useMembership();
 type ConfigPanel = 'personal-api' | 'member-services' | 'skills-mcp';
 const activePanel = ref<ConfigPanel>('member-services');
 const panels: Array<{ id: ConfigPanel; label: string }> = [
@@ -422,6 +479,11 @@ function cloneSettings(value: Settings): Settings {
   const capabilities = normalizeCapabilitySettings(value.capabilities);
   return {
     ...value,
+    model: value.model || 'gemini-3.6-flash',
+    googleImageModel: value.googleImageModel || 'gemini-3-pro-image',
+    openAITextModel: value.openAITextModel || 'gpt-5',
+    openAIImageModel: value.openAIImageModel || 'gpt-image-1',
+    anthropicTextModel: value.anthropicTextModel || 'claude-sonnet-4-5',
     blindReview: { ...blindReview, reviewers: { ...blindReview.reviewers } },
     capabilities: { ...capabilities, imported: capabilities.imported.map((item) => ({ ...item })) },
     memberManagedTextEnabled: value.memberManagedTextEnabled ?? false,
@@ -445,6 +507,51 @@ const modelCatalog = ref<ModelCatalog>({ text: [], image: [] });
 const isLoadingModels = ref(false);
 const modelLoadMessage = ref('');
 const modelLoadError = ref(false);
+const showCustomTextModel = ref(false);
+const showCustomImageModel = ref(false);
+const managedCapabilities = ref<ManagedCapabilityDescriptor[]>([]);
+const managedCapabilitiesLoading = ref(false);
+const managedCapabilitiesError = ref(false);
+const hasManagedResearchSource = computed(() =>
+  localSettings.value.capabilities!.managedEnabledIds.some(isMGAResearchToolId)
+);
+const providerDefaults: Record<AIProvider, ModelCatalog> = {
+  google: { text: ['gemini-3.6-flash'], image: ['gemini-3-pro-image'] },
+  openai: { text: ['gpt-5', 'gpt-4o'], image: ['gpt-image-1'] },
+  anthropic: { text: ['claude-sonnet-4-5'], image: [] },
+};
+
+function selectableModels(kind: keyof ModelCatalog, configured?: string): FloatingSelectOption[] {
+  const values = [
+    configured,
+    ...providerDefaults[localSettings.value.provider][kind],
+    ...modelCatalog.value[kind],
+  ].filter((value): value is string => Boolean(value));
+  return [...new Set(values)].map((value) => ({ value, label: value }));
+}
+
+const textModelOptions = computed(() => {
+  const configured =
+    localSettings.value.provider === 'google'
+      ? localSettings.value.model
+      : localSettings.value.provider === 'openai'
+        ? localSettings.value.openAITextModel
+        : localSettings.value.anthropicTextModel;
+  return selectableModels('text', configured);
+});
+const imageModelOptions = computed(() =>
+  selectableModels(
+    'image',
+    localSettings.value.provider === 'google'
+      ? localSettings.value.googleImageModel
+      : localSettings.value.openAIImageModel
+  )
+);
+
+function openMemberAccount() {
+  emit('close');
+  emit('openMember');
+}
 
 async function loadModels() {
   isLoadingModels.value = true;
@@ -473,8 +580,33 @@ watch(
   () => {
     modelCatalog.value = { text: [], image: [] };
     modelLoadMessage.value = '';
+    showCustomTextModel.value = false;
+    showCustomImageModel.value = false;
   }
 );
+
+watch([isAuthenticated, activePanel], async ([authenticated, panel]) => {
+  if (!authenticated || panel !== 'skills-mcp' || managedCapabilities.value.length) return;
+  managedCapabilitiesLoading.value = true;
+  managedCapabilitiesError.value = false;
+  try {
+    managedCapabilities.value = (await memberApi.getCapabilities()).capabilities;
+  } catch {
+    managedCapabilitiesError.value = true;
+  } finally {
+    managedCapabilitiesLoading.value = false;
+  }
+});
+
+function toggleManagedCapability(id: string, enabled: boolean) {
+  const selected = new Set(localSettings.value.capabilities!.managedEnabledIds);
+  if (enabled) selected.add(id);
+  else selected.delete(id);
+  if (![...selected].some(isMGAResearchToolId)) {
+    selected.delete(MGA_RESEARCH_AGENT_ID);
+  }
+  localSettings.value.capabilities!.managedEnabledIds = [...selected];
+}
 
 function syncBundledSkill() {
   localSettings.value.blindReview!.enabled =
@@ -518,6 +650,7 @@ function handleSave() {
     localSettings.value.memberManagedNanoBananaEnabled = false;
     localSettings.value.memberManagedGptImageEnabled = false;
     localSettings.value.databaseEnabled = false;
+    localSettings.value.capabilities!.managedEnabledIds = [];
   }
   saveSettings(localSettings.value);
   emit('close');
@@ -525,12 +658,6 @@ function handleSave() {
 </script>
 
 <style scoped>
-.field-label {
-  @apply mb-1 block text-xs font-medium text-text-secondary;
-}
-.field-input {
-  @apply w-full rounded-lg border border-base-300 bg-base-200 px-3 py-2 text-sm text-text-primary focus:border-brand-primary focus:outline-none;
-}
 .setting-row {
   @apply flex items-center justify-between gap-4 rounded-lg bg-base-100 p-4 text-sm text-text-primary;
 }
@@ -542,5 +669,13 @@ function handleSave() {
 }
 .setting-checkbox {
   @apply h-4 w-4 shrink-0 accent-brand-primary;
+}
+.manual-model-link {
+  margin-top: 0.375rem;
+  color: #94a3b8;
+  font-size: 0.75rem;
+}
+.manual-model-link:hover {
+  color: #f1f5f9;
 }
 </style>

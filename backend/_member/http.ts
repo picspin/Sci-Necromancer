@@ -1,4 +1,4 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node';
+import type { VercelRequest, VercelResponse } from '../_types/vercel.js';
 import { MemberServiceError } from './memberService.js';
 
 const configuredOrigins = () =>

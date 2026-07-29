@@ -1,9 +1,5 @@
 export type ManagedTaskKind =
-  | 'analysis_generation'
-  | 'regeneration'
-  | 'deep_update'
-  | 'image_generation'
-  | 'blind_review';
+  'analysis_generation' | 'regeneration' | 'deep_update' | 'image_generation' | 'blind_review';
 
 interface RpcResult<T> {
   data: T | null;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { assertGenerationRoute } from './generate';
+import { assertGenerationRoute } from '../../api/generate';
 
 describe('managed generation route matrix', () => {
   it.each([

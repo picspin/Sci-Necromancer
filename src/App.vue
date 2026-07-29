@@ -18,7 +18,9 @@
             <span aria-hidden="true">◉</span>
             <span class="hidden sm:inline">
               {{
-                isAuthenticated ? `${memberStatus?.bonusBalance ?? 0} bonus` : t('header.sign_in')
+                isAuthenticated
+                  ? `${memberStatus?.bonusBalance ?? 0} ${t('membership.credit_unit')}`
+                  : t('header.sign_in')
               }}
             </span>
           </button>
@@ -75,7 +77,11 @@
     />
 
     <!-- Model Manager Modal -->
-    <ModelManager v-if="showModelManager" @close="showModelManager = false" />
+    <ModelManager
+      v-if="showModelManager"
+      @close="showModelManager = false"
+      @open-member="openMemberAccount"
+    />
 
     <MemberPanel v-if="showMemberPanel" @close="showMemberPanel = false" />
 
@@ -131,4 +137,9 @@ const showMemberPanel = ref(false);
 const { initialize, isAuthenticated, status: memberStatus } = useMembership();
 
 onMounted(() => void initialize());
+
+function openMemberAccount() {
+  showModelManager.value = false;
+  showMemberPanel.value = true;
+}
 </script>

@@ -1,5 +1,6 @@
 import { timingSafeEqual } from 'node:crypto';
-import type { VercelRequest, VercelResponse } from '@vercel/node';
+import type { VercelRequest, VercelResponse } from '../backend/_types/vercel.js';
+import { getMGAConfig } from '../backend/_generation/providers.js';
 
 function configured(name: string): boolean {
   return Boolean(process.env[name]?.trim());
@@ -16,6 +17,19 @@ function trustedProbe(request: VercelRequest): boolean {
 
 async function probeProviders() {
   const result: Record<string, boolean> = {};
+  let mga: ReturnType<typeof getMGAConfig> = null;
+  try {
+    mga = getMGAConfig();
+  } catch {
+    result.mga = false;
+  }
+  if (mga) {
+    const response = await fetch(`${mga.baseUrl}/models`, {
+      signal: AbortSignal.timeout(8_000),
+      headers: { 'x-baychatgpt-accesstoken': mga.apiKey },
+    }).catch(() => null);
+    result.mga = Boolean(response?.ok);
+  }
   if (configured('GEMINI_API_KEY')) {
     const response = await fetch(
       'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash',
@@ -37,6 +51,7 @@ export default async function handler(request: VercelRequest, response: VercelRe
   const region = process.env.VERCEL_REGION || 'local';
   const services = {
     membership: configured('SUPABASE_URL') && configured('SUPABASE_SERVICE_ROLE_KEY'),
+    mga: configured('MGA_BASE_URL') && configured('MGA_API_KEY'),
     gemini: configured('GEMINI_API_KEY'),
     openai: configured('OPENAI_API_KEY'),
     stripe:

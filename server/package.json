@@ -6,9 +6,7 @@
   "scripts": {
     "build": "echo 'No build needed for Vercel serverless'"
   },
-  "dependencies": {},
   "devDependencies": {
-    "@vercel/node": "^5.5.16",
     "@types/node": "^22.0.0",
     "typescript": "~5.8.0"
   }

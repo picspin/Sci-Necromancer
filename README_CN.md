@@ -23,7 +23,7 @@ SCI-邪修是面向医学影像与心血管会议摘要的开源 AI 辅助工具
 
 ![架构图](public/readme-assets/architecture.svg)
 
-Vue 3 提供统一界面与会议 slice；确定性会议规则约束模型提示并检查输出；可选 Skills & MCP 层提供内置只读盲审 Skill，以及由后端部署的 PubMed、CiteCheck 和 DOI 验证。默认使用本地存储，可选接入 Supabase。
+Vue 3 提供统一界面与会议 slice；确定性会议规则约束模型提示并检查输出；可选 Skills & MCP 层提供内置只读盲审 Skill、会员专属 MGA 科研核验 Agent，以及白名单限定的 PubMed、Semantic Scholar、Hubble 摘要检索、CiteCheck 和 DOI 验证。默认使用本地存储，可选接入 Supabase。
 
 ## 功能
 

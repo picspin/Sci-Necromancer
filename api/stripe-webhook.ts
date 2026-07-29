@@ -1,8 +1,8 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { MemberServiceError } from './_member/memberService.js';
-import { sendApiError } from './_member/http.js';
-import { createAdminSupabaseClient } from './_member/supabaseServer.js';
-import { mapStripeEvent, verifyStripeSignature } from './_stripe/stripeWebhook.js';
+import type { VercelRequest, VercelResponse } from '../backend/_types/vercel.js';
+import { MemberServiceError } from '../backend/_member/memberService.js';
+import { sendApiError } from '../backend/_member/http.js';
+import { createAdminSupabaseClient } from '../backend/_member/supabaseServer.js';
+import { mapStripeEvent, verifyStripeSignature } from '../backend/_stripe/stripeWebhook.js';
 
 async function readRawBody(request: VercelRequest): Promise<string> {
   const chunks: Buffer[] = [];

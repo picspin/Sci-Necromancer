@@ -3,7 +3,7 @@
   "regions": ["iad1"],
   "functions": {
     "api/generate.ts": { "maxDuration": 120 },
-    "api/member/*.ts": { "maxDuration": 30 },
+    "api/member/*.ts": { "maxDuration": 120 },
     "api/blind-review.ts": { "maxDuration": 60 }
   }
 }

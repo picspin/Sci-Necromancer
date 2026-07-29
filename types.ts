@@ -48,16 +48,9 @@ export type BlindReviewDimension =
   | 'reporting-guideline';
 export type BlindReviewSeverity = 'critical' | 'high' | 'medium' | 'low' | 'info';
 export type BlindReviewVerificationStatus =
-  | 'verified'
-  | 'supported'
-  | 'unsupported'
-  | 'contradictory'
-  | 'not-verifiable';
+  'verified' | 'supported' | 'unsupported' | 'contradictory' | 'not-verifiable';
 export type BlindReviewRecommendation =
-  | 'pass-with-caveats'
-  | 'minor-revision'
-  | 'major-revision'
-  | 'reject';
+  'pass-with-caveats' | 'minor-revision' | 'major-revision' | 'reject';
 export type ExternalReviewer = 'pubmed' | 'citecheck' | 'doi-mcp';
 export type ExternalReviewerStatus = 'verified' | 'issues-found' | 'unavailable' | 'not-run';
 
@@ -239,6 +232,7 @@ export interface CapabilitySettings {
   skillsEnabled: boolean;
   mcpEnabled: boolean;
   bundledBlindReviewSkill: boolean;
+  managedEnabledIds: string[];
   imported: ImportedCapability[];
 }
 
@@ -397,18 +391,11 @@ export interface ErrorBoundaryState {
 // ============================================================================
 
 export type ImageGenerationMode = 'standard' | 'text-to-image';
-export type ImageGenerationProvider = 'byok' | 'nano-banana-pro' | 'gpt-image-2';
+export type ImageGenerationProvider =
+  'google-byok' | 'openai-byok' | 'nano-banana-pro' | 'gpt-image-2';
 
 export type JournalStyleId =
-  | 'lancet'
-  | 'nature'
-  | 'nejm'
-  | 'science'
-  | 'jama-bmj'
-  | 'radiology'
-  | 'ieee'
-  | 'cell'
-  | 'pnas';
+  'lancet' | 'nature' | 'nejm' | 'science' | 'jama-bmj' | 'radiology' | 'ieee' | 'cell' | 'pnas';
 
 export type SchematicLayoutId =
   | 'linear-sequential'

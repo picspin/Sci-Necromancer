@@ -20,9 +20,18 @@ import {
   RSNA_CATEGORIES,
 } from '../conference/rsnaRules';
 import { requireAIDisclosureAcceptance } from '../compliance/aiDisclosure';
-import { canUseManagedText, generateManagedText } from '../../src/composables/useMembership';
+import {
+  canUseManagedText,
+  canUseManagedResearchVerification,
+  generateManagedResearchVerification,
+  generateManagedText,
+} from '../../src/composables/useMembership';
 import { assertBlindReviewAssessment } from '../review/blindReview';
 import { resolveTextRoute } from './capabilityRouting';
+import {
+  enabledMGAResearchToolIds,
+  hasEnabledMGAResearchAgent,
+} from '../capabilities/managedResearchCapabilities';
 
 // Export writing style utilities
 export {
@@ -86,18 +95,19 @@ const getService = (allowManagedText = true) => {
 async function withExplicitManagedFallback<T>(
   apiKey: string | undefined,
   runSelectedByok: () => Promise<T>,
-  runManaged: () => Promise<T>
+  runManaged: () => Promise<T>,
+  managedAvailable: () => boolean = canUseManagedText
 ): Promise<T> {
   try {
     return await runSelectedByok();
   } catch (byokError) {
-    if (!apiKey || !canUseManagedText() || typeof globalThis.confirm !== 'function') {
+    if (!apiKey || !managedAvailable() || typeof globalThis.confirm !== 'function') {
       throw byokError;
     }
     const isChinese = getAuxiliaryLocale() === 'zh';
     const approved = globalThis.confirm(
       isChinese
-        ? '个人 API 调用失败。是否改用会员托管模型并消耗 1 bonus？取消则不调用托管模型，也不扣费。'
+        ? '个人 API 调用失败。是否改用会员托管模型并消耗 1 学分？取消则不调用托管模型，也不扣费。'
         : 'Your personal API call failed. Use the managed member model for 1 bonus? Cancel makes no managed call and incurs no charge.'
     );
     if (!approved) throw byokError;
@@ -127,20 +137,35 @@ export async function reviewAbstractBlind(prompt: string): Promise<BlindReviewMo
     return withExplicitManagedFallback(
       apiKey,
       () => getService(false).reviewAbstractBlind(prompt, apiKey),
-      () => runManagedBlindReview(prompt)
+      () => runManagedBlindReview(prompt),
+      () => canUseManagedText() || canUseManagedResearchVerification()
     );
   }
   return runManagedBlindReview(prompt);
 }
 
 async function runManagedBlindReview(prompt: string): Promise<BlindReviewModelAssessment> {
-  if (!canUseManagedText()) throw new Error('llm.api_key_missing');
-  const result = await generateManagedText({
-    prompt,
-    idempotencyKey:
-      globalThis.crypto?.randomUUID?.() ?? `blind-review-${Date.now()}-${Math.random()}`,
-    operation: 'blind_review',
-  });
+  const idempotencyKey =
+    globalThis.crypto?.randomUUID?.() ?? `blind-review-${Date.now()}-${Math.random()}`;
+  const capabilities = getSettings().capabilities;
+  const enabledIds = Array.isArray(capabilities?.managedEnabledIds)
+    ? capabilities.managedEnabledIds
+    : [];
+  const researchToolIds = enabledMGAResearchToolIds(enabledIds);
+  const useResearchAgent = hasEnabledMGAResearchAgent(capabilities);
+  if (
+    (useResearchAgent && !canUseManagedResearchVerification()) ||
+    (!useResearchAgent && !canUseManagedText())
+  ) {
+    throw new Error('llm.api_key_missing');
+  }
+  const result = useResearchAgent
+    ? await generateManagedResearchVerification({
+        prompt,
+        idempotencyKey,
+        enabledCapabilityIds: researchToolIds,
+      })
+    : await generateManagedText({ prompt, idempotencyKey, operation: 'blind_review' });
   try {
     return assertBlindReviewAssessment(JSON.parse(result.text));
   } catch {

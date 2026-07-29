@@ -20,7 +20,7 @@ Provide a low-friction membership layer without weakening BYOK, privacy, or wall
 - `src/components/managers/ModelManager.vue`: Member Benefits, Personal API, and Skills & MCP.
 - `lib/llm/`, `src/composables/useImageGeneration.ts`: capability routing and workflow state.
 - `api/member/`, `api/generate.ts`, `api/blind-review.ts`: authenticated boundaries.
-- `api/_member/`, `api/_generation/`, `api/_review/`: shared server logic.
+- `backend/_member/`, `backend/_generation/`, `backend/_review/`: shared server logic kept outside `api/` so Vercel only discovers public route handlers as Functions.
 - `supabase/migrations/`: authoritative schema/RPC changes.
 - Tests remain colocated with the behavior they protect.
 

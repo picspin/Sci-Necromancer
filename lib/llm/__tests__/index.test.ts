@@ -2,10 +2,18 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import type { Settings } from '@/types';
 import { acceptAIDisclosure } from '@/lib/compliance/aiDisclosure';
 
-const { generateContentMock, generateManagedTextMock, canUseManagedTextMock } = vi.hoisted(() => ({
+const {
+  generateContentMock,
+  generateManagedTextMock,
+  generateManagedResearchVerificationMock,
+  canUseManagedTextMock,
+  canUseManagedResearchVerificationMock,
+} = vi.hoisted(() => ({
   generateContentMock: vi.fn(),
   generateManagedTextMock: vi.fn(),
+  generateManagedResearchVerificationMock: vi.fn(),
   canUseManagedTextMock: vi.fn(),
+  canUseManagedResearchVerificationMock: vi.fn(),
 }));
 vi.mock('@google/genai', () => ({
   GoogleGenAI: class {
@@ -14,7 +22,9 @@ vi.mock('@google/genai', () => ({
 }));
 vi.mock('@/src/composables/useMembership', () => ({
   canUseManagedText: canUseManagedTextMock,
+  canUseManagedResearchVerification: canUseManagedResearchVerificationMock,
   generateManagedText: generateManagedTextMock,
+  generateManagedResearchVerification: generateManagedResearchVerificationMock,
 }));
 
 describe('LLM Index - Provider Selection', () => {
@@ -24,6 +34,7 @@ describe('LLM Index - Provider Selection', () => {
     localStorage.clear();
     acceptAIDisclosure();
     canUseManagedTextMock.mockReturnValue(true);
+    canUseManagedResearchVerificationMock.mockReturnValue(false);
     generateContentMock.mockResolvedValue({
       text: JSON.stringify({ categories: [], keywords: [] }),
     });
@@ -31,6 +42,13 @@ describe('LLM Index - Provider Selection', () => {
       text: JSON.stringify({ categories: [], keywords: [] }),
       workflowId: '11111111-1111-4111-8111-111111111111',
       workflow: { callCount: 1, generationCount: 0, deepUpdateCount: 0 },
+    });
+    generateManagedResearchVerificationMock.mockResolvedValue({
+      text: JSON.stringify({
+        recommendation: 'minor-revision',
+        summary: 'Literature verification requires revision.',
+        findings: [],
+      }),
     });
   });
 
@@ -146,6 +164,67 @@ describe('LLM Index - Provider Selection', () => {
 
     expect(typeof generateAbstractForConference).toBe('function');
     expect(typeof generateCreativeAbstractForConference).toBe('function');
+  });
+
+  it('routes the existing blind-review action through the enabled managed research agent', async () => {
+    canUseManagedTextMock.mockReturnValue(false);
+    canUseManagedResearchVerificationMock.mockReturnValue(true);
+    localStorage.setItem(
+      'app-settings',
+      JSON.stringify({
+        memberManagedTextEnabled: true,
+        capabilities: {
+          skillsEnabled: true,
+          mcpEnabled: true,
+          bundledBlindReviewSkill: true,
+          managedEnabledIds: ['mga-pubmed', 'mga-research-verification-agent'],
+          imported: [],
+        },
+      })
+    );
+    const { reviewAbstractBlind } = await import('@/lib/llm/index');
+
+    await expect(reviewAbstractBlind('Verify the abstract.')).resolves.toMatchObject({
+      recommendation: 'minor-revision',
+    });
+    expect(generateManagedResearchVerificationMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        prompt: 'Verify the abstract.',
+        enabledCapabilityIds: ['mga-pubmed'],
+      })
+    );
+    expect(generateManagedTextMock).not.toHaveBeenCalled();
+  });
+
+  it('offers the independent research agent when blind-review BYOK fails', async () => {
+    canUseManagedTextMock.mockReturnValue(false);
+    canUseManagedResearchVerificationMock.mockReturnValue(true);
+    localStorage.setItem(
+      'app-settings',
+      JSON.stringify({
+        provider: 'openai',
+        openAIApiKey: 'broken-key',
+        openAITextModel: 'broken-model',
+        capabilities: {
+          skillsEnabled: true,
+          mcpEnabled: true,
+          bundledBlindReviewSkill: true,
+          managedEnabledIds: ['mga-pubmed', 'mga-research-verification-agent'],
+          imported: [],
+        },
+      })
+    );
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('byok unavailable')));
+    const confirm = vi.fn().mockReturnValue(true);
+    vi.stubGlobal('confirm', confirm);
+    const { reviewAbstractBlind } = await import('@/lib/llm/index');
+
+    await expect(reviewAbstractBlind('Verify after BYOK failure.')).resolves.toMatchObject({
+      recommendation: 'minor-revision',
+    });
+    expect(confirm).toHaveBeenCalledOnce();
+    expect(generateManagedResearchVerificationMock).toHaveBeenCalledOnce();
+    expect(generateManagedTextMock).not.toHaveBeenCalled();
   });
 
   it('preserves the education contract when RSNA generation is called without route metadata', async () => {

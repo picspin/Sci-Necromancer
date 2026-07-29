@@ -23,36 +23,29 @@
       </div>
 
       <form class="space-y-3 rounded-lg bg-base-100 p-4" @submit.prevent="submitEmailAuth">
-        <label v-if="authMode === 'register'" class="block">
-          <span class="field-label">{{ t('membership.nickname') }}</span>
-          <input
-            v-model.trim="nickname"
-            class="field-input"
-            autocomplete="nickname"
-            maxlength="80"
-          />
-        </label>
-        <label class="block">
-          <span class="field-label">{{ t('membership.email') }}</span>
-          <input
-            v-model.trim="email"
-            class="field-input"
-            type="email"
-            autocomplete="email"
-            required
-          />
-        </label>
-        <label v-if="authMode !== 'reset'" class="block">
-          <span class="field-label">{{ t('membership.password') }}</span>
-          <input
-            v-model="password"
-            class="field-input"
-            type="password"
-            :autocomplete="authMode === 'register' ? 'new-password' : 'current-password'"
-            minlength="8"
-            required
-          />
-        </label>
+        <JumpingInput
+          v-if="authMode === 'register'"
+          v-model.trim="nickname"
+          :label="t('membership.nickname')"
+          autocomplete="nickname"
+          maxlength="80"
+        />
+        <JumpingInput
+          v-model.trim="email"
+          :label="t('membership.email')"
+          type="email"
+          autocomplete="email"
+          required
+        />
+        <JumpingInput
+          v-if="authMode !== 'reset'"
+          v-model="password"
+          :label="t('membership.password')"
+          type="password"
+          :autocomplete="authMode === 'register' ? 'new-password' : 'current-password'"
+          minlength="8"
+          required
+        />
         <button
           type="submit"
           class="w-full rounded-lg bg-brand-primary px-4 py-2 font-semibold text-white disabled:opacity-50"
@@ -101,7 +94,7 @@
           </div>
           <div class="text-right">
             <p class="text-2xl font-bold text-brand-primary">{{ status?.bonusBalance ?? '—' }}</p>
-            <p class="text-xs text-text-secondary">bonus</p>
+            <p class="text-xs text-text-secondary">{{ t('membership.credit_unit') }}</p>
           </div>
         </div>
       </section>
@@ -151,7 +144,7 @@
               class="rounded-md border border-base-300 px-3 py-1.5 text-xs text-text-primary"
               @click="upgradeQuota(100)"
             >
-              100 · 2 bonus
+              100 · 2 {{ t('membership.credit_unit') }}
             </button>
             <button
               v-if="(status?.abstractQuota ?? 30) < 500"
@@ -159,7 +152,8 @@
               class="rounded-md border border-base-300 px-3 py-1.5 text-xs text-text-primary"
               @click="upgradeQuota(500)"
             >
-              500 · {{ status?.abstractQuota === 100 ? 8 : 10 }} bonus
+              500 · {{ status?.abstractQuota === 100 ? 8 : 10 }}
+              {{ t('membership.credit_unit') }}
             </button>
           </div>
         </div>
@@ -170,14 +164,12 @@
           {{ t('membership.account_management') }}
         </summary>
         <form class="mt-3 grid gap-3 sm:grid-cols-2" @submit.prevent="saveProfile">
-          <label>
-            <span class="field-label">{{ t('membership.nickname') }}</span>
-            <input v-model.trim="profileNickname" class="field-input" maxlength="80" />
-          </label>
-          <label>
-            <span class="field-label">{{ t('membership.email') }}</span>
-            <input v-model.trim="profileEmail" class="field-input" type="email" />
-          </label>
+          <JumpingInput
+            v-model.trim="profileNickname"
+            :label="t('membership.nickname')"
+            maxlength="80"
+          />
+          <JumpingInput v-model.trim="profileEmail" :label="t('membership.email')" type="email" />
           <button class="rounded-md bg-base-300 px-3 py-2 text-sm text-text-primary sm:col-span-2">
             {{ t('membership.save_profile') }}
           </button>
@@ -187,12 +179,12 @@
           class="mt-4 flex gap-2"
           @submit.prevent="savePassword"
         >
-          <input
+          <JumpingInput
             v-model="newPassword"
-            class="field-input min-w-0 flex-1"
+            class="min-w-0 flex-1"
+            :label="t('membership.new_password')"
             type="password"
             minlength="8"
-            :placeholder="t('membership.new_password')"
             autocomplete="new-password"
             required
           />
@@ -203,16 +195,16 @@
       </details>
 
       <section class="space-y-2 rounded-lg bg-base-100 p-4">
-        <label for="recharge-bonus" class="field-label">{{ t('membership.recharge') }}</label>
         <div class="flex gap-2">
-          <input
+          <JumpingInput
             id="recharge-bonus"
             v-model.number="rechargeBonus"
+            :label="t('membership.recharge')"
             type="number"
             min="10"
             max="10000"
             step="1"
-            class="field-input min-w-0 flex-1"
+            class="min-w-0 flex-1"
           />
           <button
             type="button"
@@ -245,6 +237,7 @@ import { useI18n } from 'vue-i18n';
 import { useMembership } from '@/composables/useMembership';
 import TurnstileChallenge from './TurnstileChallenge.vue';
 import { localizeError } from '@/lib/i18n/errorMessages';
+import JumpingInput from '@/components/ui/JumpingInput.vue';
 
 type AuthMode = 'login' | 'register' | 'reset';
 const { t } = useI18n();
@@ -363,12 +356,3 @@ const savePassword = () =>
     notice.value = t('membership.password_changed');
   });
 </script>
-
-<style scoped>
-.field-label {
-  @apply mb-1 block text-xs font-medium text-text-secondary;
-}
-.field-input {
-  @apply w-full rounded-lg border border-base-300 bg-base-200 px-3 py-2 text-sm text-text-primary placeholder:text-text-secondary/80 focus:border-brand-primary focus:outline-none;
-}
-</style>

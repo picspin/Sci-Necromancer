@@ -98,8 +98,7 @@ async function runPubMed(
     };
     const records = ids.map((id) => {
       const item = payload.result?.[id] as
-        | { title?: string; pubdate?: string; fulljournalname?: string }
-        | undefined;
+        { title?: string; pubdate?: string; fulljournalname?: string } | undefined;
       return {
         query,
         status: 'supported' as const,

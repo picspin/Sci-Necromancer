@@ -1,3 +1,5 @@
+import type { MGAResearchAgentId } from '@/lib/capabilities/managedResearchCapabilities';
+
 export class MemberApiError extends Error {
   constructor(
     public readonly code: string,
@@ -21,6 +23,16 @@ export interface MemberStatus {
 export interface ManagedImageInput {
   data: string;
   mimeType: string;
+}
+
+export interface ManagedCapabilityDescriptor {
+  id: string;
+  kind: 'mcp' | 'agent';
+  labelKey: string;
+  descriptionKey: string;
+  readOnly: true;
+  memberOnly: true;
+  bonusCost: 0 | 1;
 }
 
 interface MemberApiClientOptions {
@@ -71,6 +83,30 @@ export function createMemberApiClient(options: MemberApiClientOptions) {
 
   return {
     getStatus: () => request<MemberStatus>('/api/member/status'),
+    getCapabilities: () =>
+      request<{ capabilities: ManagedCapabilityDescriptor[] }>('/api/member/capabilities'),
+    runCapability: (input: {
+      idempotencyKey: string;
+      capabilityId: MGAResearchAgentId;
+      enabledCapabilityIds: string[];
+      prompt: string;
+    }) =>
+      request<{
+        output: { type: 'text'; text: string };
+        bonusBalance: number;
+        workflowId: string;
+      }>(
+        '/api/member/capabilities',
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            capabilityId: input.capabilityId,
+            enabledCapabilityIds: input.enabledCapabilityIds,
+            prompt: input.prompt,
+          }),
+        },
+        { 'Idempotency-Key': input.idempotencyKey }
+      ),
     bootstrap: (turnstileToken: string) =>
       request<{ bonus_balance: number; awarded: boolean }>('/api/member/bootstrap', {
         method: 'POST',

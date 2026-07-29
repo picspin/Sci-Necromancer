@@ -1,7 +1,10 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { MemberServiceError } from '../_member/memberService.js';
-import { prepareMemberApi, sendApiError } from '../_member/http.js';
-import { createAdminSupabaseClient, requireAuthenticatedUser } from '../_member/supabaseServer.js';
+import type { VercelRequest, VercelResponse } from '../../backend/_types/vercel.js';
+import { MemberServiceError } from '../../backend/_member/memberService.js';
+import { prepareMemberApi, sendApiError } from '../../backend/_member/http.js';
+import {
+  createAdminSupabaseClient,
+  requireAuthenticatedUser,
+} from '../../backend/_member/supabaseServer.js';
 
 const MAX_PAYLOAD_BYTES = 10_000;
 

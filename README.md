@@ -24,7 +24,7 @@ The application assists with analysis, wording, formatting, figures, export, and
 
 ![Architecture](public/readme-assets/architecture.svg)
 
-Vue 3 provides the shared interface and conference slices. Deterministic conference rules constrain provider prompts and validate outputs. The optional Skills & MCP layer adds a bundled read-only blind-review skill plus backend-provisioned PubMed, CiteCheck, and DOI verification. Local storage is the default; Supabase integration is optional.
+Vue 3 provides the shared interface and conference slices. Deterministic conference rules constrain provider prompts and validate outputs. The optional Skills & MCP layer adds a bundled read-only blind-review skill, a member-only MGA research-verification agent with allowlisted PubMed, Semantic Scholar, and Hubble abstract search, plus backend-provisioned CiteCheck and DOI verification. Local storage is the default; Supabase integration is optional.
 
 ## Features
 

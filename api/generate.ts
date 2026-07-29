@@ -1,18 +1,21 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { callManagedProvider, type ProviderImageInput } from './_generation/providers.js';
-import { runManagedGeneration, type ManagedProvider } from './_generation/managedGeneration.js';
+import type { VercelRequest, VercelResponse } from '../backend/_types/vercel.js';
+import { callManagedProvider, type ProviderImageInput } from '../backend/_generation/providers.js';
+import {
+  runManagedGeneration,
+  type ManagedProvider,
+} from '../backend/_generation/managedGeneration.js';
 import {
   createMemberService,
   MemberServiceError,
   type ManagedTaskKind,
   type ManagedWorkflowOperation,
-} from './_member/memberService.js';
-import { prepareMemberApi, sendApiError } from './_member/http.js';
+} from '../backend/_member/memberService.js';
+import { prepareMemberApi, sendApiError } from '../backend/_member/http.js';
 import {
   createAdminSupabaseClient,
   createScopedMemberRpcClient,
   requireAuthenticatedUser,
-} from './_member/supabaseServer.js';
+} from '../backend/_member/supabaseServer.js';
 
 const PROVIDERS = new Set<ManagedProvider>(['gemini-3.6-flash', 'nano-banana-pro', 'gpt-image-2']);
 const TASK_KINDS = new Set<ManagedTaskKind>([

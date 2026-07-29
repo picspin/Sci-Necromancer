@@ -1,11 +1,11 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { createMemberService } from '../_member/memberService.js';
-import { prepareMemberApi, sendApiError, verifyTurnstile } from '../_member/http.js';
+import type { VercelRequest, VercelResponse } from '../../backend/_types/vercel.js';
+import { createMemberService } from '../../backend/_member/memberService.js';
+import { prepareMemberApi, sendApiError, verifyTurnstile } from '../../backend/_member/http.js';
 import {
   createAdminSupabaseClient,
   createScopedMemberRpcClient,
   requireAuthenticatedUser,
-} from '../_member/supabaseServer.js';
+} from '../../backend/_member/supabaseServer.js';
 
 export default async function handler(request: VercelRequest, response: VercelResponse) {
   if (!prepareMemberApi(request, response))

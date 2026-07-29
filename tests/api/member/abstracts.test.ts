@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { sanitizeAbstractPayload } from './abstracts';
+import { sanitizeAbstractPayload } from '../../../api/member/abstracts';
 
 describe('member abstract cloud payload', () => {
   it('keeps only generated abstract fields and recursively drops sensitive extras', () => {

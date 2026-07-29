@@ -1,8 +1,11 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { MemberServiceError } from '../_member/memberService.js';
-import { prepareMemberApi, sendApiError } from '../_member/http.js';
-import { createAdminSupabaseClient, requireAuthenticatedUser } from '../_member/supabaseServer.js';
-import { STRIPE_API_VERSION } from '../_stripe/stripeWebhook.js';
+import type { VercelRequest, VercelResponse } from '../../backend/_types/vercel.js';
+import { MemberServiceError } from '../../backend/_member/memberService.js';
+import { prepareMemberApi, sendApiError } from '../../backend/_member/http.js';
+import {
+  createAdminSupabaseClient,
+  requireAuthenticatedUser,
+} from '../../backend/_member/supabaseServer.js';
+import { STRIPE_API_VERSION } from '../../backend/_stripe/stripeWebhook.js';
 
 function requiredStripeEnv(name: 'STRIPE_SECRET_KEY' | 'APP_PUBLIC_URL'): string {
   const value = process.env[name]?.trim();
