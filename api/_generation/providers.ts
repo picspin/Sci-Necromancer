@@ -1,5 +1,5 @@
-import { MemberServiceError } from '../_member/memberService';
-import type { ManagedGenerationOutput, ManagedProvider } from './managedGeneration';
+import { MemberServiceError } from '../_member/memberService.js';
+import type { ManagedGenerationOutput, ManagedProvider } from './managedGeneration.js';
 
 export interface ProviderImageInput {
   data: string;

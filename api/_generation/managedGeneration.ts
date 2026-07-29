@@ -1,5 +1,5 @@
-import type { ManagedTaskKind, ManagedWorkflowOperation } from '../_member/memberService';
-import { MemberServiceError } from '../_member/memberService';
+import type { ManagedTaskKind, ManagedWorkflowOperation } from '../_member/memberService.js';
+import { MemberServiceError } from '../_member/memberService.js';
 
 export type ManagedProvider = 'gemini-3.6-flash' | 'nano-banana-pro' | 'gpt-image-2';
 

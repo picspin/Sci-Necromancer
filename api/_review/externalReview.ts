@@ -3,8 +3,8 @@ import type {
   ExternalReviewer,
   ExternalVerificationRecord,
   ExternalVerificationResult,
-} from '../../types';
-import { extractCitationCandidates } from '../../lib/review/blindReview';
+} from '../../types.js';
+import { extractCitationCandidates } from '../../lib/review/blindReview.js';
 
 export interface ExternalReviewRequest {
   generatedText: string;

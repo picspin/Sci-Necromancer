@@ -1,5 +1,5 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
-import { MemberServiceError } from '../_member/memberService';
+import { MemberServiceError } from '../_member/memberService.js';
 
 export const STRIPE_API_VERSION = '2026-02-25.clover';
 

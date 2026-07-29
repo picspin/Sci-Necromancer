@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { MemberServiceError } from './memberService';
+import { MemberServiceError } from './memberService.js';
 
 const configuredOrigins = () =>
   (process.env.APP_ORIGINS || 'https://www.rad-sci.org,https://rad-sci.org')

@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { timingSafeEqual } from 'node:crypto';
-import type { BlindReviewSettings } from '../types';
-import { runExternalReviewers } from './_review/externalReview';
+import type { BlindReviewSettings } from '../types.js';
+import { runExternalReviewers } from './_review/externalReview.js';
 
 const MAX_TEXT_LENGTH = 50_000;
 const RATE_WINDOW_MS = 60_000;

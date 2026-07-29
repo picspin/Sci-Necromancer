@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { MemberServiceError } from '../_member/memberService';
-import { prepareMemberApi, sendApiError } from '../_member/http';
-import { createAdminSupabaseClient, requireAuthenticatedUser } from '../_member/supabaseServer';
+import { MemberServiceError } from '../_member/memberService.js';
+import { prepareMemberApi, sendApiError } from '../_member/http.js';
+import { createAdminSupabaseClient, requireAuthenticatedUser } from '../_member/supabaseServer.js';
 
 const MAX_PAYLOAD_BYTES = 100_000;
 
@@ -164,16 +164,14 @@ export default async function handler(request: VercelRequest, response: VercelRe
             .eq('id', existing.id)
             .eq('user_id', user.id)
             .eq('updated_at', existing.updated_at)
-        : admin
-            .from('member_abstracts')
-            .insert({
-              user_id: user.id,
-              client_id: clientId,
-              title,
-              conference,
-              payload,
-              updated_at: updatedAt,
-            });
+        : admin.from('member_abstracts').insert({
+            user_id: user.id,
+            client_id: clientId,
+            title,
+            conference,
+            payload,
+            updated_at: updatedAt,
+          });
       const { data, error } = await write
         .select('id,client_id,title,conference,payload,created_at,updated_at')
         .maybeSingle();
