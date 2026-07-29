@@ -20,7 +20,7 @@
 
       <section v-if="activePanel === 'personal-api'" class="space-y-4">
         <p class="text-sm text-text-secondary">{{ t('model_manager.personal_api_help') }}</p>
-        <div class="grid grid-cols-2 gap-2">
+        <div class="grid gap-2 sm:grid-cols-3">
           <button
             v-for="provider in providerOptions"
             :key="provider.id"
@@ -35,6 +35,26 @@
           >
             {{ t(provider.label) }}
           </button>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            class="rounded-lg bg-base-100 px-3 py-2 text-sm font-medium text-text-primary disabled:opacity-50"
+            :disabled="isLoadingModels"
+            @click="loadModels"
+          >
+            {{
+              isLoadingModels ? t('model_manager.loading_models') : t('model_manager.load_models')
+            }}
+          </button>
+          <p
+            v-if="modelLoadMessage"
+            class="text-xs"
+            :class="modelLoadError ? 'text-red-400' : 'text-emerald-400'"
+          >
+            {{ modelLoadMessage }}
+          </p>
         </div>
 
         <div
@@ -56,6 +76,7 @@
               v-model="localSettings.model"
               type="text"
               class="field-input"
+              list="text-model-options"
               placeholder="gemini-3.6-flash"
             />
           </label>
@@ -65,12 +86,16 @@
               v-model="localSettings.googleImageModel"
               type="text"
               class="field-input"
+              list="image-model-options"
               placeholder="gemini-3-pro-image"
             />
           </label>
         </div>
 
-        <div v-else class="grid gap-3 rounded-lg bg-base-100 p-4 sm:grid-cols-2">
+        <div
+          v-else-if="localSettings.provider === 'openai'"
+          class="grid gap-3 rounded-lg bg-base-100 p-4 sm:grid-cols-2"
+        >
           <label class="sm:col-span-2">
             <span class="field-label">{{ t('model_manager.api_key') }}</span>
             <input
@@ -95,7 +120,8 @@
               v-model="localSettings.openAITextModel"
               type="text"
               class="field-input"
-              placeholder="gpt-5.6-terra"
+              list="text-model-options"
+              placeholder="gpt-5"
             />
           </label>
           <label>
@@ -104,19 +130,65 @@
               v-model="localSettings.openAIImageModel"
               type="text"
               class="field-input"
-              placeholder="gpt-image-2"
+              list="image-model-options"
+              placeholder="gpt-image-1"
             />
           </label>
         </div>
+
+        <div v-else class="grid gap-3 rounded-lg bg-base-100 p-4 sm:grid-cols-2">
+          <label class="sm:col-span-2">
+            <span class="field-label">{{ t('model_manager.api_key') }}</span>
+            <input
+              v-model="localSettings.anthropicApiKey"
+              type="password"
+              class="field-input"
+              autocomplete="off"
+            />
+          </label>
+          <label class="sm:col-span-2">
+            <span class="field-label">{{ t('model_manager.base_url') }}</span>
+            <input
+              v-model="localSettings.anthropicBaseUrl"
+              type="url"
+              class="field-input"
+              placeholder="https://api.anthropic.com"
+            />
+          </label>
+          <label class="sm:col-span-2">
+            <span class="field-label">{{ t('model_manager.text_model') }}</span>
+            <input
+              v-model="localSettings.anthropicTextModel"
+              type="text"
+              class="field-input"
+              list="text-model-options"
+              placeholder="claude-sonnet"
+            />
+          </label>
+        </div>
+
+        <datalist id="text-model-options">
+          <option v-for="model in modelCatalog.text" :key="model" :value="model" />
+        </datalist>
+        <datalist id="image-model-options">
+          <option v-for="model in modelCatalog.image" :key="model" :value="model" />
+        </datalist>
       </section>
 
       <section v-else-if="activePanel === 'member-services'" class="space-y-3">
-        <div v-if="!isAuthenticated" class="rounded-lg bg-amber-500/10 p-3 text-sm text-amber-500">
-          {{ t('model_manager.member_login_required') }}
+        <MemberAccount />
+        <div class="rounded-lg border border-base-300 bg-base-100 p-4 text-sm text-text-secondary">
+          <h3 class="font-semibold text-text-primary">
+            {{ t('model_manager.member_benefits_title') }}
+          </h3>
+          <ul class="mt-2 list-disc space-y-1 pl-5 text-xs">
+            <li>{{ t('model_manager.member_rule_signup') }}</li>
+            <li>{{ t('model_manager.member_rule_checkin') }}</li>
+            <li>{{ t('model_manager.member_rule_abstract') }}</li>
+            <li>{{ t('model_manager.member_rule_image') }}</li>
+            <li>{{ t('model_manager.member_rule_storage') }}</li>
+          </ul>
         </div>
-        <p class="rounded-lg bg-base-100 p-3 text-xs text-text-secondary">
-          {{ t('model_manager.managed_data_route') }}
-        </p>
         <label class="setting-row">
           <span>
             <strong>Gemini 3.6 Flash</strong>
@@ -136,10 +208,23 @@
             <small>{{ t('model_manager.managed_image_help') }}</small>
           </span>
           <input
-            v-model="localSettings.memberManagedImageEnabled"
+            v-model="localSettings.memberManagedNanoBananaEnabled"
             type="checkbox"
             :disabled="!isAuthenticated"
             aria-label="Nano Banana Pro"
+            class="setting-checkbox"
+          />
+        </label>
+        <label class="setting-row">
+          <span>
+            <strong>GPT Image</strong>
+            <small>{{ t('model_manager.managed_image_help') }}</small>
+          </span>
+          <input
+            v-model="localSettings.memberManagedGptImageEnabled"
+            type="checkbox"
+            :disabled="!isAuthenticated"
+            aria-label="GPT Image"
             class="setting-checkbox"
           />
         </label>
@@ -156,9 +241,6 @@
             class="setting-checkbox"
           />
         </label>
-        <div class="rounded-lg bg-base-100 p-3 text-sm text-text-secondary">
-          GPT Image 2 · {{ t('model_manager.backend_managed') }}
-        </div>
       </section>
 
       <section v-else class="space-y-4">
@@ -307,6 +389,7 @@
 import { ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import Modal from '@/components/ui/Modal.vue';
+import MemberAccount from '@/components/membership/MemberAccount.vue';
 import { useSettings } from '@/composables/useSettings';
 import { useMembership } from '@/composables/useMembership';
 import type { AIProvider, ExternalReviewer, Settings } from '@/types';
@@ -315,21 +398,23 @@ import {
   normalizeCapabilitySettings,
   parseCapabilityManifest,
 } from '@/lib/capabilities/capabilityRegistry';
+import { loadProviderModels, type ModelCatalog } from '@/src/services/modelCatalogService';
 
 const { t } = useI18n();
 const emit = defineEmits<{ close: [] }>();
 const { settings, saveSettings } = useSettings();
 const { isAuthenticated } = useMembership();
 type ConfigPanel = 'personal-api' | 'member-services' | 'skills-mcp';
-const activePanel = ref<ConfigPanel>('personal-api');
+const activePanel = ref<ConfigPanel>('member-services');
 const panels: Array<{ id: ConfigPanel; label: string }> = [
-  { id: 'personal-api', label: 'model_manager.personal_api_tab' },
   { id: 'member-services', label: 'model_manager.member_services_tab' },
+  { id: 'personal-api', label: 'model_manager.personal_api_tab' },
   { id: 'skills-mcp', label: 'model_manager.mcp_tab' },
 ];
 const providerOptions: Array<{ id: AIProvider; label: string }> = [
   { id: 'google', label: 'model_manager.google_ai' },
   { id: 'openai', label: 'model_manager.openai_compatible' },
+  { id: 'anthropic', label: 'model_manager.anthropic_messages' },
 ];
 
 function cloneSettings(value: Settings): Settings {
@@ -341,6 +426,9 @@ function cloneSettings(value: Settings): Settings {
     capabilities: { ...capabilities, imported: capabilities.imported.map((item) => ({ ...item })) },
     memberManagedTextEnabled: value.memberManagedTextEnabled ?? false,
     memberManagedImageEnabled: value.memberManagedImageEnabled ?? false,
+    memberManagedNanoBananaEnabled:
+      value.memberManagedNanoBananaEnabled ?? value.memberManagedImageEnabled ?? false,
+    memberManagedGptImageEnabled: value.memberManagedGptImageEnabled ?? false,
   };
 }
 
@@ -353,6 +441,40 @@ const reviewerOptions: Array<{ key: ExternalReviewer; label: string }> = [
 ];
 const capabilityImportMessage = ref('');
 const capabilityImportError = ref(false);
+const modelCatalog = ref<ModelCatalog>({ text: [], image: [] });
+const isLoadingModels = ref(false);
+const modelLoadMessage = ref('');
+const modelLoadError = ref(false);
+
+async function loadModels() {
+  isLoadingModels.value = true;
+  modelLoadMessage.value = '';
+  modelLoadError.value = false;
+  try {
+    modelCatalog.value = await loadProviderModels(
+      localSettings.value.provider,
+      localSettings.value
+    );
+    modelLoadMessage.value = t('model_manager.models_loaded', {
+      count: modelCatalog.value.text.length + modelCatalog.value.image.length,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'model_manager.model_load_failed';
+    const [key, status] = message.split(':');
+    modelLoadMessage.value = t(key, status ? { status } : undefined);
+    modelLoadError.value = true;
+  } finally {
+    isLoadingModels.value = false;
+  }
+}
+
+watch(
+  () => localSettings.value.provider,
+  () => {
+    modelCatalog.value = { text: [], image: [] };
+    modelLoadMessage.value = '';
+  }
+);
 
 function syncBundledSkill() {
   localSettings.value.blindReview!.enabled =
@@ -392,6 +514,9 @@ function removeCapability(id: string) {
 function handleSave() {
   if (!isAuthenticated.value) {
     localSettings.value.memberManagedImageEnabled = false;
+    localSettings.value.memberManagedTextEnabled = false;
+    localSettings.value.memberManagedNanoBananaEnabled = false;
+    localSettings.value.memberManagedGptImageEnabled = false;
     localSettings.value.databaseEnabled = false;
   }
   saveSettings(localSettings.value);

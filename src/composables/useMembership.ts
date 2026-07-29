@@ -21,6 +21,7 @@ const memberStatus = ref<MemberStatus | null>(null);
 const initialized = ref(false);
 const isLoading = ref(false);
 const error = ref<string | null>(null);
+const passwordRecovery = ref(false);
 let initializePromise: Promise<void> | null = null;
 
 const api = createMemberApiClient({
@@ -59,9 +60,13 @@ export function canUseManagedText(): boolean {
 export async function generateManagedText(input: {
   prompt: string;
   idempotencyKey: string;
-  operation: 'analysis' | 'synopsis' | 'type' | 'generation' | 'regeneration' | 'deep_update';
+  operation: 'analysis' | 'generation' | 'regeneration' | 'deep_update' | 'blind_review';
   workflowId?: string;
-}): Promise<{ text: string; workflowId: string }> {
+}): Promise<{
+  text: string;
+  workflowId: string;
+  workflow: { callCount: number; generationCount: number; deepUpdateCount: number };
+}> {
   try {
     const result = await api.generate({
       ...input,
@@ -71,7 +76,7 @@ export async function generateManagedText(input: {
     if (result.output.type !== 'text' || !result.output.text) {
       throw new Error('managed_text_response_invalid');
     }
-    return { text: result.output.text, workflowId: result.workflowId };
+    return { text: result.output.text, workflowId: result.workflowId, workflow: result.workflow };
   } catch (generationError) {
     await refreshStatus();
     throw generationError;
@@ -89,8 +94,9 @@ export function useMembership() {
       const { data } = await supabase.auth.getSession();
       session.value = data.session;
       await refreshStatus();
-      supabase.auth.onAuthStateChange((_event, nextSession) => {
+      supabase.auth.onAuthStateChange((event, nextSession) => {
         session.value = nextSession;
+        passwordRecovery.value = event === 'PASSWORD_RECOVERY';
         void refreshStatus();
       });
       initialized.value = true;
@@ -105,6 +111,50 @@ export function useMembership() {
       options: { redirectTo: window.location.origin },
     });
     if (authError) throw authError;
+  }
+
+  async function signInWithEmail(email: string, password: string) {
+    if (!supabase) throw new Error('member_service_unavailable');
+    const { error: authError } = await supabase.auth.signInWithPassword({ email, password });
+    if (authError) throw authError;
+  }
+
+  async function signUpWithEmail(email: string, password: string, nickname: string) {
+    if (!supabase) throw new Error('member_service_unavailable');
+    const { error: authError } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        emailRedirectTo: window.location.origin,
+        data: { display_name: nickname.trim() || email.split('@')[0] },
+      },
+    });
+    if (authError) throw authError;
+  }
+
+  async function requestPasswordReset(email: string) {
+    if (!supabase) throw new Error('member_service_unavailable');
+    const { error: authError } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: window.location.origin,
+    });
+    if (authError) throw authError;
+  }
+
+  async function updatePassword(password: string) {
+    if (!supabase) throw new Error('member_service_unavailable');
+    const { error: authError } = await supabase.auth.updateUser({ password });
+    if (authError) throw authError;
+    passwordRecovery.value = false;
+  }
+
+  async function updateProfile(input: { nickname?: string; email?: string }) {
+    if (!supabase) throw new Error('member_service_unavailable');
+    const attributes: { email?: string; data?: Record<string, string> } = {};
+    if (input.email && input.email !== session.value?.user.email) attributes.email = input.email;
+    if (input.nickname !== undefined) attributes.data = { display_name: input.nickname.trim() };
+    const { data, error: authError } = await supabase.auth.updateUser(attributes);
+    if (authError) throw authError;
+    if (session.value && data.user) session.value = { ...session.value, user: data.user };
   }
 
   async function signOut() {
@@ -139,17 +189,22 @@ export function useMembership() {
     window.location.assign(url);
   }
 
+  async function upgradeAbstractQuota(targetQuota: 100 | 500) {
+    const result = await api.upgradeAbstractQuota(targetQuota);
+    await refreshStatus();
+    return result;
+  }
+
   async function managedGenerate(input: {
     idempotencyKey: string;
     provider: 'gemini-3.6-flash' | 'nano-banana-pro' | 'gpt-image-2';
     operation:
       | 'analysis'
-      | 'synopsis'
-      | 'type'
       | 'generation'
       | 'regeneration'
       | 'deep_update'
-      | 'image_generation';
+      | 'image_generation'
+      | 'blind_review';
     workflowId?: string;
     prompt: string;
     images?: ManagedImageInput[];
@@ -171,16 +226,23 @@ export function useMembership() {
     initialized: computed(() => initialized.value),
     isLoading: computed(() => isLoading.value),
     isAuthenticated: computed(() => Boolean(session.value)),
+    passwordRecovery: computed(() => passwordRecovery.value),
     user: computed<User | null>(() => session.value?.user || null),
     status: computed(() => memberStatus.value),
     error: computed(() => error.value),
     initialize,
     refreshStatus,
     signInWithGitHub,
+    signInWithEmail,
+    signUpWithEmail,
+    requestPasswordReset,
+    updatePassword,
+    updateProfile,
     signOut,
     bootstrap,
     checkIn,
     createCheckout,
+    upgradeAbstractQuota,
     managedGenerate,
     memberApi: api,
   };

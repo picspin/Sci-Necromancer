@@ -3,7 +3,7 @@ import { MemberServiceError } from '../_member/memberService.js';
 import { prepareMemberApi, sendApiError } from '../_member/http.js';
 import { createAdminSupabaseClient, requireAuthenticatedUser } from '../_member/supabaseServer.js';
 
-const MAX_PAYLOAD_BYTES = 100_000;
+const MAX_PAYLOAD_BYTES = 10_000;
 
 function asRecord(value: unknown): Record<string, unknown> | null {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
@@ -127,13 +127,11 @@ export default async function handler(request: VercelRequest, response: VercelRe
           : '';
       const payload = sanitizeAbstractPayload(request.body?.payload);
       const expectedUpdatedAt = request.body?.expectedUpdatedAt;
-      if (
-        !clientId ||
-        clientId.length > 128 ||
-        !conference ||
-        JSON.stringify(payload).length > MAX_PAYLOAD_BYTES
-      ) {
+      if (!clientId || clientId.length > 128 || !conference) {
         throw new MemberServiceError('invalid_abstract', 400);
+      }
+      if (Buffer.byteLength(JSON.stringify(payload), 'utf8') > MAX_PAYLOAD_BYTES) {
+        throw new MemberServiceError('abstract_too_large', 413);
       }
       if (
         expectedUpdatedAt !== null &&
@@ -142,44 +140,28 @@ export default async function handler(request: VercelRequest, response: VercelRe
       ) {
         throw new MemberServiceError('invalid_abstract_version', 400);
       }
-      const { data: existing, error: lookupError } = await admin
-        .from('member_abstracts')
-        .select('id,updated_at')
-        .eq('user_id', user.id)
-        .eq('client_id', clientId)
-        .maybeSingle();
-      if (lookupError) throw lookupError;
-      if (existing && expectedUpdatedAt !== existing.updated_at) {
-        throw new MemberServiceError('abstract_conflict', 409);
+      const isUpdate = typeof expectedUpdatedAt === 'string';
+      const { data, error } = await admin.rpc('save_member_abstract', {
+        p_user_id: user.id,
+        p_client_id: clientId,
+        p_title: title,
+        p_conference: conference,
+        p_payload: payload,
+        p_expected_updated_at: expectedUpdatedAt ?? null,
+      });
+      if (error) {
+        if (error.message.includes('abstract_quota_exceeded')) {
+          throw new MemberServiceError('abstract_quota_exceeded', 409);
+        }
+        if (error.message.includes('abstract_too_large')) {
+          throw new MemberServiceError('abstract_too_large', 413);
+        }
+        if (error.message.includes('abstract_conflict')) {
+          throw new MemberServiceError('abstract_conflict', 409);
+        }
+        throw error;
       }
-      if (!existing && typeof expectedUpdatedAt === 'string') {
-        throw new MemberServiceError('abstract_conflict', 409);
-      }
-
-      const updatedAt = new Date().toISOString();
-      const write = existing
-        ? admin
-            .from('member_abstracts')
-            .update({ title, conference, payload, updated_at: updatedAt })
-            .eq('id', existing.id)
-            .eq('user_id', user.id)
-            .eq('updated_at', existing.updated_at)
-        : admin.from('member_abstracts').insert({
-            user_id: user.id,
-            client_id: clientId,
-            title,
-            conference,
-            payload,
-            updated_at: updatedAt,
-          });
-      const { data, error } = await write
-        .select('id,client_id,title,conference,payload,created_at,updated_at')
-        .maybeSingle();
-      if (error?.code === '23505' || (!error && !data)) {
-        throw new MemberServiceError('abstract_conflict', 409);
-      }
-      if (error) throw error;
-      return response.status(existing ? 200 : 201).json(data);
+      return response.status(isUpdate ? 200 : 201).json(data);
     }
 
     if (request.method === 'DELETE') {

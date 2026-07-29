@@ -100,6 +100,29 @@ describe('OpenAI LLM Service', () => {
       expect(result.abstract).toContain('Background');
       expect(global.fetch).toHaveBeenCalled();
     });
+
+    it('does not silently downgrade a failed high-reasoning deep update', async () => {
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: false,
+        status: 400,
+        statusText: 'Bad Request',
+        text: async () => 'reasoning_effort is unsupported',
+      });
+      const { generateFinalAbstract } = await import('@/lib/llm/openai');
+      await expect(
+        generateFinalAbstract(
+          'Test input',
+          'Standard Abstract',
+          [],
+          [],
+          'Impact',
+          'Synopsis',
+          'test-api-key',
+          'deep_update'
+        )
+      ).rejects.toThrow();
+      expect(global.fetch).toHaveBeenCalledTimes(1);
+    });
   });
 
   describe('generateImage', () => {
@@ -118,7 +141,14 @@ describe('OpenAI LLM Service', () => {
       });
 
       const { generateImage } = await import('@/lib/llm/openai');
-      localStorage.setItem('app-settings', JSON.stringify({ openAIApiKey: 'test-api-key' } as any));
+      localStorage.setItem(
+        'app-settings',
+        JSON.stringify({
+          openAIApiKey: 'test-api-key',
+          openAIBaseUrl: 'https://api.siliconflow.cn',
+          openAIImageModel: 'black-forest-labs/FLUX.1-schnell',
+        } as any)
+      );
       const result = await generateImage(
         { file: null, specs: '1024x1024', base64: null },
         'A scientific figure showing MRI results'
@@ -140,6 +170,8 @@ describe('OpenAI LLM Service', () => {
         'app-settings',
         JSON.stringify({
           openAIApiKey: 'test-api-key',
+          openAIBaseUrl: 'https://api.siliconflow.cn',
+          openAIImageModel: 'black-forest-labs/FLUX.1-schnell',
           mcpConfig: { imageGeneration: { enabled: true } },
           capabilities: { mcpEnabled: false },
         })

@@ -6,6 +6,7 @@ import {
   AbstractType,
   AbstractTypeSuggestion,
   BlindReviewModelAssessment,
+  ISMRMAnalysisBundle,
 } from '../../types';
 import * as prompts from './prompts/ismrmPrompts';
 import {
@@ -60,9 +61,13 @@ async function callOpenAIAPI(
     workflowStage?: 'analysis' | 'synopsis' | 'type' | 'generation';
     workflowContext?: string;
     standaloneOperation?: 'regeneration' | 'deep_update';
+    highReasoning?: boolean;
   } = {}
 ): Promise<any> {
-  if (options.allowManaged !== false && canUseManagedText()) {
+  if (!apiKey && options.allowManaged !== false && canUseManagedText()) {
+    if (options.workflowStage === 'synopsis' || options.workflowStage === 'type') {
+      throw new Error('managed_workflow_operation_not_supported');
+    }
     const workflowContext = options.workflowContext || prompt;
     if (options.beginWorkflow) beginManagedTextWorkflow(workflowContext);
     const billing = acquireManagedTextCall(
@@ -75,19 +80,20 @@ async function callOpenAIAPI(
         prompt,
         ...billing,
       });
-      if (options.beginWorkflow) {
-        registerManagedTextWorkflow(workflowContext, billing.idempotencyKey, result.workflowId);
-      }
+      registerManagedTextWorkflow(
+        workflowContext,
+        billing.idempotencyKey,
+        result.workflowId,
+        result.workflow
+      );
       try {
         return JSON.parse(result.text);
       } catch {
         return result.text;
       }
     } catch (error) {
-      completeManagedTextWorkflow(billing.idempotencyKey);
+      if (options.beginWorkflow) completeManagedTextWorkflow(billing.idempotencyKey);
       throw error;
-    } finally {
-      if (options.finishWorkflow) completeManagedTextWorkflow(billing.idempotencyKey);
     }
   }
 
@@ -117,6 +123,7 @@ async function callOpenAIAPI(
       ],
       response_format: { type: 'json_object' },
       temperature: 0.7,
+      ...(options.highReasoning ? { reasoning_effort: 'high' } : {}),
     }),
   });
 
@@ -140,13 +147,44 @@ async function callOpenAIAPI(
   }
 }
 
+export async function analyzeISMRMBundle(
+  text: string,
+  apiKey?: string,
+  workflowContext = text,
+  forceManaged = false
+): Promise<ISMRMAnalysisBundle> {
+  const settings = getSettings();
+  const finalApiKey = forceManaged ? undefined : apiKey || settings.openAIApiKey;
+  const [analysis, impactSynopsis, typeSuggestion] = await Promise.all([
+    prompts.getAnalysisPrompt(text),
+    prompts.getImpactSynopsisPrompt(text, [], []),
+    prompts.getAbstractTypeSuggestionPrompt(text, [], []),
+  ]);
+  const prompt = `${analysis}\n\n${impactSynopsis}\n\n${typeSuggestion}\n\nReturn one JSON object with exactly these top-level fields: categories, keywords, impact, synopsis, typeSuggestions. typeSuggestions must be an array.`;
+  const result = await callOpenAIAPI(
+    prompt,
+    finalApiKey,
+    settings.openAIBaseUrl || 'https://api.openai.com/v1',
+    settings.openAITextModel || 'gpt-4o',
+    { beginWorkflow: true, workflowStage: 'analysis', workflowContext }
+  );
+  return {
+    categories: Array.isArray(result?.categories) ? result.categories : [],
+    keywords: Array.isArray(result?.keywords) ? result.keywords : [],
+    impact: typeof result?.impact === 'string' ? result.impact : '',
+    synopsis: typeof result?.synopsis === 'string' ? result.synopsis : '',
+    typeSuggestions: Array.isArray(result?.typeSuggestions) ? result.typeSuggestions : [],
+  };
+}
+
 export async function analyzeContent(
   text: string,
   apiKey?: string,
-  workflowContext = text
+  workflowContext = text,
+  forceManaged = false
 ): Promise<AnalysisResult> {
   const settings = getSettings();
-  const finalApiKey = apiKey || settings.openAIApiKey;
+  const finalApiKey = forceManaged ? undefined : apiKey || settings.openAIApiKey;
   const baseUrl = settings.openAIBaseUrl || 'https://api.openai.com/v1';
   const model = settings.openAITextModel || 'gpt-4o';
 
@@ -172,6 +210,7 @@ export async function suggestAbstractType(
 
   const prompt = await prompts.getAbstractTypeSuggestionPrompt(text, categories, keywords);
   const result = await callOpenAIAPI(prompt, finalApiKey, baseUrl, model, {
+    allowManaged: false,
     workflowStage: 'type',
     workflowContext,
   });
@@ -208,6 +247,7 @@ export async function generateImpactSynopsis(
 
   const prompt = await prompts.getImpactSynopsisPrompt(text, categories, keywords);
   return await callOpenAIAPI(prompt, finalApiKey, baseUrl, model, {
+    allowManaged: false,
     workflowStage: 'synopsis',
     workflowContext,
   });
@@ -222,10 +262,11 @@ export async function generateFinalAbstract(
   synopsis: string,
   apiKey?: string,
   managedOperation: 'generation' | 'deep_update' = 'generation',
-  workflowContext = text
+  workflowContext = text,
+  forceManaged = false
 ): Promise<AbstractData> {
   const settings = getSettings();
-  const finalApiKey = apiKey || settings.openAIApiKey;
+  const finalApiKey = forceManaged ? undefined : apiKey || settings.openAIApiKey;
   const baseUrl = settings.openAIBaseUrl || 'https://api.openai.com/v1';
   const model = settings.openAITextModel || 'gpt-4o';
 
@@ -238,14 +279,14 @@ export async function generateFinalAbstract(
     synopsis
   );
   // Try JSON first; if provider returns plaintext, construct AbstractData
-  const usingManagedText = canUseManagedText();
+  const usingManagedText = !finalApiKey && canUseManagedText();
   try {
     const res = await callOpenAIAPI(prompt, finalApiKey, baseUrl, model, {
       finishWorkflow: true,
       workflowStage: 'generation',
       workflowContext,
       ...(managedOperation === 'deep_update'
-        ? { standaloneOperation: 'deep_update' as const }
+        ? { standaloneOperation: 'deep_update' as const, highReasoning: true }
         : {}),
     });
     // If res is a string (plaintext), wrap it into AbstractData
@@ -254,7 +295,7 @@ export async function generateFinalAbstract(
     }
     return res;
   } catch (err) {
-    if (usingManagedText || !finalApiKey) throw err;
+    if (usingManagedText || !finalApiKey || managedOperation === 'deep_update') throw err;
     const url = `${baseUrl.replace(/\/$/, '')}/chat/completions`;
     const response = await fetch(url, {
       method: 'POST',
@@ -283,10 +324,11 @@ export async function generateFinalAbstract(
 
 export async function generateCreativeAbstract(
   coreIdea: string,
-  apiKey?: string
+  apiKey?: string,
+  forceManaged = false
 ): Promise<AbstractData> {
   const settings = getSettings();
-  const finalApiKey = apiKey || settings.openAIApiKey;
+  const finalApiKey = forceManaged ? undefined : apiKey || settings.openAIApiKey;
   const baseUrl = settings.openAIBaseUrl || 'https://api.openai.com/v1';
   const model = settings.openAITextModel || 'gpt-4o';
 
@@ -302,10 +344,11 @@ export async function generateCreativeAbstract(
 export async function analyzeRSNAContent(
   text: string,
   apiKey?: string,
-  auxiliaryLocale: 'en' | 'zh' = 'en'
+  auxiliaryLocale: 'en' | 'zh' = 'en',
+  forceManaged = false
 ): Promise<AnalysisResult & { rsna: NonNullable<AnalysisResult['rsna']> }> {
   const settings = getSettings();
-  const finalApiKey = apiKey || settings.openAIApiKey;
+  const finalApiKey = forceManaged ? undefined : apiKey || settings.openAIApiKey;
   const baseUrl = settings.openAIBaseUrl || 'https://api.openai.com/v1';
   const model = settings.openAITextModel || 'gpt-4o';
   const raw = await callOpenAIAPI(
@@ -321,20 +364,24 @@ export async function analyzeRSNAContent(
 export async function generateRSNAAbstract(
   input: RSNAPromptInput,
   apiKey?: string,
-  managedOperation: 'generation' | 'deep_update' = 'generation'
+  managedOperation: 'generation' | 'deep_update' = 'generation',
+  workflowContext = input.inputText,
+  forceManaged = false
 ): Promise<AbstractData> {
   const settings = getSettings();
-  const finalApiKey = apiKey || settings.openAIApiKey;
+  const finalApiKey = forceManaged ? undefined : apiKey || settings.openAIApiKey;
   const baseUrl = settings.openAIBaseUrl || 'https://api.openai.com/v1';
   const model = settings.openAITextModel || 'gpt-4o';
-  const usesManagedProvider = canUseManagedText();
+  const usesManagedProvider = !finalApiKey && canUseManagedText();
   const prompt =
     input.mode === 'creative' ? getRSNACreativePrompt(input) : getRSNAGenerationPrompt(input);
   const raw = await callOpenAIAPI(prompt, finalApiKey, baseUrl, model, {
     finishWorkflow: true,
     workflowStage: 'generation',
-    workflowContext: `RSNA:${input.inputText}`,
-    ...(managedOperation === 'deep_update' ? { standaloneOperation: 'deep_update' as const } : {}),
+    workflowContext: `RSNA:${workflowContext}`,
+    ...(managedOperation === 'deep_update'
+      ? { standaloneOperation: 'deep_update' as const, highReasoning: true }
+      : {}),
   });
   const result = typeof raw === 'string' ? { abstract: raw } : raw;
   let draft: AbstractData = {
@@ -411,8 +458,61 @@ export async function generateImage(
     return await generateImageViaMCP(imageState, creativeContext, finalApiKey, settings);
   }
 
+  const configuredImageModel = settings.openAIImageModel || 'gpt-image-1';
+  if (/gpt-image|dall-e/i.test(configuredImageModel)) {
+    return generateImageViaOpenAI(imageState, creativeContext, finalApiKey, settings);
+  }
+
   // Otherwise use SiliconFlow direct API
   return await generateImageViaSiliconFlow(imageState, creativeContext, finalApiKey, settings);
+}
+
+async function generateImageViaOpenAI(
+  imageState: ImageState,
+  creativeContext: string,
+  apiKey: string,
+  settings: any
+): Promise<string> {
+  const baseUrl = (settings.openAIBaseUrl || 'https://api.openai.com/v1').replace(/\/$/, '');
+  const model = settings.openAIImageModel || 'gpt-image-1';
+  const prompt = `${creativeContext ? `${creativeContext}\n\n` : ''}${imageState.specs}`.trim();
+  const images = imageState.uploadedImages?.length
+    ? imageState.uploadedImages
+    : imageState.base64 && imageState.file
+      ? [{ base64: imageState.base64, file: imageState.file }]
+      : [];
+  let response: Response;
+  if (images.length) {
+    const form = new FormData();
+    form.set('model', model);
+    form.set('prompt', prompt);
+    form.set('size', '1024x1024');
+    for (const image of images) {
+      const bytes = Uint8Array.from(atob(image.base64), (character) => character.charCodeAt(0));
+      form.append('image[]', new Blob([bytes], { type: image.file.type }), image.file.name);
+    }
+    response = await fetch(`${baseUrl}/images/edits`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${apiKey}` },
+      body: form,
+    });
+  } else {
+    response = await fetch(`${baseUrl}/images/generations`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model, prompt, size: '1024x1024', quality: 'high' }),
+    });
+  }
+  if (!response.ok)
+    throw new Error(`OpenAI image API failed: ${response.status} ${await response.text()}`);
+  const payload = await response.json();
+  const base64 = payload.data?.[0]?.b64_json;
+  if (base64) return base64;
+  const url = payload.data?.[0]?.url;
+  if (!url) throw new Error('No image returned by OpenAI image API');
+  const downloaded = await fetch(url);
+  if (!downloaded.ok) throw new Error(`OpenAI image download failed: ${downloaded.status}`);
+  return arrayBufferToBase64(await downloaded.arrayBuffer());
 }
 
 // Path 1: SiliconFlow Direct API

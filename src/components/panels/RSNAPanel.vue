@@ -224,6 +224,7 @@
         </div>
       </div>
     </Modal>
+    <WorkflowReentryDialog ref="workflowReentryDialog" />
   </div>
 </template>
 
@@ -246,6 +247,7 @@ import OutputDisplay from '@/components/OutputDisplay.vue';
 import { fileProcessingService } from '@/lib/file/FileProcessingService';
 import { useSettings } from '@/composables/useSettings';
 import { localizeError } from '@/lib/i18n/errorMessages';
+import { prepareManagedTextReentry } from '@/lib/llm/managedTextWorkflow';
 import { useAbstract } from '@/composables/useAbstract';
 import { getMemeTranslation } from '@/lib/i18n';
 
@@ -255,6 +257,7 @@ const { t } = useI18n();
 import TabButton from './ISMRMPanelComponents/TabButton.vue';
 import ModeSelector from './ISMRMPanelComponents/ModeSelector.vue';
 import RSNAAnalysisStep from './RSNAPanelComponents/RSNAAnalysisStep.vue';
+import WorkflowReentryDialog from '@/components/membership/WorkflowReentryDialog.vue';
 
 const { settings, databaseService } = useSettings();
 const { abstractToLoad, clearLoadedAbstract } = useAbstract();
@@ -279,6 +282,8 @@ const selectedAbstractType = ref<AbstractType | null>(null);
 const selectedClassification = ref<RSNAClassification | null>(null);
 const isModalOpen = ref<boolean>(false);
 const generatedAbstract = ref<AbstractData | null>(null);
+const workflowReentryDialog = ref<InstanceType<typeof WorkflowReentryDialog> | null>(null);
+const generateAfterReanalysis = ref(false);
 
 const resetWorkflow = () => {
   analysisResult.value = null;
@@ -365,6 +370,7 @@ const handleAnalyze = async () => {
     selectedKeywords.value = result.keywords;
     isModalOpen.value = true;
   } catch (e) {
+    generateAfterReanalysis.value = false;
     error.value = localizeError(e, t, 'errors.analysis_failed');
   } finally {
     isLoading.value = false;
@@ -382,9 +388,26 @@ const handleAnalysisConfirmation = (
   selectedAbstractType.value =
     classification.contentType === 'education' ? 'RSNA Education Exhibit' : 'RSNA Science Abstract';
   isModalOpen.value = false;
+  if (generateAfterReanalysis.value) {
+    generateAfterReanalysis.value = false;
+    void handleGenerateAbstract();
+  }
 };
 
 const handleGenerateAbstract = async () => {
+  const workflowContext = `RSNA:${inputText.value}`;
+  if (
+    !(await prepareManagedTextReentry(
+      workflowContext,
+      'regeneration',
+      () => workflowReentryDialog.value?.open('regeneration') ?? Promise.resolve('cancel'),
+      async () => {
+        generateAfterReanalysis.value = true;
+        await handleAnalyze();
+      }
+    ))
+  )
+    return;
   if (
     !inputText.value ||
     !selectedAbstractType.value ||
@@ -447,6 +470,19 @@ const handleGenerateCreative = async () => {
 
 const handleDeepUpdate = async () => {
   if (!generatedAbstract.value || !selectedAbstractType.value) return;
+  const workflowContext = `RSNA:${inputText.value}`;
+  if (
+    !(await prepareManagedTextReentry(
+      workflowContext,
+      'deep_update',
+      () => workflowReentryDialog.value?.open('deep_update') ?? Promise.resolve('cancel'),
+      async () => {
+        generateAfterReanalysis.value = true;
+        await handleAnalyze();
+      }
+    ))
+  )
+    return;
   if (!selectedClassification.value) {
     error.value =
       'This saved abstract uses legacy RSNA metadata. Run RSNA analysis before deep update.';
@@ -478,7 +514,8 @@ Keywords: ${generatedAbstract.value.keywords.join(', ')}`;
       selectedKeywords.value,
       'RSNA',
       selectedClassification.value,
-      'deep_update'
+      'deep_update',
+      inputText.value
     );
 
     result.categories = selectedCategories.value;

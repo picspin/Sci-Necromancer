@@ -8,7 +8,7 @@ import TemplateButtons from './TemplateButtons.vue';
 const i18n = createI18n({ legacy: false, locale: 'en', messages: { en } });
 
 describe('ImageGenerationPanel template selector', () => {
-  it('shows the four primary styles together and five secondary styles in a scroll region', () => {
+  it('shows four primary buttons and five secondary styles in a select', () => {
     render(TemplateButtons, {
       props: {
         styles: JOURNAL_STYLE_TEMPLATES,
@@ -20,7 +20,9 @@ describe('ImageGenerationPanel template selector', () => {
     });
 
     expect(screen.getByTestId('primary-journal-styles').children).toHaveLength(4);
-    expect(screen.getByTestId('secondary-journal-styles').children).toHaveLength(5);
+    expect(
+      screen.getAllByRole('option').filter((option) => !option.hasAttribute('disabled'))
+    ).toHaveLength(12);
     expect(screen.queryByRole('button', { name: /MRI/i })).toBeNull();
   });
 
@@ -35,7 +37,9 @@ describe('ImageGenerationPanel template selector', () => {
       global: { plugins: [i18n] },
     });
 
-    await fireEvent.click(screen.getByRole('button', { name: /RADIOLOGY/i }));
+    await fireEvent.change(screen.getByTestId('secondary-journal-styles'), {
+      target: { value: 'radiology' },
+    });
     await fireEvent.change(screen.getByLabelText('Schematic layout'), {
       target: { value: 'before-after' },
     });

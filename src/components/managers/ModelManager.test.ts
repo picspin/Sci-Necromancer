@@ -24,12 +24,26 @@ vi.mock('@/composables/useSettings', async () => {
 });
 
 vi.mock('@/composables/useMembership', async () => {
-  const { computed } = await vi.importActual<typeof import('vue')>('vue');
+  const { computed, ref } = await vi.importActual<typeof import('vue')>('vue');
   return {
     useMembership: () => ({
       configured: true,
+      turnstileSiteKey: 'test-site-key',
       isAuthenticated: computed(() => false),
+      isLoading: computed(() => false),
+      passwordRecovery: computed(() => false),
+      user: ref(null),
       status: computed(() => null),
+      signInWithGitHub: vi.fn(),
+      signInWithEmail: vi.fn(),
+      signUpWithEmail: vi.fn(),
+      requestPasswordReset: vi.fn(),
+      updatePassword: vi.fn(),
+      updateProfile: vi.fn(),
+      signOut: vi.fn(),
+      checkIn: vi.fn(),
+      createCheckout: vi.fn(),
+      upgradeAbstractQuota: vi.fn(),
     }),
   };
 });

@@ -22,18 +22,17 @@
       <span class="block text-xs text-text-secondary mb-2">
         {{ t('image_generation.more_journal_styles') }}
       </span>
-      <div data-testid="secondary-journal-styles" class="flex gap-2 overflow-x-auto pb-2 snap-x">
-        <button
-          v-for="style in secondaryStyles"
-          :key="style.id"
-          type="button"
-          @click="$emit('select-style', style.id)"
-          :class="[styleButtonClass(style.id), 'min-w-36 snap-start']"
-          :aria-pressed="selectedStyle === style.id"
-        >
+      <select
+        data-testid="secondary-journal-styles"
+        :value="secondaryStyleValue"
+        @change="onSecondaryStyleChange"
+        class="w-full rounded-lg border border-base-300 bg-base-200 px-3 py-2 text-sm text-text-primary focus:border-brand-primary focus:outline-none"
+      >
+        <option value="" disabled>{{ t('image_generation.select_more_journal_style') }}</option>
+        <option v-for="style in secondaryStyles" :key="style.id" :value="style.id">
           {{ style.label }}
-        </button>
-      </div>
+        </option>
+      </select>
     </div>
 
     <label class="block">
@@ -79,6 +78,9 @@ const emit = defineEmits<{
 
 const primaryStyles = computed(() => props.styles.filter(({ tier }) => tier === 'primary'));
 const secondaryStyles = computed(() => props.styles.filter(({ tier }) => tier === 'secondary'));
+const secondaryStyleValue = computed(() =>
+  secondaryStyles.value.some(({ id }) => id === props.selectedStyle) ? props.selectedStyle : ''
+);
 
 function styleButtonClass(styleId: JournalStyleId): string[] {
   return [
@@ -91,5 +93,9 @@ function styleButtonClass(styleId: JournalStyleId): string[] {
 
 function onLayoutChange(event: Event): void {
   emit('select-layout', (event.target as HTMLSelectElement).value as SchematicLayoutId);
+}
+
+function onSecondaryStyleChange(event: Event): void {
+  emit('select-style', (event.target as HTMLSelectElement).value as JournalStyleId);
 }
 </script>

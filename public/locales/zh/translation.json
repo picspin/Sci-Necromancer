@@ -48,7 +48,32 @@
     "recharge": "充值 bonus",
     "recharge_rate": "¥1 = 1 bonus，最低 ¥10。",
     "pay": "支付",
-    "sign_out": "退出登录"
+    "sign_out": "退出登录",
+    "account": "会员账户",
+    "login": "登录",
+    "register": "注册",
+    "forgot_password": "忘记密码",
+    "login_submit": "使用邮箱登录",
+    "register_submit": "创建账户",
+    "reset_submit": "发送重置邮件",
+    "nickname": "昵称",
+    "email": "邮箱",
+    "password": "密码",
+    "or": "或",
+    "verified": "已验证账户",
+    "checkin_cycle": "连续签到周期",
+    "cloud_usage": "云端摘要",
+    "cloud_quota": "云端存储容量",
+    "cloud_quota_help": "每篇摘要最多 10 KB，扩容额度永久有效。",
+    "confirm_quota_upgrade": "确认消耗 {cost} bonus，将容量扩容至 {target} 篇？",
+    "account_management": "账户管理",
+    "save_profile": "保存资料",
+    "new_password": "新密码（至少 8 位）",
+    "change_password": "修改密码",
+    "verification_sent": "验证邮件已发送。完成验证后，系统会自动且仅一次发放 5 bonus。",
+    "reset_sent": "密码重置邮件已发送。",
+    "profile_saved": "账户资料已更新；修改邮箱可能需要再次验证。",
+    "password_changed": "密码已修改。"
   },
   "navigation": {
     "ismrm": "ISMRM",
@@ -207,7 +232,17 @@
     "external_data_notice": "隐私提示：PubMed 接收标题/关键词；CiteCheck 与 DOI MCP 接收提取出的引文标识。请勿包含患者标识或机密信息。",
     "reviewer_pubmed": "PubMed 相关文献检索",
     "reviewer_citecheck": "CiteCheck MCP 引文审核",
-    "reviewer_doi": "DOI MCP 标识符验证"
+    "reviewer_doi": "DOI MCP 标识符验证",
+    "anthropic_messages": "Anthropic Messages",
+    "models_loaded": "已加载 {count} 个模型，也可继续手动填写模型名。",
+    "model_load_failed": "模型列表加载失败（HTTP {status}），仍可手动填写模型名。",
+    "api_key_required": "请先填写 API 密钥再加载模型列表。",
+    "member_benefits_title": "会员权益及规则",
+    "member_rule_signup": "完成验证的新账户会自动且仅一次获得 5 bonus。",
+    "member_rule_checkin": "每日签到 +1 bonus；第 7 天共获得 +2，随后重新开始周期。",
+    "member_rule_abstract": "一次托管摘要任务消耗 1 bonus，包含分析、初次生成、一次再次生成和一次深度更新。",
+    "member_rule_image": "每次托管 Nano Banana 或 GPT Image 生图消耗 1 bonus；对应能力的 BYOK 始终优先。",
+    "member_rule_storage": "云端默认保存 30 篇摘要（每篇 10 KB）；可消耗 bonus 永久扩容至 100/500 篇。"
   },
   "capabilities": {
     "invalid_json": "能力清单不是有效的 JSON。",
@@ -320,6 +355,13 @@
     "save_success": "摘要保存成功。",
     "clear_confirm": "确认清除全部数据并重置流程吗？"
   },
+  "workflow_reentry": {
+    "title": "当前任务的内含次数已用完",
+    "regeneration_description": "请选择重新开始“分析—生成”任务，或基于当前结果继续生成；两种操作均消耗 1 bonus。",
+    "deep_update_description": "请选择重新开始“分析—生成”任务，或再次执行强制高推理深度更新；两种操作均消耗 1 bonus。",
+    "reanalyze": "重新分析并生成（推荐）· 1 bonus",
+    "continue": "继续当前结果 · 1 bonus"
+  },
   "tooltips": {
     "creative_mode_disabled": "请先生成摘要以启用此模式。",
     "deep_update": "使用高级提示进行深度细化",
@@ -421,6 +463,8 @@
     "quick_templates": "快捷模板",
     "journal_style": "期刊视觉风格",
     "more_journal_styles": "更多核心出版风格",
+    "select_more_journal_style": "选择其他出版风格",
+    "confirm_managed_fallback": "个人生图 API 调用失败。是否改用已选择的会员托管生图服务并消耗 1 bonus？取消则不调用托管模型，也不扣费。",
     "schematic_layout": "示意图布局结构",
     "layouts": {
       "linear_sequential": "线性流程 / 时序通路",
@@ -565,6 +609,7 @@
     "title": "独立盲审",
     "description": "将生成摘要与已提供的原始材料及可选后端证据服务进行对照。",
     "external_data_notice": "启用外部审核器后会发送有限的引文检索数据；审核前请移除患者标识和机密信息。",
+    "member_cost": "未配置匹配的文本 BYOK 时，每次盲审消耗 1 bonus。",
     "button": "盲审",
     "running": "盲审中…",
     "report_title": "独立盲审报告",

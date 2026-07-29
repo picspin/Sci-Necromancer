@@ -20,6 +20,7 @@ const TASK_KINDS = new Set<ManagedTaskKind>([
   'regeneration',
   'deep_update',
   'image_generation',
+  'blind_review',
 ]);
 const IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -28,7 +29,24 @@ type GenerationOperation =
   | ManagedWorkflowOperation
   | 'regeneration'
   | 'deep_update'
-  | 'image_generation';
+  | 'image_generation'
+  | 'blind_review';
+
+export function assertGenerationRoute(
+  provider: ManagedProvider,
+  operation: GenerationOperation,
+  workflowId?: string
+): void {
+  const isTextProvider = provider === 'gemini-3.6-flash';
+  const hasWorkflow = Boolean(workflowId);
+  const valid =
+    (operation === 'analysis' && isTextProvider && !hasWorkflow) ||
+    (operation === 'generation' && isTextProvider && hasWorkflow) ||
+    ((operation === 'regeneration' || operation === 'deep_update') && isTextProvider) ||
+    (operation === 'blind_review' && isTextProvider && !hasWorkflow) ||
+    (operation === 'image_generation' && !isTextProvider && !hasWorkflow);
+  if (!valid) throw new MemberServiceError('invalid_generation_request', 400);
+}
 
 function parseImages(value: unknown): ProviderImageInput[] {
   if (value === undefined) return [];
@@ -66,23 +84,26 @@ export default async function handler(request: VercelRequest, response: VercelRe
     const operation = request.body?.operation as GenerationOperation;
     const workflowId =
       typeof request.body?.workflowId === 'string' ? request.body.workflowId : undefined;
+    const continuingWorkflow = Boolean(workflowId);
     const taskKind: ManagedTaskKind =
       operation === 'image_generation'
         ? 'image_generation'
-        : operation === 'deep_update'
-          ? 'deep_update'
-          : operation === 'regeneration'
-            ? 'regeneration'
-            : 'analysis_generation';
-    const workflowOperation = ['synopsis', 'type', 'generation'].includes(operation)
-      ? (operation as ManagedWorkflowOperation)
-      : undefined;
-    const completeWorkflow = [
-      'generation',
-      'regeneration',
-      'deep_update',
-      'image_generation',
-    ].includes(operation);
+        : operation === 'blind_review'
+          ? 'blind_review'
+          : operation === 'deep_update'
+            ? continuingWorkflow
+              ? 'analysis_generation'
+              : 'deep_update'
+            : operation === 'regeneration'
+              ? continuingWorkflow
+                ? 'analysis_generation'
+                : 'regeneration'
+              : 'analysis_generation';
+    const workflowOperation =
+      continuingWorkflow && ['generation', 'regeneration', 'deep_update'].includes(operation)
+        ? (operation as ManagedWorkflowOperation)
+        : undefined;
+    const completeWorkflow = !continuingWorkflow && operation !== 'analysis';
     if (
       typeof idempotencyKey !== 'string' ||
       !idempotencyKey ||
@@ -94,6 +115,7 @@ export default async function handler(request: VercelRequest, response: VercelRe
     if (!PROVIDERS.has(provider) || !TASK_KINDS.has(taskKind)) {
       throw new MemberServiceError('invalid_generation_request', 400);
     }
+    assertGenerationRoute(provider, operation, workflowId);
     if (
       (workflowOperation && !workflowId) ||
       (workflowId && (!workflowOperation || !UUID_PATTERN.test(workflowId)))
@@ -103,23 +125,15 @@ export default async function handler(request: VercelRequest, response: VercelRe
     if (
       ![
         'analysis',
-        'synopsis',
-        'type',
         'generation',
         'regeneration',
         'deep_update',
         'image_generation',
+        'blind_review',
       ].includes(operation)
     ) {
       throw new MemberServiceError('invalid_generation_request', 400);
     }
-    if (provider === 'gemini-3.6-flash' && taskKind === 'image_generation') {
-      throw new MemberServiceError('invalid_generation_request', 400);
-    }
-    if (provider !== 'gemini-3.6-flash' && taskKind !== 'image_generation') {
-      throw new MemberServiceError('invalid_generation_request', 400);
-    }
-
     const images = parseImages(request.body?.images);
     const admin = createAdminSupabaseClient();
     const user = await requireAuthenticatedUser(request, admin);
@@ -127,7 +141,14 @@ export default async function handler(request: VercelRequest, response: VercelRe
     const result = await runManagedGeneration(
       { idempotencyKey, taskKind, provider, completeWorkflow, workflowId, workflowOperation },
       member,
-      () => callManagedProvider({ provider, prompt, images, size: request.body?.size })
+      () =>
+        callManagedProvider({
+          provider,
+          prompt,
+          images,
+          size: request.body?.size,
+          reasoning: operation === 'deep_update' ? 'high' : 'default',
+        })
     );
     return response.status(200).json(result);
   } catch (error) {

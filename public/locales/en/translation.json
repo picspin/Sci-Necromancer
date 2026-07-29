@@ -48,7 +48,32 @@
     "recharge": "Recharge bonus",
     "recharge_rate": "¥1 = 1 bonus; minimum ¥10.",
     "pay": "Pay",
-    "sign_out": "Sign out"
+    "sign_out": "Sign out",
+    "account": "Member account",
+    "login": "Sign in",
+    "register": "Register",
+    "forgot_password": "Reset password",
+    "login_submit": "Sign in with email",
+    "register_submit": "Create account",
+    "reset_submit": "Send reset email",
+    "nickname": "Nickname",
+    "email": "Email",
+    "password": "Password",
+    "or": "or",
+    "verified": "Verified account",
+    "checkin_cycle": "Check-in cycle",
+    "cloud_usage": "Cloud abstracts",
+    "cloud_quota": "Cloud storage capacity",
+    "cloud_quota_help": "Up to 10 KB per abstract. Capacity upgrades are permanent.",
+    "confirm_quota_upgrade": "Upgrade to {target} abstracts for {cost} bonus?",
+    "account_management": "Account management",
+    "save_profile": "Save profile",
+    "new_password": "New password (8+ characters)",
+    "change_password": "Change password",
+    "verification_sent": "Check your inbox to verify the account. The 5 signup bonus is credited automatically after verification.",
+    "reset_sent": "Password reset email sent.",
+    "profile_saved": "Profile updated. Email changes may require verification.",
+    "password_changed": "Password changed."
   },
   "navigation": {
     "ismrm": "ISMRM",
@@ -207,7 +232,17 @@
     "external_data_notice": "Privacy notice: PubMed receives the title/keywords; CiteCheck and DOI MCP receive extracted citation identifiers. Do not include patient identifiers or confidential information.",
     "reviewer_pubmed": "PubMed related-literature search",
     "reviewer_citecheck": "CiteCheck MCP citation audit",
-    "reviewer_doi": "DOI MCP identifier verification"
+    "reviewer_doi": "DOI MCP identifier verification",
+    "anthropic_messages": "Anthropic Messages",
+    "models_loaded": "Loaded {count} models. You can still enter a model manually.",
+    "model_load_failed": "Could not load models (HTTP {status}). Manual entry remains available.",
+    "api_key_required": "Enter an API key before loading models.",
+    "member_benefits_title": "Member benefits and rules",
+    "member_rule_signup": "A verified new account automatically receives 5 bonus once.",
+    "member_rule_checkin": "Daily check-in gives +1 bonus; day 7 gives +2 total and restarts the cycle.",
+    "member_rule_abstract": "One managed abstract workflow costs 1 bonus and includes analysis, initial generation, one regeneration, and one deep update.",
+    "member_rule_image": "Each managed Nano Banana or GPT Image generation costs 1 bonus. Capability-specific BYOK always takes priority.",
+    "member_rule_storage": "Cloud storage includes 30 abstracts (10 KB each); permanent 100/500 upgrades cost bonus."
   },
   "capabilities": {
     "invalid_json": "The capability manifest is not valid JSON.",
@@ -320,6 +355,13 @@
     "save_success": "Abstract saved successfully.",
     "clear_confirm": "Clear all data and reset the workflow?"
   },
+  "workflow_reentry": {
+    "title": "This workflow allowance has been used",
+    "regeneration_description": "Choose whether to begin a new analysis-to-generation workflow or continue from the current result. Either action costs 1 bonus.",
+    "deep_update_description": "Choose whether to begin a new analysis-to-generation workflow or run another high-reasoning deep update. Either action costs 1 bonus.",
+    "reanalyze": "Re-analyze and generate (recommended) · 1 bonus",
+    "continue": "Continue current result · 1 bonus"
+  },
   "tooltips": {
     "creative_mode_disabled": "Generate an abstract first to enable this mode.",
     "deep_update": "Deep dive refinement using advanced prompts",
@@ -421,6 +463,8 @@
     "quick_templates": "Quick Templates",
     "journal_style": "Journal visual style",
     "more_journal_styles": "More core publication styles",
+    "select_more_journal_style": "Select another publication style",
+    "confirm_managed_fallback": "Your personal image API failed. Use the selected managed image provider for 1 bonus? Cancel makes no managed call and incurs no charge.",
     "schematic_layout": "Schematic layout",
     "layouts": {
       "linear_sequential": "Linear / Sequential Flow",
@@ -565,6 +609,7 @@
     "title": "Independent blind review",
     "description": "Compare the generated abstract with the supplied source and optional backend evidence services.",
     "external_data_notice": "Enabled external reviewers receive limited citation-search data. Remove patient identifiers and confidential information before review.",
+    "member_cost": "Without a matching text BYOK configuration, each blind review costs 1 bonus.",
     "button": "Blind Review",
     "running": "Reviewing…",
     "report_title": "Independent Blind Review Report",

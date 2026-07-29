@@ -11,6 +11,7 @@ export interface ProviderRequest {
   prompt: string;
   images?: ProviderImageInput[];
   size?: '1024x1024' | '1024x1536' | '1536x1024';
+  reasoning?: 'default' | 'high';
 }
 
 const providerTimeout = () => AbortSignal.timeout(105_000);
@@ -19,6 +20,13 @@ function providerSecret(name: 'GEMINI_API_KEY' | 'OPENAI_API_KEY'): string {
   const value = process.env[name]?.trim();
   if (!value) throw new MemberServiceError('managed_provider_unavailable', 503);
   return value;
+}
+
+function providerModel(
+  name: 'GEMINI_TEXT_MODEL' | 'GEMINI_IMAGE_MODEL' | 'OPENAI_IMAGE_MODEL',
+  fallback: string
+): string {
+  return process.env[name]?.trim() || fallback;
 }
 
 async function jsonOrProviderError(response: Response): Promise<any> {
@@ -30,9 +38,10 @@ async function jsonOrProviderError(response: Response): Promise<any> {
   return payload;
 }
 
-async function generateGeminiText(prompt: string): Promise<ManagedGenerationOutput> {
+async function generateGeminiText(request: ProviderRequest): Promise<ManagedGenerationOutput> {
+  const model = providerModel('GEMINI_TEXT_MODEL', 'gemini-3.6-flash');
   const response = await fetch(
-    'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent',
+    `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
     {
       method: 'POST',
       signal: providerTimeout(),
@@ -40,7 +49,12 @@ async function generateGeminiText(prompt: string): Promise<ManagedGenerationOutp
         'Content-Type': 'application/json',
         'x-goog-api-key': providerSecret('GEMINI_API_KEY'),
       },
-      body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: prompt }] }] }),
+      body: JSON.stringify({
+        contents: [{ role: 'user', parts: [{ text: request.prompt }] }],
+        ...(request.reasoning === 'high'
+          ? { generationConfig: { thinkingConfig: { thinkingLevel: 'high' } } }
+          : {}),
+      }),
     }
   );
   const payload = await jsonOrProviderError(response);
@@ -59,7 +73,9 @@ async function generateNanoBananaImage(request: ProviderRequest): Promise<Manage
   parts.push({ text: request.prompt } as any);
 
   const response = await fetch(
-    'https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-image:generateContent',
+    `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(
+      providerModel('GEMINI_IMAGE_MODEL', 'gemini-3-pro-image')
+    )}:generateContent`,
     {
       method: 'POST',
       signal: providerTimeout(),
@@ -89,11 +105,12 @@ async function generateNanoBananaImage(request: ProviderRequest): Promise<Manage
 
 async function generateOpenAIImage(request: ProviderRequest): Promise<ManagedGenerationOutput> {
   const headers = { Authorization: `Bearer ${providerSecret('OPENAI_API_KEY')}` };
+  const model = providerModel('OPENAI_IMAGE_MODEL', 'gpt-image-1');
   let response: Response;
 
   if (request.images?.length) {
     const form = new FormData();
-    form.set('model', 'gpt-image-2');
+    form.set('model', model);
     form.set('prompt', request.prompt);
     form.set('size', request.size || '1024x1024');
     form.set('quality', 'high');
@@ -117,7 +134,7 @@ async function generateOpenAIImage(request: ProviderRequest): Promise<ManagedGen
       signal: providerTimeout(),
       headers: { ...headers, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'gpt-image-2',
+        model,
         prompt: request.prompt,
         n: 1,
         size: request.size || '1024x1024',
@@ -136,7 +153,7 @@ async function generateOpenAIImage(request: ProviderRequest): Promise<ManagedGen
 export function callManagedProvider(request: ProviderRequest): Promise<ManagedGenerationOutput> {
   switch (request.provider) {
     case 'gemini-3.6-flash':
-      return generateGeminiText(request.prompt);
+      return generateGeminiText(request);
     case 'nano-banana-pro':
       return generateNanoBananaImage(request);
     case 'gpt-image-2':

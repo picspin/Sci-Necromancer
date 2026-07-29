@@ -216,6 +216,7 @@
         </div>
       </div>
     </Modal>
+    <WorkflowReentryDialog ref="workflowReentryDialog" />
   </div>
 </template>
 
@@ -237,6 +238,7 @@ import OutputDisplay from '@/components/OutputDisplay.vue';
 import { fileProcessingService } from '@/lib/file/FileProcessingService';
 import { useSettings } from '@/composables/useSettings';
 import { localizeError } from '@/lib/i18n/errorMessages';
+import { prepareManagedTextReentry } from '@/lib/llm/managedTextWorkflow';
 import { useAbstract } from '@/composables/useAbstract';
 import { useI18n } from 'vue-i18n';
 import { getMemeTranslation } from '@/lib/i18n';
@@ -246,6 +248,7 @@ import TabButton from './ISMRMPanelComponents/TabButton.vue';
 import ModeSelector from './ISMRMPanelComponents/ModeSelector.vue';
 import ESCAnalysisStep from './ESCPanelComponents/ESCAnalysisStep.vue';
 import TypeSuggestionStep from './ISMRMPanelComponents/TypeSuggestionStep.vue';
+import WorkflowReentryDialog from '@/components/membership/WorkflowReentryDialog.vue';
 
 const { t } = useI18n();
 const { settings, databaseService } = useSettings();
@@ -272,6 +275,8 @@ const selectedAbstractType = ref<AbstractType | null>(null);
 const isModalOpen = ref<boolean>(false);
 const modalStep = ref<'analysis' | 'type'>('analysis');
 const generatedAbstract = ref<AbstractData | null>(null);
+const workflowReentryDialog = ref<InstanceType<typeof WorkflowReentryDialog> | null>(null);
+const generateAfterReanalysis = ref(false);
 
 const resetWorkflow = () => {
   analysisResult.value = null;
@@ -359,6 +364,7 @@ const handleAnalyze = async () => {
     modalStep.value = 'analysis';
     isModalOpen.value = true;
   } catch (e) {
+    generateAfterReanalysis.value = false;
     error.value = localizeError(e, t, 'errors.analysis_failed');
   } finally {
     isLoading.value = false;
@@ -388,9 +394,26 @@ const handleAnalysisConfirmation = async (cats: Category[], keys: string[]) => {
 const handleTypeSelection = (type: AbstractType) => {
   selectedAbstractType.value = type;
   isModalOpen.value = false;
+  if (generateAfterReanalysis.value) {
+    generateAfterReanalysis.value = false;
+    void handleGenerateAbstract();
+  }
 };
 
 const handleGenerateAbstract = async () => {
+  const workflowContext = `ESC:${inputText.value}`;
+  if (
+    !(await prepareManagedTextReentry(
+      workflowContext,
+      'regeneration',
+      () => workflowReentryDialog.value?.open('regeneration') ?? Promise.resolve('cancel'),
+      async () => {
+        generateAfterReanalysis.value = true;
+        await handleAnalyze();
+      }
+    ))
+  )
+    return;
   if (
     !inputText.value ||
     !selectedAbstractType.value ||
@@ -442,6 +465,19 @@ const handleGenerateCreative = async () => {
 
 const handleDeepUpdate = async () => {
   if (!generatedAbstract.value || !selectedAbstractType.value) return;
+  const workflowContext = `ESC:${inputText.value}`;
+  if (
+    !(await prepareManagedTextReentry(
+      workflowContext,
+      'deep_update',
+      () => workflowReentryDialog.value?.open('deep_update') ?? Promise.resolve('cancel'),
+      async () => {
+        generateAfterReanalysis.value = true;
+        await handleAnalyze();
+      }
+    ))
+  )
+    return;
 
   isLoading.value = true;
   loadingMessage.value = t('loading_messages.deep_diving');
@@ -468,7 +504,8 @@ Keywords: ${generatedAbstract.value.keywords.join(', ')}`;
       selectedKeywords.value,
       '',
       '',
-      'deep_update'
+      'deep_update',
+      `ESC:${inputText.value}`
     );
 
     result.categories = selectedCategories.value;

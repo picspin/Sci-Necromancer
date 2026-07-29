@@ -152,20 +152,17 @@
               @change="handleProviderChange"
               class="h-12 w-full rounded-lg border border-base-300 bg-base-100 px-3 text-sm text-text-primary"
             >
-              <option value="byok">{{ t('image_generation.provider_byok') }}</option>
-              <option value="nano-banana-pro" :disabled="!managedImageAvailable">
-                Nano Banana Pro 🔒
+              <option value="nano-banana-pro" :disabled="!nanoBananaAvailable">
+                Nano Banana Pro{{ nanoBananaAvailable ? '' : ' 🔒' }}
               </option>
-              <option value="gpt-image-2" :disabled="!managedImageAvailable">GPT Image 2 🔒</option>
+              <option value="gpt-image-2" :disabled="!gptImageAvailable">
+                GPT Image{{ gptImageAvailable ? '' : ' 🔒' }}
+              </option>
             </select>
           </label>
           <button
             @click="generateImage"
-            :disabled="
-              !canGenerate ||
-              state.isLoading ||
-              (state.imageProvider !== 'byok' && !managedImageAvailable)
-            "
+            :disabled="!canGenerate || state.isLoading || !managedImageAvailable"
             class="mt-auto h-12 w-full flex items-center justify-center gap-2 bg-brand-primary hover:bg-brand-secondary text-white font-bold px-4 rounded-lg transition-all duration-300 disabled:bg-base-300/50 disabled:cursor-not-allowed"
           >
             <svg
@@ -252,6 +249,8 @@ const {
   uploadedImagesCount,
   canUploadMore,
   managedImageAvailable,
+  nanoBananaAvailable,
+  gptImageAvailable,
   imageConstraints,
   setMode,
   setImageProvider,

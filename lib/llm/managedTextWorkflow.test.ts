@@ -13,18 +13,12 @@ describe('managed text workflow', () => {
     const analysisKey = beginManagedTextWorkflow('ISMRM:source-a');
     const analysis = acquireManagedTextCall('analysis', 'ISMRM:source-a');
     registerManagedTextWorkflow('ISMRM:source-a', analysisKey, 'server-task-1');
-    const intermediate = acquireManagedTextCall('synopsis', 'ISMRM:source-a');
     const generation = acquireManagedTextCall('generation', 'ISMRM:source-a');
 
     expect(analysis).toEqual({
       idempotencyKey: analysisKey,
       operation: 'analysis',
       workflowId: undefined,
-    });
-    expect(intermediate).toEqual({
-      idempotencyKey: analysisKey,
-      operation: 'synopsis',
-      workflowId: 'server-task-1',
     });
     expect(generation.idempotencyKey).toBe(analysisKey);
   });

@@ -8,11 +8,14 @@
         <h3 class="font-semibold text-cyan-100">{{ t('blind_review.title') }}</h3>
         <p class="mt-1 text-xs text-text-secondary">{{ t('blind_review.description') }}</p>
         <p class="mt-1 text-xs text-amber-200">{{ t('blind_review.external_data_notice') }}</p>
+        <p v-if="usesManagedReview" class="mt-1 text-xs text-amber-200">
+          {{ t('blind_review.member_cost') }}
+        </p>
       </div>
       <button
         type="button"
         class="rounded-md bg-cyan-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-cyan-600 disabled:cursor-not-allowed disabled:opacity-60"
-        :disabled="isRunning"
+        :disabled="isRunning || reviewRoute === 'unavailable'"
         @click="handleReview"
       >
         {{ isRunning ? t('blind_review.running') : t('blind_review.button') }}
@@ -135,6 +138,8 @@ import {
   hasEnabledCapabilityAdapter,
   normalizeCapabilitySettings,
 } from '@/lib/capabilities/capabilityRegistry';
+import { resolveTextRoute } from '@/lib/llm/capabilityRouting';
+import { useMembership } from '@/composables/useMembership';
 
 const props = defineProps<{
   conference: Exclude<Conference, 'IMAGE' | 'JACC'>;
@@ -144,6 +149,7 @@ const props = defineProps<{
 
 const { t, locale } = useI18n();
 const { settings } = useSettings();
+const { isAuthenticated, status } = useMembership();
 const isRunning = ref(false);
 const report = ref<BlindReviewReport | null>(null);
 const error = ref('');
@@ -156,6 +162,10 @@ const blindReviewAvailable = computed(
     (capabilities.value.bundledBlindReviewSkill ||
       hasEnabledCapabilityAdapter(settings.value, 'skill', 'academic-abstract-blind-review'))
 );
+const reviewRoute = computed(() =>
+  resolveTextRoute(settings.value, isAuthenticated.value && Boolean(status.value))
+);
+const usesManagedReview = computed(() => reviewRoute.value === 'managed');
 
 watch(
   [

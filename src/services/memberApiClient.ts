@@ -11,8 +11,11 @@ export class MemberApiError extends Error {
 export interface MemberStatus {
   bonusBalance: number;
   checkedInToday: boolean;
+  checkinCycle: number;
   lastSeenAt: string | null;
   signupBonusClaimed: boolean;
+  abstractCount: number;
+  abstractQuota: 30 | 100 | 500;
 }
 
 export interface ManagedImageInput {
@@ -83,12 +86,11 @@ export function createMemberApiClient(options: MemberApiClientOptions) {
       provider: 'gemini-3.6-flash' | 'nano-banana-pro' | 'gpt-image-2';
       operation:
         | 'analysis'
-        | 'synopsis'
-        | 'type'
         | 'generation'
         | 'regeneration'
         | 'deep_update'
-        | 'image_generation';
+        | 'image_generation'
+        | 'blind_review';
       workflowId?: string;
       prompt: string;
       images?: ManagedImageInput[];
@@ -98,6 +100,7 @@ export function createMemberApiClient(options: MemberApiClientOptions) {
         output: { type: 'text' | 'image'; text?: string; base64?: string; mimeType?: string };
         bonusBalance: number;
         workflowId: string;
+        workflow: { callCount: number; generationCount: number; deepUpdateCount: number };
       }>(
         '/api/generate',
         {
@@ -118,6 +121,14 @@ export function createMemberApiClient(options: MemberApiClientOptions) {
         method: 'POST',
         body: JSON.stringify({ bonus }),
       }),
+    upgradeAbstractQuota: (targetQuota: 100 | 500) =>
+      request<{ bonusBalance: number; abstractQuota: 100 | 500; charged: number }>(
+        '/api/member/quota',
+        {
+          method: 'POST',
+          body: JSON.stringify({ targetQuota }),
+        }
+      ),
     listAbstracts,
     saveAbstract: (body: {
       clientId: string;

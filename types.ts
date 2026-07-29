@@ -170,6 +170,12 @@ export interface AnalysisResult {
   rsna?: RSNAClassification;
 }
 
+export interface ISMRMAnalysisBundle extends AnalysisResult {
+  impact: string;
+  synopsis: string;
+  typeSuggestions: AbstractTypeSuggestion[];
+}
+
 export interface Category {
   name: string;
   type: 'main' | 'sub' | 'secondary';
@@ -182,7 +188,7 @@ export interface AbstractTypeSuggestion {
 }
 
 // New types for Model Manager Settings
-export type AIProvider = 'google' | 'openai';
+export type AIProvider = 'google' | 'openai' | 'anthropic';
 export type ConnectionStatus = 'connected' | 'disconnected' | 'error' | 'connecting';
 
 export interface SupabaseMCPConfig {
@@ -248,6 +254,9 @@ export interface Settings {
   openAIVisionModel?: string;
   openAIImageModel?: string;
   googleImageModel?: string;
+  anthropicApiKey?: string;
+  anthropicBaseUrl?: string;
+  anthropicTextModel?: string;
   databaseUrl?: string; // Legacy - will be moved to MCP config
   supabaseMCP?: SupabaseMCPConfig; // Legacy - moved to mcpConfig
   databaseEnabled?: boolean; // User preference for cloud storage
@@ -256,6 +265,8 @@ export interface Settings {
   capabilities?: CapabilitySettings;
   memberManagedTextEnabled?: boolean;
   memberManagedImageEnabled?: boolean;
+  memberManagedNanoBananaEnabled?: boolean;
+  memberManagedGptImageEnabled?: boolean;
 }
 
 // Database types

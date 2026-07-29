@@ -1,7 +1,11 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { MemberServiceError } from '../_member/memberService.js';
+import { createMemberService, MemberServiceError } from '../_member/memberService.js';
 import { prepareMemberApi, sendApiError, verifyTurnstile } from '../_member/http.js';
-import { createAdminSupabaseClient, requireAuthenticatedUser } from '../_member/supabaseServer.js';
+import {
+  createAdminSupabaseClient,
+  createScopedMemberRpcClient,
+  requireAuthenticatedUser,
+} from '../_member/supabaseServer.js';
 
 export default async function handler(request: VercelRequest, response: VercelResponse) {
   if (!prepareMemberApi(request, response))
@@ -16,9 +20,8 @@ export default async function handler(request: VercelRequest, response: VercelRe
     if (!user.email || !user.email_confirmed_at) {
       throw new MemberServiceError('verified_email_required', 403);
     }
-    const { data, error } = await admin.rpc('admin_claim_signup_bonus', { p_user_id: user.id });
-    if (error) throw error;
-    return response.status(200).json(data);
+    const member = createMemberService(createScopedMemberRpcClient(admin, user.id));
+    return response.status(200).json(await member.bootstrapVerifiedAccount());
   } catch (error) {
     return sendApiError(response, error);
   }

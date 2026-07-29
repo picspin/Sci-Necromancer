@@ -104,4 +104,25 @@ describe('managed generation transaction', () => {
     ).rejects.toMatchObject({ code: 'managed_image_too_large' });
     expect(wallet.settleTask).toHaveBeenCalledWith('task-4', false, true);
   });
+
+  it('refunds a blind review when the provider returns no valid report', async () => {
+    const wallet = {
+      reserveTask: vi.fn().mockResolvedValue({ taskId: 'task-5', bonusBalance: 4 }),
+      continueWorkflow: vi.fn(),
+      settleTask: vi.fn().mockResolvedValue({ status: 'refunded', bonusBalance: 5 }),
+    };
+    await expect(
+      runManagedGeneration(
+        {
+          idempotencyKey: 'request-5',
+          taskKind: 'blind_review',
+          provider: 'gemini-3.6-flash',
+          completeWorkflow: true,
+        },
+        wallet,
+        vi.fn().mockResolvedValue({ type: 'text', text: '{"summary":"incomplete"}' })
+      )
+    ).rejects.toMatchObject({ code: 'blind_review_invalid_model_response' });
+    expect(wallet.settleTask).toHaveBeenCalledWith('task-5', false, true);
+  });
 });

@@ -28,6 +28,7 @@ import { requireAIDisclosureAcceptance } from '@/lib/compliance/aiDisclosure';
 import { useSettings } from '@/src/composables/useSettings';
 import { useI18n } from 'vue-i18n';
 import { localizeError } from '@/lib/i18n/errorMessages';
+import { resolveImageRoute } from '@/lib/llm/capabilityRouting';
 
 // ============================================================================
 // INITIAL STATE
@@ -47,7 +48,7 @@ const createInitialSpecsState = (): ImageSpecsState => ({
 
 const createInitialState = (): ImageGenerationState => ({
   mode: 'standard',
-  imageProvider: 'byok',
+  imageProvider: 'nano-banana-pro',
   imageFile: null,
   imageBase64: null,
   uploadedImages: [], // Multi-image support
@@ -95,12 +96,40 @@ export function useImageGeneration() {
   const canUploadMore = computed(
     () => state.value.uploadedImages.length < IMAGE_UPLOAD_CONSTRAINTS.maxFiles
   );
-  const managedImageAvailable = computed(
-    () =>
+  const selectedImageRoute = computed(() => {
+    if (state.value.imageProvider === 'byok') return 'unavailable';
+    return resolveImageRoute(
+      settings.value,
+      state.value.imageProvider,
       membership.isAuthenticated.value &&
-      Boolean(settings.value.memberManagedImageEnabled) &&
-      (membership.status.value?.bonusBalance || 0) > 0
-  );
+        Boolean(membership.status.value) &&
+        (membership.status.value?.bonusBalance || 0) > 0
+    );
+  });
+  const managedImageAvailable = computed(() => selectedImageRoute.value !== 'unavailable');
+  const routeAvailable = (provider: 'nano-banana-pro' | 'gpt-image-2') =>
+    resolveImageRoute(
+      settings.value,
+      provider,
+      membership.isAuthenticated.value &&
+        Boolean(membership.status.value) &&
+        (membership.status.value?.bonusBalance || 0) > 0
+    ) !== 'unavailable';
+  const nanoBananaAvailable = computed(() => routeAvailable('nano-banana-pro'));
+  const gptImageAvailable = computed(() => routeAvailable('gpt-image-2'));
+  const managedFallbackAvailable = (provider: 'nano-banana-pro' | 'gpt-image-2') => {
+    const enabled =
+      provider === 'nano-banana-pro'
+        ? (settings.value.memberManagedNanoBananaEnabled ??
+          settings.value.memberManagedImageEnabled)
+        : settings.value.memberManagedGptImageEnabled;
+    return Boolean(
+      enabled &&
+      membership.isAuthenticated.value &&
+      membership.status.value &&
+      (membership.status.value.bonusBalance || 0) > 0
+    );
+  };
 
   const finalPrompt = computed(() => {
     let researchIntent = state.value.specsState.rawInput.trim();
@@ -376,11 +405,9 @@ export function useImageGeneration() {
         creativeContext = `Impact: ${abstract.abstractData.impact}\nSynopsis: ${abstract.abstractData.synopsis}`;
       }
 
-      if (state.value.imageProvider === 'byok') {
-        const result = await llm.generateImage(imageState, creativeContext);
-        state.value.generatedImage = `data:image/png;base64,${result}`;
-      } else {
-        if (!managedImageAvailable.value) throw new Error('member_generation_locked');
+      const provider =
+        state.value.imageProvider === 'byok' ? 'nano-banana-pro' : state.value.imageProvider;
+      const runManagedImage = async () => {
         if (
           state.value.uploadedImages.reduce((total, image) => total + image.base64.length, 0) >
           3_200_000
@@ -392,7 +419,7 @@ export function useImageGeneration() {
             typeof crypto.randomUUID === 'function'
               ? crypto.randomUUID()
               : `image-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-          provider: state.value.imageProvider,
+          provider,
           operation: 'image_generation',
           prompt: finalPrompt.value,
           images: state.value.uploadedImages.map((image) => ({
@@ -402,6 +429,22 @@ export function useImageGeneration() {
         });
         if (!output.base64) throw new Error('managed_provider_empty_output');
         state.value.generatedImage = `data:${output.mimeType || 'image/png'};base64,${output.base64}`;
+      };
+      if (selectedImageRoute.value === 'byok') {
+        try {
+          const result = await llm.generateImageForProvider(provider, imageState, creativeContext);
+          state.value.generatedImage = `data:image/png;base64,${result}`;
+        } catch (byokError) {
+          if (
+            !managedFallbackAvailable(provider) ||
+            !window.confirm(t('image_generation.confirm_managed_fallback'))
+          )
+            throw byokError;
+          await runManagedImage();
+        }
+      } else {
+        if (selectedImageRoute.value !== 'managed') throw new Error('member_generation_locked');
+        await runManagedImage();
       }
     } catch (err) {
       state.value.error = localizeError(err, t, 'errors.generation_failed');
@@ -484,6 +527,9 @@ export function useImageGeneration() {
     uploadedImagesCount,
     canUploadMore,
     managedImageAvailable,
+    selectedImageRoute,
+    nanoBananaAvailable,
+    gptImageAvailable,
 
     // Constants
     imageConstraints: IMAGE_UPLOAD_CONSTRAINTS,

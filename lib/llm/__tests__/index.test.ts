@@ -2,20 +2,35 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import type { Settings } from '@/types';
 import { acceptAIDisclosure } from '@/lib/compliance/aiDisclosure';
 
-const { generateContentMock } = vi.hoisted(() => ({ generateContentMock: vi.fn() }));
+const { generateContentMock, generateManagedTextMock, canUseManagedTextMock } = vi.hoisted(() => ({
+  generateContentMock: vi.fn(),
+  generateManagedTextMock: vi.fn(),
+  canUseManagedTextMock: vi.fn(),
+}));
 vi.mock('@google/genai', () => ({
   GoogleGenAI: class {
     models = { generateContent: generateContentMock };
   },
 }));
+vi.mock('@/src/composables/useMembership', () => ({
+  canUseManagedText: canUseManagedTextMock,
+  generateManagedText: generateManagedTextMock,
+}));
 
 describe('LLM Index - Provider Selection', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.unstubAllGlobals();
     localStorage.clear();
     acceptAIDisclosure();
+    canUseManagedTextMock.mockReturnValue(true);
     generateContentMock.mockResolvedValue({
       text: JSON.stringify({ categories: [], keywords: [] }),
+    });
+    generateManagedTextMock.mockResolvedValue({
+      text: JSON.stringify({ categories: [], keywords: [] }),
+      workflowId: '11111111-1111-4111-8111-111111111111',
+      workflow: { callCount: 1, generationCount: 0, deepUpdateCount: 0 },
     });
   });
 
@@ -50,6 +65,79 @@ describe('LLM Index - Provider Selection', () => {
       }),
     });
     await expect(analyzeContent('test')).resolves.toBeDefined();
+  });
+
+  it('requires both a key and text model before selecting BYOK', async () => {
+    localStorage.setItem(
+      'app-settings',
+      JSON.stringify({
+        provider: 'google',
+        googleApiKey: 'key-without-a-model',
+        memberManagedTextEnabled: true,
+      })
+    );
+    const { analyzeContent } = await import('@/lib/llm/index');
+
+    await expect(analyzeContent('test')).resolves.toEqual({ categories: [], keywords: [] });
+    expect(generateContentMock).not.toHaveBeenCalled();
+    expect(generateManagedTextMock).toHaveBeenCalledOnce();
+  });
+
+  it('does not let an incomplete OpenAI BYOK configuration recover its stored key', async () => {
+    localStorage.setItem(
+      'app-settings',
+      JSON.stringify({
+        provider: 'openai',
+        openAIApiKey: 'key-without-a-model',
+        memberManagedTextEnabled: true,
+      })
+    );
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+    const { analyzeContent } = await import('@/lib/llm/index');
+
+    await expect(analyzeContent('test')).resolves.toEqual({ categories: [], keywords: [] });
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(generateManagedTextMock).toHaveBeenCalledOnce();
+  });
+
+  it.each([
+    ['google', { googleApiKey: 'key-without-a-model' }],
+    ['anthropic', { anthropicApiKey: 'key-without-a-model' }],
+  ] as const)(
+    'rejects incomplete %s BYOK when managed service is unavailable',
+    async (provider, partial) => {
+      canUseManagedTextMock.mockReturnValue(false);
+      localStorage.setItem('app-settings', JSON.stringify({ provider, ...partial }));
+      const fetchMock = vi.fn();
+      vi.stubGlobal('fetch', fetchMock);
+      const { analyzeContent } = await import('@/lib/llm/index');
+
+      await expect(analyzeContent('test')).rejects.toThrow('llm.api_key_missing');
+      expect(fetchMock).not.toHaveBeenCalled();
+      expect(generateContentMock).not.toHaveBeenCalled();
+      expect(generateManagedTextMock).not.toHaveBeenCalled();
+    }
+  );
+
+  it('uses managed fallback only after explicit confirmation when BYOK fails', async () => {
+    localStorage.setItem(
+      'app-settings',
+      JSON.stringify({
+        provider: 'openai',
+        openAIApiKey: 'broken-key',
+        openAITextModel: 'gpt-test',
+        memberManagedTextEnabled: true,
+      })
+    );
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('byok unavailable')));
+    const confirm = vi.fn().mockReturnValue(true);
+    vi.stubGlobal('confirm', confirm);
+    const { analyzeContent } = await import('@/lib/llm/index');
+
+    await expect(analyzeContent('test')).resolves.toEqual({ categories: [], keywords: [] });
+    expect(confirm).toHaveBeenCalledOnce();
+    expect(generateManagedTextMock).toHaveBeenCalledOnce();
   });
 
   it('should provide conference-specific helpers', async () => {

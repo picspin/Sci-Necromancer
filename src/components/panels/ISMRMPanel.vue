@@ -186,6 +186,7 @@
       />
       <TypeSuggestionStep v-else :suggestions="typeSuggestions" @select="handleTypeSelection" />
     </Modal>
+    <WorkflowReentryDialog ref="workflowReentryDialog" />
   </div>
 </template>
 
@@ -209,12 +210,14 @@ import { useSettings } from '@/composables/useSettings';
 import { useAbstract } from '@/composables/useAbstract';
 import { getMemeTranslation } from '@/lib/i18n';
 import { localizeError } from '@/lib/i18n/errorMessages';
+import { prepareManagedTextReentry } from '@/lib/llm/managedTextWorkflow';
 
 // Import sub-components
 import TabButton from './ISMRMPanelComponents/TabButton.vue';
 import ModeSelector from './ISMRMPanelComponents/ModeSelector.vue';
 import AnalysisStep from './ISMRMPanelComponents/AnalysisStep.vue';
 import TypeSuggestionStep from './ISMRMPanelComponents/TypeSuggestionStep.vue';
+import WorkflowReentryDialog from '@/components/membership/WorkflowReentryDialog.vue';
 
 const { t } = useI18n();
 const { settings, databaseService } = useSettings();
@@ -239,6 +242,8 @@ const selectedAbstractType = ref<AbstractType | null>(null);
 const isModalOpen = ref<boolean>(false);
 const modalStep = ref<'analysis' | 'impactSynopsis' | 'type'>('analysis');
 const generatedAbstract = ref<AbstractData | null>(null);
+const workflowReentryDialog = ref<InstanceType<typeof WorkflowReentryDialog> | null>(null);
+const generateAfterReanalysis = ref(false);
 
 const resetWorkflow = () => {
   analysisResult.value = null;
@@ -311,9 +316,10 @@ const handleAnalyze = async () => {
   resetWorkflow();
 
   try {
-    // Step 1: Analyze content
+    // One provider call returns the full analysis bundle so the paid workflow
+    // still has room for generation, one regeneration, and one deep update.
     loadingMessage.value = t('loading_messages.analyzing_content');
-    const result = await llm.analyzeContent(inputText.value);
+    const result = await llm.analyzeISMRMBundle(inputText.value);
 
     // Validate and sanitize the result
     const validatedResult = {
@@ -327,27 +333,15 @@ const handleAnalyze = async () => {
     selectedCategories.value = categories.filter((c) => c && c.probability > 0.25);
     selectedKeywords.value = keywords;
 
-    // Step 2: Generate Impact & Synopsis
-    loadingMessage.value = t('loading_messages.generating_impact_synopsis');
-    const impactSynopsisResult = await llm.generateImpactSynopsis(
-      inputText.value,
-      categories.filter((c) => c.probability > 0.25),
-      keywords
-    );
-    impact.value = impactSynopsisResult.impact;
-    synopsis.value = impactSynopsisResult.synopsis;
-
-    // Step 3: Suggest abstract types
-    loadingMessage.value = t('loading_messages.suggesting_abstract_types');
-    const suggestions = await llm.suggestAbstractType(inputText.value, categories, keywords);
-    // Ensure suggestions is an array
-    const validSuggestions = Array.isArray(suggestions) ? suggestions : [];
-    typeSuggestions.value = validSuggestions;
+    impact.value = result.impact;
+    synopsis.value = result.synopsis;
+    typeSuggestions.value = Array.isArray(result.typeSuggestions) ? result.typeSuggestions : [];
 
     // Open modal to show results
     modalStep.value = 'analysis';
     isModalOpen.value = true;
   } catch (e) {
+    generateAfterReanalysis.value = false;
     console.error('Analysis error:', e);
     error.value = localizeError(e, t, 'errors.analysis_failed');
   } finally {
@@ -371,6 +365,10 @@ const handleAnalysisConfirmation = (
 const handleTypeSelection = (type: AbstractType) => {
   selectedAbstractType.value = type;
   isModalOpen.value = false;
+  if (generateAfterReanalysis.value) {
+    generateAfterReanalysis.value = false;
+    void handleGenerateAbstract();
+  }
 };
 
 const handleGenerateAbstract = async () => {
@@ -385,6 +383,18 @@ const handleGenerateAbstract = async () => {
     error.value = t('errors.incomplete_analysis');
     return;
   }
+  if (
+    !(await prepareManagedTextReentry(
+      inputText.value,
+      'regeneration',
+      () => workflowReentryDialog.value?.open('regeneration') ?? Promise.resolve('cancel'),
+      async () => {
+        generateAfterReanalysis.value = true;
+        await handleAnalyze();
+      }
+    ))
+  )
+    return;
   isLoading.value = true;
   loadingMessage.value = t('loading_messages.generating_abstract');
   error.value = null;
@@ -470,6 +480,18 @@ const handleClear = () => {
 
 const handleDeepUpdate = async () => {
   if (!generatedAbstract.value || !selectedAbstractType.value) return;
+  if (
+    !(await prepareManagedTextReentry(
+      inputText.value,
+      'deep_update',
+      () => workflowReentryDialog.value?.open('deep_update') ?? Promise.resolve('cancel'),
+      async () => {
+        generateAfterReanalysis.value = true;
+        await handleAnalyze();
+      }
+    ))
+  )
+    return;
 
   isLoading.value = true;
   loadingMessage.value = t('loading_messages.deep_diving');
@@ -497,7 +519,8 @@ Keywords: ${generatedAbstract.value.keywords.join(', ')}`;
       selectedKeywords.value,
       impact.value,
       synopsis.value,
-      'deep_update'
+      'deep_update',
+      inputText.value
     );
 
     result.categories = selectedCategories.value;

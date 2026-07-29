@@ -9,6 +9,7 @@ import {
   AbstractType,
   AbstractTypeSuggestion,
   BlindReviewModelAssessment,
+  ISMRMAnalysisBundle,
 } from '../../types';
 import * as prompts from './prompts/ismrmPrompts';
 import {
@@ -156,12 +157,19 @@ const finalAbstractSchema = {
   required: ['abstract', 'impact', 'synopsis', 'keywords'],
 };
 
-async function callGeminiAPI<T>(prompt: string, _schema: object, apiKey?: string): Promise<T> {
+async function callGeminiAPI<T>(
+  prompt: string,
+  _schema: object,
+  apiKey?: string,
+  options: { highThinking?: boolean } = {}
+): Promise<T> {
   try {
     const client = getAIClient(apiKey);
+    const savedSettings = JSON.parse(localStorage.getItem('app-settings') || '{}');
     const response = await client.models.generateContent({
-      model: 'gemini-2.5-pro',
+      model: savedSettings.model || 'gemini-2.5-pro',
       contents: prompt,
+      ...(options.highThinking ? { config: { thinkingConfig: { thinkingLevel: 'HIGH' } } } : {}),
     });
 
     const jsonString =
@@ -188,6 +196,26 @@ async function callGeminiAPI<T>(prompt: string, _schema: object, apiKey?: string
     throw new Error('Failed to get a valid response from the AI model.');
   }
 }
+
+export const analyzeISMRMBundle = async (
+  text: string,
+  apiKey?: string
+): Promise<ISMRMAnalysisBundle> => {
+  const [analysis, impactSynopsis, typeSuggestion] = await Promise.all([
+    prompts.getAnalysisPrompt(text),
+    prompts.getImpactSynopsisPrompt(text, [], []),
+    prompts.getAbstractTypeSuggestionPrompt(text, [], []),
+  ]);
+  const prompt = `${analysis}\n\n${impactSynopsis}\n\n${typeSuggestion}\n\nReturn one JSON object with exactly these top-level fields: categories, keywords, impact, synopsis, typeSuggestions. typeSuggestions must be an array.`;
+  const result = await callGeminiAPI<any>(prompt, {}, apiKey);
+  return {
+    categories: Array.isArray(result?.categories) ? result.categories : [],
+    keywords: Array.isArray(result?.keywords) ? result.keywords : [],
+    impact: typeof result?.impact === 'string' ? result.impact : '',
+    synopsis: typeof result?.synopsis === 'string' ? result.synopsis : '',
+    typeSuggestions: Array.isArray(result?.typeSuggestions) ? result.typeSuggestions : [],
+  };
+};
 
 export const analyzeContent = async (text: string, _apiKey?: string): Promise<AnalysisResult> => {
   const prompt = await prompts.getAnalysisPrompt(text);
@@ -240,7 +268,8 @@ export const generateFinalAbstract = async (
   keywords: string[],
   impact: string,
   synopsis: string,
-  _apiKey?: string
+  _apiKey?: string,
+  managedOperation: 'generation' | 'deep_update' = 'generation'
 ): Promise<AbstractData> => {
   const prompt = await prompts.getFinalAbstractPrompt(
     text,
@@ -250,7 +279,9 @@ export const generateFinalAbstract = async (
     impact,
     synopsis
   );
-  return await callGeminiAPI<AbstractData>(prompt, finalAbstractSchema);
+  return await callGeminiAPI<AbstractData>(prompt, finalAbstractSchema, _apiKey, {
+    highThinking: managedOperation === 'deep_update',
+  });
 };
 
 export const generateCreativeAbstract = async (
@@ -277,11 +308,15 @@ export const analyzeRSNAContent = async (
 
 export const generateRSNAAbstract = async (
   input: RSNAPromptInput,
-  apiKey?: string
+  apiKey?: string,
+  managedOperation: 'generation' | 'deep_update' = 'generation',
+  _workflowContext?: string
 ): Promise<AbstractData> => {
   const prompt =
     input.mode === 'creative' ? getRSNACreativePrompt(input) : getRSNAGenerationPrompt(input);
-  const raw = await callGeminiAPI<AbstractData>(prompt, finalAbstractSchema, apiKey);
+  const raw = await callGeminiAPI<AbstractData>(prompt, finalAbstractSchema, apiKey, {
+    highThinking: managedOperation === 'deep_update',
+  });
   let draft: AbstractData = {
     title: raw.title ?? '',
     impact: raw.impact ?? '',
