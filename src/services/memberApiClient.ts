@@ -38,6 +38,7 @@ export interface ManagedCapabilityDescriptor {
 interface MemberApiClientOptions {
   baseUrl: string;
   getAccessToken: () => Promise<string | null>;
+  refreshAccessToken?: () => Promise<string | null>;
   fetcher?: typeof fetch;
 }
 
@@ -50,17 +51,24 @@ export function createMemberApiClient(options: MemberApiClientOptions) {
     init: RequestInit = {},
     extraHeaders: Record<string, string> = {}
   ): Promise<T> {
+    const performRequest = (token: string) =>
+      fetcher(`${baseUrl}${path}`, {
+        ...init,
+        headers: {
+          Authorization: `Bearer ${token}`,
+          ...(init.body ? { 'Content-Type': 'application/json' } : {}),
+          ...extraHeaders,
+          ...(init.headers || {}),
+        },
+      });
+
     const token = await options.getAccessToken();
     if (!token) throw new MemberApiError('unauthenticated', 401);
-    const response = await fetcher(`${baseUrl}${path}`, {
-      ...init,
-      headers: {
-        Authorization: `Bearer ${token}`,
-        ...(init.body ? { 'Content-Type': 'application/json' } : {}),
-        ...extraHeaders,
-        ...(init.headers || {}),
-      },
-    });
+    let response = await performRequest(token);
+    if (response.status === 401 && options.refreshAccessToken) {
+      const refreshedToken = await options.refreshAccessToken();
+      if (refreshedToken) response = await performRequest(refreshedToken);
+    }
     if (!response.ok) {
       const payload = (await response.json().catch(() => ({}))) as { error?: string };
       throw new MemberApiError(payload.error || 'member_api_error', response.status);

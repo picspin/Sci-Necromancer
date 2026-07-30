@@ -32,6 +32,7 @@ import { useSettings } from '@/src/composables/useSettings';
 import { useI18n } from 'vue-i18n';
 import { localizeError } from '@/lib/i18n/errorMessages';
 import { hasImageByok } from '@/lib/llm/capabilityRouting';
+import { getImageModelCapabilities } from '@/src/services/imageModelCapabilities';
 
 // ============================================================================
 // INITIAL STATE
@@ -114,6 +115,12 @@ export function useImageGeneration() {
   const openAIByokModelId = computed(() =>
     openAIByokAvailable.value ? settings.value.openAIImageModel?.trim() || null : null
   );
+  const googleByokSupportsEditing = computed(
+    () => getImageModelCapabilities('google', googleByokModelId.value).editing
+  );
+  const openAIByokSupportsEditing = computed(
+    () => getImageModelCapabilities('openai', openAIByokModelId.value).editing
+  );
   const nanoBananaAvailable = computed(() =>
     Boolean(
       hasManagedBalance.value &&
@@ -123,7 +130,14 @@ export function useImageGeneration() {
   const gptImageAvailable = computed(() =>
     Boolean(hasManagedBalance.value && settings.value.memberManagedGptImageEnabled)
   );
+  const providerSupportsCurrentMode = (provider: ImageGenerationProvider): boolean => {
+    if (state.value.mode === 'text-to-image') return true;
+    if (provider === 'google-byok') return googleByokSupportsEditing.value;
+    if (provider === 'openai-byok') return openAIByokSupportsEditing.value;
+    return provider === 'gpt-image-2';
+  };
   const selectedImageRoute = computed<'byok' | 'managed' | 'unavailable'>(() => {
+    if (!providerSupportsCurrentMode(state.value.imageProvider)) return 'unavailable';
     if (state.value.imageProvider === 'google-byok') {
       return googleByokAvailable.value ? 'byok' : 'unavailable';
     }
@@ -601,6 +615,9 @@ export function useImageGeneration() {
     openAIByokAvailable,
     googleByokModelId,
     openAIByokModelId,
+    googleByokSupportsEditing,
+    openAIByokSupportsEditing,
+    providerSupportsCurrentMode,
     nanoBananaAvailable,
     gptImageAvailable,
 

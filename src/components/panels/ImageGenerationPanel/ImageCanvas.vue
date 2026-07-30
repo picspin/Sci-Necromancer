@@ -101,14 +101,11 @@
       </div>
 
       <!-- Loading state -->
-      <div v-else-if="isLoading" class="text-center p-8">
-        <div
-          class="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-primary mx-auto mb-4"
-        ></div>
-        <p class="text-text-secondary">
-          {{ loadingMessage || t('image_generation.loading_generating') }}
-        </p>
-      </div>
+      <LoadingSpinner
+        v-else-if="isLoading"
+        class="p-8"
+        :message="loadingMessage || t('image_generation.loading_generating')"
+      />
 
       <!-- Image display -->
       <div v-else class="p-4">
@@ -156,6 +153,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
+import LoadingSpinner from '@/components/ui/LoadingSpinner.vue';
 
 const { t } = useI18n();
 

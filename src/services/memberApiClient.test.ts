@@ -105,6 +105,48 @@ describe('member API client', () => {
     await expect(client.getStatus()).rejects.toEqual(new MemberApiError('unauthenticated', 401));
   });
 
+  it('refreshes an expired session once and retries member status without losing server state', async () => {
+    const fetcher = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ error: 'unauthenticated' }), {
+          status: 401,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            bonusBalance: 7,
+            checkedInToday: true,
+            checkinCycle: 2,
+            lastSeenAt: '2026-07-30T00:00:00Z',
+            signupBonusClaimed: true,
+            abstractCount: 0,
+            abstractQuota: 30,
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } }
+        )
+      );
+    const refreshAccessToken = vi.fn().mockResolvedValue('fresh-member-jwt');
+    const client = createMemberApiClient({
+      baseUrl: 'https://api.example.test',
+      getAccessToken: async () => 'expired-member-jwt',
+      refreshAccessToken,
+      fetcher,
+    });
+
+    await expect(client.getStatus()).resolves.toMatchObject({ bonusBalance: 7 });
+    expect(refreshAccessToken).toHaveBeenCalledOnce();
+    expect(fetcher).toHaveBeenNthCalledWith(
+      2,
+      'https://api.example.test/api/member/status',
+      expect.objectContaining({
+        headers: expect.objectContaining({ Authorization: 'Bearer fresh-member-jwt' }),
+      })
+    );
+  });
+
   it('sends the expected cloud version for compare-and-swap updates', async () => {
     const fetcher = vi.fn().mockResolvedValue(
       new Response(JSON.stringify({ id: 'cloud-1', updated_at: '2026-07-28T01:00:00Z' }), {

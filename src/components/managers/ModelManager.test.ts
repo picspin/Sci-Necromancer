@@ -74,7 +74,12 @@ describe('ModelManager blind-review settings', () => {
     expect((screen.getByLabelText('GPT-Image - Image') as HTMLInputElement).disabled).toBe(true);
     expect(screen.getByRole('button', { name: 'Become a member' })).toBeTruthy();
     expect(screen.getByText(/5 credits/)).toBeTruthy();
-    expect(screen.getByText(/30 abstracts/)).toBeTruthy();
+    expect(screen.getByText(/30 cloud abstracts/)).toBeTruthy();
+    expect(screen.getByRole('columnheader', { name: 'Non-member' })).toBeTruthy();
+    expect(screen.getByRole('columnheader', { name: 'Member' })).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'GitHub Repository' }).getAttribute('href')).toBe(
+      'https://github.com/picspin/sci-necromancer'
+    );
     expect(screen.queryByLabelText('Supabase cloud save')).toBeNull();
   });
 

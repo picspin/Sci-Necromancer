@@ -245,6 +245,8 @@ const {
   gptImageAvailable,
   googleByokModelId,
   openAIByokModelId,
+  googleByokSupportsEditing,
+  openAIByokSupportsEditing,
   imageConstraints,
   setMode,
   setImageProvider,
@@ -277,22 +279,30 @@ const imageProviderOptions = computed<FloatingSelectOption[]>(() => [
     label: googleByokModelId.value
       ? `Google · ${googleByokModelId.value}`
       : `Google · ${t('image_generation.image_model_pending')}`,
-    disabled: !googleByokAvailable.value,
+    disabled:
+      !googleByokAvailable.value ||
+      (state.value.mode === 'standard' && !googleByokSupportsEditing.value),
   },
   {
     value: 'openai-byok',
     label: openAIByokModelId.value
       ? `OpenAI · ${openAIByokModelId.value}`
       : `OpenAI · ${t('image_generation.image_model_pending')}`,
-    disabled: !openAIByokAvailable.value,
+    disabled:
+      !openAIByokAvailable.value ||
+      (state.value.mode === 'standard' && !openAIByokSupportsEditing.value),
   },
   {
     value: 'nano-banana-pro',
     label:
       '🍌 Nanobanana pro · ' +
       t('image_generation.member_provider') +
-      (nanoBananaAvailable.value ? '' : ' 🔒'),
-    disabled: !nanoBananaAvailable.value,
+      (state.value.mode === 'standard'
+        ? ` · ${t('image_generation.generation_only')}`
+        : nanoBananaAvailable.value
+          ? ''
+          : ' 🔒'),
+    disabled: !nanoBananaAvailable.value || state.value.mode === 'standard',
   },
   {
     value: 'gpt-image-2',

@@ -69,6 +69,22 @@
     </template>
 
     <template v-else>
+      <div
+        v-if="!status && membershipError"
+        class="flex items-center justify-between gap-3 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-100"
+        role="alert"
+      >
+        <span>{{ t('membership.status_unavailable') }}</span>
+        <button
+          type="button"
+          class="shrink-0 rounded-md border border-amber-400/50 px-3 py-1.5 font-semibold hover:bg-amber-400/10"
+          :disabled="isStatusLoading"
+          @click="run(refreshStatus)"
+        >
+          {{ isStatusLoading ? t('common.loading') : t('common.retry') }}
+        </button>
+      </div>
+
       <section class="rounded-lg bg-base-100 p-4">
         <div class="flex items-center gap-3">
           <img
@@ -226,18 +242,20 @@
       </button>
     </template>
 
+    <GitHubRepoLink class="mx-auto text-xs" />
     <p v-if="notice" role="status" class="text-sm text-emerald-400">{{ notice }}</p>
     <p v-if="localError" role="alert" class="text-sm text-red-400">{{ localError }}</p>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useMembership } from '@/composables/useMembership';
 import TurnstileChallenge from './TurnstileChallenge.vue';
 import { localizeError } from '@/lib/i18n/errorMessages';
 import JumpingInput from '@/components/ui/JumpingInput.vue';
+import GitHubRepoLink from '@/components/ui/GitHubRepoLink.vue';
 
 type AuthMode = 'login' | 'register' | 'reset';
 const { t } = useI18n();
@@ -247,9 +265,12 @@ const {
   turnstileSiteKey,
   isAuthenticated,
   isLoading,
+  isStatusLoading,
   passwordRecovery,
   user,
   status,
+  error: membershipError,
+  refreshStatus,
   signInWithGitHub,
   signInWithEmail,
   signUpWithEmail,
@@ -303,6 +324,21 @@ watch(
   },
   { immediate: true }
 );
+
+const refreshOnFocus = () => {
+  if (isAuthenticated.value) void refreshStatus();
+};
+
+onMounted(() => {
+  refreshOnFocus();
+  window.addEventListener('focus', refreshOnFocus);
+});
+
+onBeforeUnmount(() => window.removeEventListener('focus', refreshOnFocus));
+
+watch(isAuthenticated, (authenticated) => {
+  if (authenticated) void refreshStatus();
+});
 
 async function run(action: () => Promise<unknown>) {
   try {

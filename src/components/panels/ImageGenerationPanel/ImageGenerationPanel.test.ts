@@ -12,6 +12,8 @@ const { generateImage, setImageProvider, panelState, providerState } = vi.hoiste
     openAIAvailable: true,
     googleModelId: 'gemini-3-pro-image' as string | null,
     openAIModelId: 'seedream-1.5' as string | null,
+    googleSupportsEditing: true,
+    openAISupportsEditing: true,
   },
   panelState: {
     mode: 'standard',
@@ -56,6 +58,9 @@ vi.mock('@/composables/useImageGeneration', async () => {
       gptImageAvailable: computed(() => false),
       googleByokModelId: computed(() => providerState.googleModelId),
       openAIByokModelId: computed(() => providerState.openAIModelId),
+      googleByokSupportsEditing: computed(() => providerState.googleSupportsEditing),
+      openAIByokSupportsEditing: computed(() => providerState.openAISupportsEditing),
+      providerSupportsCurrentMode: vi.fn(() => true),
       setMode: vi.fn(),
       setImageProvider,
       uploadImages: vi.fn(),
@@ -139,5 +144,31 @@ describe('ImageGenerationPanel provider controls', () => {
     providerState.openAIAvailable = true;
     providerState.googleModelId = 'gemini-3-pro-image';
     providerState.openAIModelId = 'seedream-1.5';
+  });
+
+  it('disables generation-only providers in image-to-image mode', () => {
+    providerState.googleSupportsEditing = false;
+    panelState.mode = 'standard';
+
+    render(ImageGenerationPanel, {
+      global: {
+        plugins: [i18n],
+        stubs: {
+          TemplateButtons: true,
+          ImageSpecsForm: true,
+          StackedImagePreview: true,
+          ImageCanvas: true,
+          AbstractSelector: true,
+        },
+      },
+    });
+
+    expect(
+      (screen.getByRole('option', { name: 'Google · gemini-3-pro-image' }) as HTMLOptionElement)
+        .disabled
+    ).toBe(true);
+    expect(screen.getByRole('option', { name: /Nanobanana pro.*text-to-image only/ })).toBeTruthy();
+
+    providerState.googleSupportsEditing = true;
   });
 });

@@ -24,13 +24,24 @@ const session = ref<Session | null>(null);
 const memberStatus = ref<MemberStatus | null>(null);
 const initialized = ref(false);
 const isLoading = ref(false);
+const isStatusLoading = ref(false);
 const error = ref<string | null>(null);
 const passwordRecovery = ref(false);
 let initializePromise: Promise<void> | null = null;
+let statusRefreshPromise: Promise<void> | null = null;
+
+async function refreshAccessToken(): Promise<string | null> {
+  if (!supabase) return null;
+  const { data, error: refreshError } = await supabase.auth.refreshSession();
+  if (refreshError || !data.session) return null;
+  session.value = data.session;
+  return data.session.access_token;
+}
 
 const api = createMemberApiClient({
   baseUrl: apiBaseUrl,
   getAccessToken: async () => session.value?.access_token || null,
+  refreshAccessToken,
 });
 
 async function refreshStatus(): Promise<void> {
@@ -38,12 +49,20 @@ async function refreshStatus(): Promise<void> {
     memberStatus.value = null;
     return;
   }
-  try {
-    memberStatus.value = await api.getStatus();
-    error.value = null;
-  } catch (requestError) {
-    error.value = requestError instanceof Error ? requestError.message : 'member_api_error';
-  }
+  if (statusRefreshPromise) return statusRefreshPromise;
+  statusRefreshPromise = (async () => {
+    isStatusLoading.value = true;
+    try {
+      memberStatus.value = await api.getStatus();
+      error.value = null;
+    } catch (requestError) {
+      error.value = requestError instanceof Error ? requestError.message : 'member_api_error';
+    } finally {
+      isStatusLoading.value = false;
+      statusRefreshPromise = null;
+    }
+  })();
+  return statusRefreshPromise;
 }
 
 function readManagedTextPreference(): boolean {
@@ -126,14 +145,14 @@ export function useMembership() {
         initialized.value = true;
         return;
       }
-      const { data } = await supabase.auth.getSession();
-      session.value = data.session;
-      await refreshStatus();
       supabase.auth.onAuthStateChange((event, nextSession) => {
         session.value = nextSession;
         passwordRecovery.value = event === 'PASSWORD_RECOVERY';
-        void refreshStatus();
+        window.setTimeout(() => void refreshStatus(), 0);
       });
+      const { data } = await supabase.auth.getSession();
+      session.value = data.session;
+      await refreshStatus();
       initialized.value = true;
     })();
     return initializePromise;
@@ -260,6 +279,7 @@ export function useMembership() {
     turnstileSiteKey: import.meta.env.VITE_TURNSTILE_SITE_KEY?.trim() || '',
     initialized: computed(() => initialized.value),
     isLoading: computed(() => isLoading.value),
+    isStatusLoading: computed(() => isStatusLoading.value),
     isAuthenticated: computed(() => Boolean(session.value)),
     passwordRecovery: computed(() => passwordRecovery.value),
     user: computed<User | null>(() => session.value?.user || null),

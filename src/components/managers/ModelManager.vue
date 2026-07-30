@@ -188,19 +188,40 @@
           <h3 class="font-semibold text-text-primary">
             {{ t('model_manager.member_benefits_title') }}
           </h3>
-          <p class="mt-1 text-xs">{{ t('model_manager.member_benefits_summary') }}</p>
-          <ul class="mt-3 grid gap-1 text-xs sm:grid-cols-3">
-            <li>• {{ t('model_manager.member_rule_signup') }}</li>
-            <li>• {{ t('model_manager.member_rule_checkin') }}</li>
-            <li>• {{ t('model_manager.member_rule_storage') }}</li>
-          </ul>
+          <p class="mt-1 text-sm">{{ t('model_manager.member_benefits_summary') }}</p>
+          <div class="mt-4 overflow-x-auto rounded-lg border border-base-300">
+            <table class="w-full min-w-[34rem] border-collapse text-left text-xs">
+              <thead class="bg-base-200 text-text-primary">
+                <tr>
+                  <th scope="col" class="px-3 py-2 font-semibold">
+                    {{ t('model_manager.benefit_feature') }}
+                  </th>
+                  <th scope="col" class="px-3 py-2 font-semibold">
+                    {{ t('model_manager.benefit_visitor') }}
+                  </th>
+                  <th scope="col" class="px-3 py-2 font-semibold">
+                    {{ t('model_manager.benefit_member') }}
+                  </th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-base-300">
+                <tr v-for="benefit in memberBenefits" :key="benefit.feature">
+                  <th scope="row" class="px-3 py-2 font-medium text-text-primary">
+                    {{ t(benefit.feature) }}
+                  </th>
+                  <td class="px-3 py-2">{{ t(benefit.visitor) }}</td>
+                  <td class="px-3 py-2 text-text-primary">{{ t(benefit.member) }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
           <button
             v-if="!isAuthenticated"
             type="button"
-            class="mt-3 text-sm font-semibold text-brand-primary underline-offset-4 hover:underline"
+            class="rainbow-member-cta mt-4"
             @click="openMemberAccount"
           >
-            {{ t('model_manager.become_member') }}
+            <span>{{ t('model_manager.become_member') }}</span>
           </button>
           <div v-else class="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-xs text-text-primary">
             <span>{{ memberStatus?.bonusBalance ?? 0 }} {{ t('membership.credit_unit') }}</span>
@@ -213,46 +234,66 @@
               {{ t('model_manager.view_account') }}
             </button>
           </div>
+          <GitHubRepoLink class="mt-4 text-xs" />
         </div>
-        <label class="setting-row">
-          <span>
-            <strong>GLM-5.2 - Text</strong>
-            <small>{{ t('model_manager.member_model_text_help') }}</small>
-          </span>
-          <input
-            v-model="localSettings.memberManagedTextEnabled"
-            type="checkbox"
-            :disabled="!isAuthenticated"
-            aria-label="GLM-5.2 - Text"
-            class="setting-checkbox"
-          />
-        </label>
-        <label class="setting-row">
-          <span>
-            <strong>🍌 Nanobanana pro - Image</strong>
-            <small>{{ t('model_manager.member_model_image_help') }}</small>
-          </span>
-          <input
-            v-model="localSettings.memberManagedNanoBananaEnabled"
-            type="checkbox"
-            :disabled="!isAuthenticated"
-            aria-label="Nanobanana pro - Image"
-            class="setting-checkbox"
-          />
-        </label>
-        <label class="setting-row">
-          <span>
-            <strong>GPT-Image - Image</strong>
-            <small>{{ t('model_manager.member_model_image_help') }}</small>
-          </span>
-          <input
-            v-model="localSettings.memberManagedGptImageEnabled"
-            type="checkbox"
-            :disabled="!isAuthenticated"
-            aria-label="GPT-Image - Image"
-            class="setting-checkbox"
-          />
-        </label>
+        <fieldset class="rounded-lg border border-base-300 bg-base-100 p-4">
+          <legend class="px-2 text-sm font-semibold text-text-primary">
+            {{ t('model_manager.member_models_title') }}
+          </legend>
+          <div class="grid gap-3 lg:grid-cols-3">
+            <label
+              class="flex min-w-0 items-center justify-between gap-3 rounded-lg border border-base-300 bg-base-200 p-3 text-sm text-text-primary"
+            >
+              <span class="flex min-w-0 flex-col">
+                <strong>GLM-5.2 - Text</strong>
+                <small class="mt-1 text-xs font-normal leading-relaxed text-text-secondary">{{
+                  t('model_manager.member_model_text_help')
+                }}</small>
+              </span>
+              <input
+                v-model="localSettings.memberManagedTextEnabled"
+                type="checkbox"
+                :disabled="!isAuthenticated"
+                aria-label="GLM-5.2 - Text"
+                class="h-4 w-4 shrink-0 accent-brand-primary"
+              />
+            </label>
+            <label
+              class="flex min-w-0 items-center justify-between gap-3 rounded-lg border border-base-300 bg-base-200 p-3 text-sm text-text-primary"
+            >
+              <span class="flex min-w-0 flex-col">
+                <strong>🍌 Nanobanana pro - Image</strong>
+                <small class="mt-1 text-xs font-normal leading-relaxed text-text-secondary">{{
+                  t('model_manager.member_model_generation_help')
+                }}</small>
+              </span>
+              <input
+                v-model="localSettings.memberManagedNanoBananaEnabled"
+                type="checkbox"
+                :disabled="!isAuthenticated"
+                aria-label="Nanobanana pro - Image"
+                class="h-4 w-4 shrink-0 accent-brand-primary"
+              />
+            </label>
+            <label
+              class="flex min-w-0 items-center justify-between gap-3 rounded-lg border border-base-300 bg-base-200 p-3 text-sm text-text-primary"
+            >
+              <span class="flex min-w-0 flex-col">
+                <strong>GPT-Image - Image</strong>
+                <small class="mt-1 text-xs font-normal leading-relaxed text-text-secondary">{{
+                  t('model_manager.member_model_editing_help')
+                }}</small>
+              </span>
+              <input
+                v-model="localSettings.memberManagedGptImageEnabled"
+                type="checkbox"
+                :disabled="!isAuthenticated"
+                aria-label="GPT-Image - Image"
+                class="h-4 w-4 shrink-0 accent-brand-primary"
+              />
+            </label>
+          </div>
+        </fieldset>
       </section>
 
       <section v-else class="space-y-4">
@@ -456,6 +497,7 @@ import { useI18n } from 'vue-i18n';
 import Modal from '@/components/ui/Modal.vue';
 import FloatingSelect, { type FloatingSelectOption } from '@/components/ui/FloatingSelect.vue';
 import JumpingInput from '@/components/ui/JumpingInput.vue';
+import GitHubRepoLink from '@/components/ui/GitHubRepoLink.vue';
 import { useSettings } from '@/composables/useSettings';
 import { useMembership } from '@/composables/useMembership';
 import type { AIProvider, ExternalReviewer, Settings } from '@/types';
@@ -482,6 +524,33 @@ const panels: Array<{ id: ConfigPanel; label: string }> = [
   { id: 'personal-api', label: 'model_manager.personal_api_tab' },
   { id: 'skills-mcp', label: 'model_manager.mcp_tab' },
 ];
+const memberBenefits = [
+  {
+    feature: 'model_manager.benefit_managed_models',
+    visitor: 'model_manager.benefit_no',
+    member: 'model_manager.benefit_yes_models',
+  },
+  {
+    feature: 'model_manager.benefit_signup',
+    visitor: 'model_manager.benefit_no',
+    member: 'model_manager.benefit_yes_signup',
+  },
+  {
+    feature: 'model_manager.benefit_checkin',
+    visitor: 'model_manager.benefit_no',
+    member: 'model_manager.benefit_yes_checkin',
+  },
+  {
+    feature: 'model_manager.benefit_cloud',
+    visitor: 'model_manager.benefit_local_only',
+    member: 'model_manager.benefit_yes_cloud',
+  },
+  {
+    feature: 'model_manager.benefit_byok',
+    visitor: 'model_manager.benefit_yes_byok',
+    member: 'model_manager.benefit_yes_byok',
+  },
+] as const;
 const providerOptions: Array<{ id: AIProvider; label: string }> = [
   { id: 'google', label: 'model_manager.google_ai' },
   { id: 'openai', label: 'model_manager.openai_compatible' },
@@ -683,6 +752,49 @@ function handleSave() {
 }
 .setting-checkbox {
   @apply h-4 w-4 shrink-0 accent-brand-primary;
+}
+.rainbow-member-cta {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border-radius: 0.5rem;
+  padding: 0.625rem 1rem;
+  color: white;
+  font-size: 0.875rem;
+  font-weight: 700;
+  background: #0f172a;
+}
+.rainbow-member-cta::before {
+  position: absolute;
+  inset: -2px;
+  z-index: -2;
+  content: '';
+  background: linear-gradient(90deg, #4a959f, #567a87, #b4c3d7, #936358, #4a959f);
+  background-size: 300% 100%;
+  animation: member-rainbow 3s linear infinite;
+}
+.rainbow-member-cta::after {
+  position: absolute;
+  inset: 2px;
+  z-index: -1;
+  border-radius: 0.375rem;
+  content: '';
+  background: #0f172a;
+  transition: opacity 180ms ease;
+}
+.rainbow-member-cta:hover::after,
+.rainbow-member-cta:focus-visible::after {
+  opacity: 0.82;
+}
+@keyframes member-rainbow {
+  to {
+    background-position: 300% 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rainbow-member-cta::before {
+    animation: none;
+  }
 }
 .manual-model-link {
   margin-top: 0.375rem;

@@ -45,15 +45,10 @@
           </button>
 
           <!-- GitHub Link -->
-          <a
-            href="https://github.com/yourusername/sci-evil"
-            target="_blank"
-            rel="noopener noreferrer"
+          <GitHubRepoLink
+            :show-label="false"
             class="flex items-center gap-2 px-4 py-2 bg-base-300 text-text-secondary hover:text-text-primary rounded-lg hover:bg-base-300/80 transition-colors"
-            :title="t('tooltips.github_repo')"
-          >
-            <SvgIcon type="github" class="h-5 w-5" />
-          </a>
+          />
 
           <!-- Language Selector -->
           <LanguageSelector />
@@ -126,6 +121,7 @@ import NotificationDisplay from '@/components/ui/NotificationDisplay.vue';
 import SvgIcon from '@/components/ui/SvgIcon.vue';
 import LanguageSelector from '@/components/LanguageSelector.vue';
 import AIDisclosure from '@/components/ui/AIDisclosure.vue';
+import GitHubRepoLink from '@/components/ui/GitHubRepoLink.vue';
 import MemberPanel from '@/components/membership/MemberPanel.vue';
 import { useMembership } from '@/composables/useMembership';
 
