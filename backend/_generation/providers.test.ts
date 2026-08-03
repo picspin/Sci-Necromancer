@@ -79,8 +79,9 @@ describe('managed MGA capability routing', () => {
     );
     const request = fetchMock.mock.calls[0][1] as RequestInit;
     expect(request.headers).toEqual(
-      expect.objectContaining({ 'x-baychatgpt-accesstoken': 'mga-test-key' })
+      expect.objectContaining({ Authorization: 'Bearer mga-test-key' })
     );
+    expect(request.headers).not.toHaveProperty('x-baychatgpt-accesstoken');
     expect(JSON.parse(String(request.body))).toMatchObject({
       model: 'glm-5.2',
       reasoning_effort: 'high',

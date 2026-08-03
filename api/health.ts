@@ -26,7 +26,7 @@ async function probeProviders() {
   if (mga) {
     const response = await fetch(`${mga.baseUrl}/models`, {
       signal: AbortSignal.timeout(8_000),
-      headers: { 'x-baychatgpt-accesstoken': mga.apiKey },
+      headers: { Authorization: `Bearer ${mga.apiKey}` },
     }).catch(() => null);
     result.mga = Boolean(response?.ok);
   }

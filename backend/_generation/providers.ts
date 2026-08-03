@@ -211,7 +211,7 @@ async function callMGAText(request: ProviderRequest) {
     method: 'POST',
     signal: providerTimeout(),
     headers: {
-      'x-baychatgpt-accesstoken': config.apiKey,
+      Authorization: `Bearer ${config.apiKey}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
@@ -242,7 +242,7 @@ async function callMGAImage(request: ProviderRequest) {
     method: 'POST',
     signal: providerTimeout(),
     headers: {
-      'x-baychatgpt-accesstoken': config.apiKey,
+      Authorization: `Bearer ${config.apiKey}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
@@ -273,7 +273,7 @@ export async function callMGAResearchAgent(input: {
     method: 'POST',
     signal: providerTimeout(),
     headers: {
-      'x-baychatgpt-accesstoken': config.apiKey,
+      Authorization: `Bearer ${config.apiKey}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({

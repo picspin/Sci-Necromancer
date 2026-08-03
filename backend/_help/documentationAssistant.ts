@@ -137,7 +137,7 @@ async function callMGAHelp(input: {
       method: 'POST',
       signal: controller.signal,
       headers: {
-        'x-baychatgpt-accesstoken': config.apiKey,
+        Authorization: `Bearer ${config.apiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
