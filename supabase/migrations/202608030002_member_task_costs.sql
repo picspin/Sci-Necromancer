@@ -134,8 +134,8 @@ begin
           settled_at = case when should_complete then now() else settled_at end,
           updated_at = now()
       where id = task.id returning * into task;
-  elsif task.successful_call_count < case
-          when task.task_kind = 'analysis_generation' then 2 else 1 end then
+  elsif (task.task_kind = 'analysis_generation' and task.successful_call_count < 2)
+     or (task.task_kind <> 'analysis_generation' and task.successful_call_count < 1) then
     update public.managed_generation_tasks
       set status = 'refunded', in_flight = false, in_flight_operation = null,
           settled_at = now(), updated_at = now()
@@ -232,8 +232,9 @@ begin
       and updated_at < now() - interval '150 seconds'
     for update
   loop
-    if stale_task.successful_call_count < case
-         when stale_task.task_kind = 'analysis_generation' then 2 else 1 end then
+    if (stale_task.task_kind = 'analysis_generation' and stale_task.successful_call_count < 2)
+       or (stale_task.task_kind <> 'analysis_generation'
+           and stale_task.successful_call_count < 1) then
       update public.managed_generation_tasks
         set status = 'refunded', in_flight = false, in_flight_operation = null,
             settled_at = now(), updated_at = now()
