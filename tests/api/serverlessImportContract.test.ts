@@ -15,4 +15,14 @@ describe('serverless ESM import contract', () => {
       true
     );
   });
+
+  it('uses explicit JavaScript extensions for relative runtime modules', () => {
+    const relativeRuntimeImports = helpCatalogSource
+      .split('\n')
+      .filter((line) => /^import .+ from ['"]\.\.?\//.test(line))
+      .filter((line) => !/\.json['"]/.test(line));
+
+    expect(relativeRuntimeImports.length).toBeGreaterThan(0);
+    expect(relativeRuntimeImports.every((line) => /\.js['"]/.test(line))).toBe(true);
+  });
 });

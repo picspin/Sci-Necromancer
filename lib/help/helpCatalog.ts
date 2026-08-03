@@ -2,7 +2,7 @@ import enArticles from '../../docs/help/en/articles.json' with { type: 'json' };
 import zhArticles from '../../docs/help/zh/articles.json' with { type: 'json' };
 import enShortcuts from '../../docs/help/en/shortcuts.json' with { type: 'json' };
 import zhShortcuts from '../../docs/help/zh/shortcuts.json' with { type: 'json' };
-import { HELP_FACTS } from './helpFacts';
+import { HELP_FACTS } from './helpFacts.js';
 
 export type HelpLocale = 'en' | 'zh';
 export type HelpShortcutId =
