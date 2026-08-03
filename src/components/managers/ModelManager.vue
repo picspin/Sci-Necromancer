@@ -1,11 +1,12 @@
 <template>
   <Modal @close="$emit('close')" :title="t('model_manager.title')" size="lg">
     <div class="space-y-5">
-      <nav class="grid grid-cols-3 gap-2" :aria-label="t('model_manager.title')">
+      <nav class="grid grid-cols-3 gap-2" role="tablist" :aria-label="t('model_manager.title')">
         <button
           v-for="panel in panels"
           :key="panel.id"
           type="button"
+          :aria-selected="activePanel === panel.id"
           @click="activePanel = panel.id"
           :class="[
             'rounded-lg px-3 py-2 text-sm font-medium transition-colors',
@@ -518,7 +519,10 @@ const emit = defineEmits<{ close: []; openMember: [] }>();
 const { settings, saveSettings } = useSettings();
 const { isAuthenticated, status: memberStatus, memberApi } = useMembership();
 type ConfigPanel = 'personal-api' | 'member-services' | 'skills-mcp';
-const activePanel = ref<ConfigPanel>('member-services');
+const props = withDefaults(defineProps<{ initialPanel?: ConfigPanel }>(), {
+  initialPanel: 'member-services',
+});
+const activePanel = ref<ConfigPanel>(props.initialPanel);
 const panels: Array<{ id: ConfigPanel; label: string }> = [
   { id: 'member-services', label: 'model_manager.member_services_tab' },
   { id: 'personal-api', label: 'model_manager.personal_api_tab' },

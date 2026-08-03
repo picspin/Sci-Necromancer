@@ -16,7 +16,7 @@
 
 ## Overview
 
-SCI-Necromancer is an open-source academic writing assistant for medical-imaging and cardiovascular conference abstracts. It turns source material into structured ISMRM, RSNA, ECR/ER, or ESC drafts through either standard analysis or the intentionally playful **邪修 / alchemy mode**.
+SCI-Necromancer is an open-source academic writing assistant for medical-imaging, cardiovascular, and oncology conference abstracts. It turns source material into structured ISMRM, RSNA, ECR/ER, ESC, ASCO, or ESMO drafts through either standard analysis or the intentionally playful **邪修 / alchemy mode**.
 
 The application assists with analysis, wording, formatting, figures, export, and independent blind review. It does **not** prove that data, ethics approvals, patient de-identification, statistics, citations, or submission compliance are correct. Authors remain responsible for every submission.
 
@@ -30,12 +30,13 @@ Vue 3 provides the shared interface and conference slices. Deterministic confere
 
 - Guided standard workflow: source → analysis → type/category selection → generation → save/export.
 - **邪修 mode** with the shared “一键炼丹” action for idea expansion.
-- Conference-specific support for ISMRM, RSNA science/education, ECR/ER, and ESC.
+- Conference-specific support for ISMRM, RSNA science/education, ECR/ER, ESC, ASCO, and ESMO.
 - Complete English/Chinese application UI and localized errors/accessibility labels.
 - Figure generation/editing and Markdown, PDF, JSON, and image export.
 - Nine journal-style figure presets and seven explainable schematic layouts, with a user-overridable layout recommendation.
+- Public **Sci Guide**: unlimited static shortcuts plus grounded MGA documentation answers, cited sources, safe navigation, and no member-credit charge.
 - Optional member services: GitHub sign-in, five-unit signup bonus, daily check-in, managed Gemini/GPT Image generation, Stripe top-up, and explicit private Supabase saving.
-- One managed standard analysis-to-generation workflow consumes one bonus; regeneration, deep update, or a single image consumes one bonus. BYOK remains free of platform bonus charges.
+- One managed abstract, one-click creative, regeneration, deep-update, or image task consumes two credits; blind review consumes one. BYOK remains free of platform credit charges.
 - Skills & MCP capability switches, safe local JSON-manifest import, and downloadable blind-review skill.
 - Structured blind review across ethics, consent, de-identification, data integrity, methods, citations, reporting guidance, and conference rules.
 - Fail-closed external verification: unavailable evidence services never count as verified.
@@ -55,7 +56,7 @@ Open the local URL printed by Vite, then configure the provider under **Models**
 
 ## Usage
 
-1. Select ISMRM, RSNA, ECR/ER, or ESC.
+1. Select ISMRM, RSNA, ECR/ER, ESC, ASCO, or ESMO.
 2. Paste/upload source material, or switch to 邪修 mode and enter a research idea.
 3. Analyze, confirm the suggested route, and generate the abstract.
 4. Save, export, or run the independent blind review.
@@ -84,6 +85,8 @@ For privileged CiteCheck/DOI MCP review, also configure the HTTPS facade variabl
 - [ISMRM abstract submission guide](https://www.ismrm.org/26m/call/submission-guide/)
 - [ECR abstract submission](https://www.myesr.org/congress/submit/abstract-submission/)
 - [ESC abstract rules](https://www.escardio.org/events/congresses/esc-congress/call-for-science/abstracts/rules/)
+- [ASCO Annual Meeting submission requirements](https://www.asco.org/annual-meeting/abstracts-presentations/submission-details/requirements)
+- [ESMO Congress 2026 abstract regulations](https://dam.esmo.org/image/upload/v1770284726/ESMO-Congress-2026-Abstract-Regulations_ahdmjx.pdf)
 - [STARD](https://www.equator-network.org/reporting-guidelines/stard/) · [TRIPOD](https://www.tripod-statement.org/)
 
 Official rules change. Always verify the current meeting website; internal reference material is a drafting aid, not authority.

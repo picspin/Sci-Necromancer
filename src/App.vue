@@ -74,6 +74,7 @@
     <!-- Model Manager Modal -->
     <ModelManager
       v-if="showModelManager"
+      :initial-panel="modelManagerInitialPanel"
       @close="showModelManager = false"
       @open-member="openMemberAccount"
     />
@@ -85,20 +86,28 @@
 
     <!-- Right-bottom Help & Configuration Guide Accessory -->
     <button
+      ref="helpLauncher"
       @click="showHelp = true"
       class="fixed bottom-4 right-4 z-40 px-4 py-2 bg-brand-primary text-white rounded-full shadow-lg hover:bg-brand-secondary focus:outline-none focus:ring-3 focus:ring-brand-primary"
-      :title="t('tooltips.help_documentation')"
-      :aria-label="t('tooltips.help_documentation')"
+      :title="t('help_assistant.open')"
+      :aria-label="t('help_assistant.open')"
       type="button"
     >
       <span class="inline-flex items-center gap-2">
         <SvgIcon type="info" class="h-5 w-5" />
-        <span class="hidden sm:inline">{{ t('common.help') }}</span>
+        <span class="hidden sm:inline">{{ t('help_assistant.title') }}</span>
       </span>
     </button>
 
-    <!-- Help Documentation Modal -->
-    <HelpDocumentation v-if="showHelp" :is-open="showHelp" @close="showHelp = false" />
+    <DocumentationAssistant
+      :is-open="showHelp"
+      :authenticated="isAuthenticated"
+      :page-context="helpPageContext"
+      :turnstile-site-key="turnstileSiteKey"
+      :ask="askDocumentationAssistant"
+      @close="closeHelp"
+      @navigate="handleHelpNavigation"
+    />
 
     <!-- Footer -->
     <footer class="bg-base-200 border-t border-base-300 py-4 px-6 mt-12">
@@ -110,13 +119,13 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue';
+import { computed, nextTick, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { getMemeTranslation } from '@/lib/i18n';
 import ConferencePanel from '@/components/panels/ConferencePanel.vue';
 import AbstractManager from '@/components/managers/AbstractManager.vue';
 import ModelManager from '@/components/managers/ModelManager.vue';
-import HelpDocumentation from '@/components/ui/HelpDocumentation.vue';
+import DocumentationAssistant from '@/components/help/DocumentationAssistant.vue';
 import NotificationDisplay from '@/components/ui/NotificationDisplay.vue';
 import SvgIcon from '@/components/ui/SvgIcon.vue';
 import LanguageSelector from '@/components/LanguageSelector.vue';
@@ -124,18 +133,121 @@ import AIDisclosure from '@/components/ui/AIDisclosure.vue';
 import GitHubRepoLink from '@/components/ui/GitHubRepoLink.vue';
 import MemberPanel from '@/components/membership/MemberPanel.vue';
 import { useMembership } from '@/composables/useMembership';
+import { createHelpAssistantClient } from '@/src/services/helpAssistantClient';
+import { resolveGuidedNavigation, type HelpPageContext } from '@/lib/help/helpCatalog';
 
-const { t } = useI18n();
+const { t, locale } = useI18n();
 const showAbstractManager = ref(false);
 const showModelManager = ref(false);
 const showHelp = ref(false);
 const showMemberPanel = ref(false);
-const { initialize, isAuthenticated, status: memberStatus } = useMembership();
+const modelManagerInitialPanel = ref<'member-services' | 'personal-api' | 'skills-mcp'>(
+  'member-services'
+);
+const helpLauncher = ref<HTMLButtonElement | null>(null);
+const membership = useMembership();
+const {
+  initialize,
+  isAuthenticated,
+  status: memberStatus,
+  getAccessToken,
+  turnstileSiteKey,
+} = membership;
+const helpClient = createHelpAssistantClient({
+  baseUrl: import.meta.env.VITE_API_BASE_URL?.trim() || window.location.origin,
+  getAccessToken,
+});
+
+const helpPageContext = computed<HelpPageContext>(() => {
+  let settings: Record<string, any> = {};
+  try {
+    settings = JSON.parse(localStorage.getItem('app-settings') || '{}');
+  } catch {
+    settings = {};
+  }
+  const provider = ['google', 'openai', 'anthropic'].includes(settings.provider)
+    ? settings.provider
+    : 'google';
+  return {
+    authenticated: isAuthenticated.value,
+    provider,
+    textApiConfigured:
+      provider === 'google'
+        ? Boolean(settings.googleApiKey && settings.model)
+        : provider === 'openai'
+          ? Boolean(settings.openAIApiKey && settings.openAITextModel)
+          : Boolean(settings.anthropicApiKey && settings.anthropicTextModel),
+    imageApiConfigured:
+      provider === 'google'
+        ? Boolean(settings.googleApiKey && settings.googleImageModel)
+        : provider === 'openai'
+          ? Boolean(settings.openAIApiKey && settings.openAIImageModel)
+          : false,
+    managedTextEnabled: Boolean(settings.memberManagedTextEnabled),
+    managedImageEnabled: Boolean(
+      settings.memberManagedNanoBananaEnabled || settings.memberManagedGptImageEnabled
+    ),
+    baseUrlKind:
+      (provider === 'openai' && settings.openAIBaseUrl) ||
+      (provider === 'anthropic' && settings.anthropicBaseUrl)
+        ? 'custom'
+        : 'official',
+  };
+});
 
 onMounted(() => void initialize());
 
 function openMemberAccount() {
   showModelManager.value = false;
   showMemberPanel.value = true;
+}
+
+function askDocumentationAssistant(input: {
+  question: string;
+  signal?: AbortSignal;
+  turnstileToken?: string;
+  history?: Array<{ role: 'user' | 'assistant'; content: string }>;
+}) {
+  return helpClient.ask({
+    ...input,
+    locale: locale.value.toLowerCase().startsWith('zh') ? 'zh' : 'en',
+    context: helpPageContext.value,
+  });
+}
+
+function closeHelp() {
+  showHelp.value = false;
+  void nextTick(() => helpLauncher.value?.focus());
+}
+
+function handleHelpNavigation(shortcutId: string) {
+  const action = resolveGuidedNavigation(shortcutId);
+  if (!action) return;
+  showHelp.value = false;
+  if (action.destination === 'model-settings') {
+    modelManagerInitialPanel.value = action.panel || 'personal-api';
+    showModelManager.value = true;
+    return;
+  }
+  if (action.destination === 'member-panel') {
+    showMemberPanel.value = true;
+    return;
+  }
+  if (action.destination === 'abstract-manager') {
+    showAbstractManager.value = true;
+    return;
+  }
+  if (action.destination === 'github-issues') {
+    window.open('https://github.com/picspin/Sci-Necromancer/issues/new', '_blank', 'noopener');
+    return;
+  }
+  void nextTick(() => {
+    const selector =
+      action.destination === 'blind-review' ? '[data-help-target="blind-review"]' : 'main';
+    document.querySelector<HTMLElement>(selector)?.scrollIntoView({
+      behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
+      block: 'start',
+    });
+  });
 }
 </script>

@@ -155,6 +155,7 @@ describe('LLM Index - Provider Selection', () => {
 
     await expect(analyzeContent('test')).resolves.toEqual({ categories: [], keywords: [] });
     expect(confirm).toHaveBeenCalledOnce();
+    expect(confirm).toHaveBeenCalledWith(expect.stringContaining('2 credits'));
     expect(generateManagedTextMock).toHaveBeenCalledOnce();
   });
 
@@ -223,6 +224,7 @@ describe('LLM Index - Provider Selection', () => {
       recommendation: 'minor-revision',
     });
     expect(confirm).toHaveBeenCalledOnce();
+    expect(confirm).toHaveBeenCalledWith(expect.stringContaining('1 credit'));
     expect(generateManagedResearchVerificationMock).toHaveBeenCalledOnce();
     expect(generateManagedTextMock).not.toHaveBeenCalled();
   });

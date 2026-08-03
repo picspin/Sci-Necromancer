@@ -160,6 +160,7 @@
         :loading-message="loadingMessage"
         conference="RSNA"
         :source-text="inputText"
+        :creative-mode="abstractMode === 'creative'"
         :abstract-type="selectedAbstractType || 'RSNA Science Abstract'"
       />
     </div>
@@ -618,7 +619,11 @@ const setActiveTab = (tab: 'abstract' | 'figure') => {
 };
 
 const setAbstractMode = (mode: GenerationMode) => {
+  if (abstractMode.value === mode) return;
   abstractMode.value = mode;
+  generatedAbstract.value = null;
+  error.value = null;
+  resetWorkflow();
 };
 
 const routeSummary = computed(() => {

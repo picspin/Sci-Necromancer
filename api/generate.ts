@@ -10,12 +10,18 @@ import {
   type ManagedTaskKind,
   type ManagedWorkflowOperation,
 } from '../backend/_member/memberService.js';
-import { prepareMemberApi, sendApiError } from '../backend/_member/http.js';
+import { prepareMemberApi, sendApiError, verifyTurnstile } from '../backend/_member/http.js';
 import {
   createAdminSupabaseClient,
   createScopedMemberRpcClient,
   requireAuthenticatedUser,
 } from '../backend/_member/supabaseServer.js';
+import {
+  answerDocumentationRequest,
+  documentationRequestNeedsModel,
+  validateDocumentationQuestion,
+} from '../backend/_help/documentationAssistant.js';
+import { reserveHelpUsage, settleHelpUsage } from '../backend/_help/helpUsage.js';
 
 const PROVIDERS = new Set<ManagedProvider>(['gemini-3.6-flash', 'nano-banana-pro', 'gpt-image-2']);
 const TASK_KINDS = new Set<ManagedTaskKind>([
@@ -79,6 +85,56 @@ export default async function handler(request: VercelRequest, response: VercelRe
     return response.status(403).json({ error: 'origin_not_allowed' });
   if (request.method === 'OPTIONS') return response.status(204).send('');
   if (request.method !== 'POST') return response.status(405).json({ error: 'method_not_allowed' });
+
+  if (request.body?.capability === 'documentation_assistant') {
+    const idempotencyKey = request.headers['idempotency-key'];
+    const requestId =
+      typeof idempotencyKey === 'string' && idempotencyKey
+        ? idempotencyKey
+        : globalThis.crypto.randomUUID();
+    const validationError = validateDocumentationQuestion(request.body?.question);
+    if (validationError) return response.status(400).json({ error: validationError });
+    if (!documentationRequestNeedsModel(request.body)) {
+      return response
+        .status(200)
+        .json({ ...(await answerDocumentationRequest(request.body)), requestId });
+    }
+    if (typeof idempotencyKey !== 'string' || !idempotencyKey) {
+      return response.status(400).json({ error: 'help_idempotency_required' });
+    }
+    try {
+      const turnstileToken = request.body?.turnstileToken;
+      const turnstileVerified =
+        typeof turnstileToken === 'string' && Boolean(turnstileToken.trim());
+      if (turnstileVerified) await verifyTurnstile(request, turnstileToken);
+      const reservation = await reserveHelpUsage(request, idempotencyKey, turnstileVerified);
+      if (reservation.requiresTurnstile) {
+        return response
+          .status(400)
+          .json({ error: 'turnstile_required', remaining: reservation.remaining });
+      }
+      if (!reservation.allowed) {
+        return response.status(429).json({ error: 'help_rate_limited', remaining: 0 });
+      }
+      if (reservation.idempotent) {
+        return response.status(409).json({
+          error: 'help_request_already_processed',
+          requestId,
+          remaining: reservation.remaining,
+        });
+      }
+      const result = await answerDocumentationRequest(request.body);
+      const succeeded = result.mode === 'assisted';
+      await settleHelpUsage(reservation, succeeded);
+      return response.status(200).json({
+        ...result,
+        requestId,
+        remaining: succeeded ? reservation.remaining : reservation.remaining + 1,
+      });
+    } catch (error) {
+      return sendApiError(response, error);
+    }
+  }
 
   try {
     const idempotencyKey = request.headers['idempotency-key'];

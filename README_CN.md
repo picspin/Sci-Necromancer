@@ -15,7 +15,7 @@
 
 ## 全局概览
 
-SCI-邪修是面向医学影像与心血管会议摘要的开源 AI 辅助工具。它通过标准分析或更具探索性的 **邪修/炼丹模式**，将研究材料组织为 ISMRM、RSNA、ECR/ER 与 ESC 摘要草稿。
+SCI-邪修是面向医学影像、心血管与肿瘤学会议摘要的开源 AI 辅助工具。它通过标准分析或更具探索性的 **邪修/炼丹模式**，将研究材料组织为 ISMRM、RSNA、ECR/ER、ESC、ASCO 与 ESMO 摘要草稿。
 
 系统可以辅助分析、润色、排版、配图、导出和独立盲审，但**不能保证**数据、伦理审批、患者脱敏、统计结果、引文或投稿合规真实准确。作者必须承担最终核验与投稿责任。
 
@@ -29,12 +29,13 @@ Vue 3 提供统一界面与会议 slice；确定性会议规则约束模型提�
 
 - 标准流程：原始材料 → 分析 → 类型/分类确认 → 生成 → 保存/导出。
 - 邪修模式统一使用“一键炼丹”完成研究想法扩展。
-- 支持 ISMRM、RSNA science/education、ECR/ER 与 ESC。
+- 支持 ISMRM、RSNA science/education、ECR/ER、ESC、ASCO 与 ESMO。
 - 完整中英文界面、错误提示和无障碍标签切换。
 - 图像生成/编辑，以及 Markdown、PDF、JSON 和图像导出。
 - 9 类期刊风格模板与 7 类可解释 schematic 布局，并允许用户覆盖自动推荐。
+- 公共“**炼气师**”：静态快捷帮助不限次；MGA 文档问答仅依据站内资料回答并附引用，可导航但不代操作，也不消耗会员学分。
 - 可选会员服务：GitHub 登录、注册 5 bonus、每日签到、托管 Gemini/GPT Image、Stripe 充值和显式 Supabase 私有保存。
-- 托管标准“分析→生成”一次任务扣 1 bonus；重生成、深度更新或单张生图各扣 1。BYOK 不消耗平台 bonus。
+- 托管摘要、一键炼丹、重生成、深度更新或生图任务每次扣 2 学分；盲审每次扣 1 学分。BYOK 不消耗平台学分。
 - Skills 与 MCP 独立开关、安全本地 JSON 清单导入、盲审 Skill 下载。
 - 从伦理、同意、脱敏、数据、方法、引文、报告规范和会议规则进行结构化盲审。
 - 外部证据服务严格 fail-closed：不可用绝不等同于已核验。
@@ -54,7 +55,7 @@ npm run dev
 
 ## 使用
 
-1. 选择 ISMRM、RSNA、ECR/ER 或 ESC。
+1. 选择 ISMRM、RSNA、ECR/ER、ESC、ASCO 或 ESMO。
 2. 粘贴/上传原始材料，或切换邪修模式输入核心构想。
 3. 分析并确认投稿路径，然后生成摘要。
 4. 保存、导出，或执行独立盲审。
@@ -83,6 +84,8 @@ CiteCheck/DOI MCP 的 HTTPS facade 与可信边缘令牌配置见[后端指南](
 - [ISMRM 投稿指南](https://www.ismrm.org/26m/call/submission-guide/)
 - [ECR 摘要投稿](https://www.myesr.org/congress/submit/abstract-submission/)
 - [ESC 摘要规则](https://www.escardio.org/events/congresses/esc-congress/call-for-science/abstracts/rules/)
+- [ASCO Annual Meeting 投稿要求](https://www.asco.org/annual-meeting/abstracts-presentations/submission-details/requirements)
+- [ESMO Congress 2026 摘要规则](https://dam.esmo.org/image/upload/v1770284726/ESMO-Congress-2026-Abstract-Regulations_ahdmjx.pdf)
 - [STARD](https://www.equator-network.org/reporting-guidelines/stard/) · [TRIPOD](https://www.tripod-statement.org/)
 
 官方规则会变化；内部资料只用于辅助起草，投稿前必须以当年官方网站为准。

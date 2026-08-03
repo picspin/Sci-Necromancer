@@ -147,6 +147,7 @@
         :loading-message="loadingMessage"
         conference="ESC"
         :source-text="inputText"
+        :creative-mode="abstractMode === 'creative'"
         :abstract-type="selectedAbstractType || 'ESC Scientific Abstract'"
       />
     </div>
@@ -605,6 +606,10 @@ const setActiveTab = (tab: 'abstract' | 'figure') => {
 };
 
 const setAbstractMode = (mode: GenerationMode) => {
+  if (abstractMode.value === mode) return;
   abstractMode.value = mode;
+  generatedAbstract.value = null;
+  error.value = null;
+  resetWorkflow();
 };
 </script>

@@ -152,7 +152,11 @@
     "abstract": "Abstract",
     "keywords": "Keywords",
     "categories": "Categories",
-    "category_type": { "main": "main", "sub": "sub", "secondary": "secondary" },
+    "category_type": {
+      "main": "main",
+      "sub": "sub",
+      "secondary": "secondary"
+    },
     "word_count": "Word Count",
     "no_content": "Your generated content will appear here.",
     "begin_prompt": "Begin by providing input on the left panel.",
@@ -189,7 +193,7 @@
     "personal_api_help": "Use your own provider credentials locally. BYOK calls never consume bonus.",
     "member_services_tab": "Member benefits",
     "member_login_required": "Sign in to activate provider-managed models and Supabase cloud save.",
-    "managed_text_help": "Use the managed text model with bonus; one analysis-to-generation workflow costs one bonus.",
+    "managed_text_help": "Use the managed text model with credits; one analysis-to-generation or creative workflow costs 2 credits.",
     "managed_data_route": "Managed member requests use the configured MGA provider. Provider terms apply.",
     "managed_image_help": "Use managed Imagen 4 or GPT Image 1 with bonus.",
     "cloud_save_help": "Save selected abstracts to your private Supabase account.",
@@ -281,8 +285,8 @@
     "view_account": "View account",
     "member_rule_signup": "A verified new account automatically receives 5 credits once.",
     "member_rule_checkin": "Daily check-in gives +1 credit; day 7 gives +2 total and restarts the cycle.",
-    "member_rule_abstract": "One managed abstract workflow costs 1 credit and includes analysis, initial generation, one regeneration, and one deep update.",
-    "member_rule_image": "Each managed Nanobanana pro or GPT-Image generation costs 1 credit. Capability-specific BYOK always takes priority.",
+    "member_rule_abstract": "One managed abstract or one-click creative workflow costs 2 credits and includes the task's allowed analysis, generation, regeneration, and deep-update steps.",
+    "member_rule_image": "Each managed Nanobanana pro or GPT-Image generation costs 2 credits. Capability-specific BYOK always takes priority.",
     "member_rule_storage": "Cloud storage includes 30 abstracts (10 KB each); permanent 100/500 upgrades cost credits."
   },
   "capabilities": {
@@ -399,10 +403,10 @@
   },
   "workflow_reentry": {
     "title": "This workflow allowance has been used",
-    "regeneration_description": "Choose whether to begin a new analysis-to-generation workflow or continue from the current result. Either action costs 1 bonus.",
-    "deep_update_description": "Choose whether to begin a new analysis-to-generation workflow or run another high-reasoning deep update. Either action costs 1 bonus.",
-    "reanalyze": "Re-analyze and generate (recommended) · 1 bonus",
-    "continue": "Continue current result · 1 bonus"
+    "regeneration_description": "Choose whether to begin a new analysis-to-generation workflow or continue from the current result. Either action costs 2 credits.",
+    "deep_update_description": "Choose whether to begin a new analysis-to-generation workflow or run another high-reasoning deep update. Either action costs 2 credits.",
+    "reanalyze": "Re-analyze and generate (recommended) · 2 credits",
+    "continue": "Continue current result · 2 credits"
   },
   "tooltips": {
     "creative_mode_disabled": "Generate an abstract first to enable this mode.",
@@ -511,7 +515,7 @@
     "generation_only": "text-to-image only",
     "more_journal_styles": "More core publication styles",
     "select_more_journal_style": "Select another publication style",
-    "confirm_managed_fallback": "Your personal image API failed. Use the selected managed image provider for 1 bonus? Cancel makes no managed call and incurs no charge.",
+    "confirm_managed_fallback": "Your personal image API failed. Use the selected managed image provider for 2 credits? Cancel makes no managed call and incurs no charge.",
     "schematic_layout": "Schematic layout",
     "layouts": {
       "linear_sequential": "Linear / Sequential Flow",
@@ -539,6 +543,23 @@
     "detected_fields": "Detected fields:",
     "keyword_help": "Type keywords such as research, journal, layout, or color to get suggestions",
     "generated_alt": "Generated scientific figure"
+  },
+  "oncology": {
+    "submission_type": "Submission type",
+    "category": "Oncology category",
+    "study_design": "Study/reporting design",
+    "presentation_recommendation": "Suggested presentation format",
+    "analysis_complete": "Three-layer oncology analysis complete",
+    "rule_version": "Rule version",
+    "confidence": "Confidence",
+    "keywords": "Suggested keywords",
+    "official_category": "Official category",
+    "presentation_advisory": "This is a preparation recommendation only; the organizer makes the final presentation decision.",
+    "author_review_required": "Missing facts remain author questions. Verify all data, ethics, registration, funding, disclosures, citations, anonymity, and current official requirements before submission.",
+    "asco_description": "ASCO track/subcategory guidance for regular, late-breaking, and Trials in Progress abstracts.",
+    "esmo_description": "ESMO category and presentation guidance for regular, late-breaking, and Trial in Progress abstracts.",
+    "save_title": "Save oncology abstract",
+    "creative_hint": "Describe a research concept using only facts you can verify; missing facts will remain explicit author questions."
   },
   "ecr": {
     "title": "European Congress of Radiology (ECR)",
@@ -613,51 +634,48 @@
       "learning_center": "Learning Center Theater (conditional)"
     }
   },
-  "help": {
-    "title": "Website usage and configuration guide",
-    "close": "Close help",
-    "navigation": "Help contents",
-    "sections": {
-      "s1": {
-        "title": "Analyze uploaded files and generate conference abstracts",
-        "content": "Steps:\n• Select the target meeting (ISMRM, RSNA, ER/ECR, or ESC).\n• Choose standard analysis for an existing manuscript or creative expansion for a core idea.\n• Upload a PDF or DOCX file, or paste the manuscript text.\n• Select Analyze to extract categories and keywords, then review the suggestions.\n• Choose the suggested abstract type and select Generate.\n• Review the conference-formatted output and export it as needed.\n\nTips:\n• Large files take longer; paste the text directly if extraction fails.\n• Category probabilities are content-based suggestions and should be adjusted to fit the submission strategy."
-      },
-      "s2": {
-        "title": "Configure AI models",
-        "content": "The site supports Google AI (Gemini) and OpenAI-compatible providers. Open Model Settings, select a provider, enter its credential and models, then save. Credentials remain in browser storage unless the selected provider request sends them to its API."
-      },
-      "s21": {
-        "title": "Google AI configuration",
-        "content": "• Select Google AI in Model Settings.\n• Enter a Google AI API key.\n• Select a text model and image model.\n• Save the settings.\n\nUse a model appropriate to the required quality, cost, latency, and data-handling terms. Retry later if the provider is temporarily unavailable."
-      },
-      "s22": {
-        "title": "OpenAI-compatible configuration",
-        "content": "• Select OpenAI Compatible.\n• Enter the Base URL and API key for the chosen provider.\n• Refresh the model lists and select text, vision, and image models.\n\nModel identifiers and supported endpoints vary by provider. Confirm image-generation compatibility with that provider."
-      },
-      "s23": {
-        "title": "Image-model configuration",
-        "content": "Standard mode edits an uploaded image using supplied specifications. Creative mode uses an existing abstract as context for a new figure. OpenAI-compatible providers may support image generation and vision analysis; Google providers may support Imagen. Image MCP remains a separately configured optional tool."
-      },
-      "s24": {
-        "title": "MCP and blind-review configuration",
-        "content": "In Model Settings → MCP Tools, optional database and image tools can be enabled. Blind review is different: PubMed, CiteCheck, and DOI MCP are administrator-provisioned backend capabilities, so users only enable their checkboxes and never configure endpoints, commands, packages, or tokens. An unavailable backend is reported explicitly and is never treated as verified."
-      },
-      "s25": {
-        "title": "Journal styles and schematic layouts",
-        "content": "The Image panel includes LANCET, NATURE, NEJM, SCIENCE, JAMA & BMJ, RADIOLOGY, IEEE/ICML/NeurIPS, CELL, and PNAS styles. Selecting a journal and layout synchronizes the visual taste and structural rules shown in Image Specs and used in its structured JSON.\n\nJAMA & BMJ uses restrained British clinical editorial design; RADIOLOGY prioritizes Medical Imaging and diagnostic content; IEEE/ICML/NeurIPS emphasizes algorithms and data flow; CELL emphasizes biological mechanisms and graphical abstracts. Seven layouts cover sequential flow, central targets, input-process-output, nested scales, comparisons, contextual scenes, and modular evidence grids."
-      },
-      "s3": {
-        "title": "Abstract storage and synchronization",
-        "content": "Saved abstracts are retained in browser storage. The Abstract Manager can load, delete, export, and import them. Optional Supabase synchronization may support access across devices when it is configured and enabled."
-      },
-      "s4": {
-        "title": "Abstract and image export",
-        "content": "Abstracts can be exported as Markdown, PDF, or JSON. Generated images can be downloaded in their available image format. Complete and independently verify the content before exporting or submitting it."
-      },
-      "s5": {
-        "title": "Member benefits",
-        "content": "• New verified accounts receive 5 credits automatically.\n• Active daily check-in grants +1; day 7 grants one additional credit, then the streak restarts.\n• Members may enable managed GLM-5.2, Nanobanana pro, and GPT-Image models.\n• Private cloud storage includes 30 abstracts up to 10 KB each, with credit-based upgrades.\n• A matching BYOK configuration takes priority and does not consume member credits.\n\nAI generation and polishing may be inaccurate. Users must independently verify data, ethics, citations, and submission compliance."
-      }
+  "help_assistant": {
+    "title": "Sci Guide",
+    "open": "Open Sci Guide",
+    "subtitle": "Site use and troubleshooting assistant",
+    "close": "Close Sci Guide",
+    "welcome": "Choose a common question or ask about using Sci-Necromancer. Static help does not use your daily AI allowance.",
+    "question_label": "Question for Sci Guide",
+    "question_placeholder": "Ask about using this site…",
+    "ask": "Ask Sci Guide",
+    "stop": "Stop",
+    "thinking": "Sci Guide is checking the documentation…",
+    "unavailable": "AI help is temporarily unavailable. Static help remains available.",
+    "ai_disclosure": "AI-generated answers may be inaccurate. Use the interface and cited documentation as the source of truth. Never submit API keys, patient information, or research text.",
+    "accept_disclosure": "I understand and continue",
+    "verification_required": "Complete the privacy-preserving verification before your first AI question today.",
+    "retry": "Retry question",
+    "ai_answer": "AI answer",
+    "sources": "Sources",
+    "remaining": "{count} AI questions remaining today",
+    "was_helpful": "Did this resolve it?",
+    "resolved": "Resolved",
+    "not_resolved": "Not resolved",
+    "browse_topics": "Browse all help topics",
+    "new_conversation": "Start new conversation",
+    "errors": {
+      "help_question_required": "Enter a question.",
+      "help_question_too_long": "Keep the question within 1,000 characters.",
+      "help_sensitive_content": "Remove API keys or other sensitive information before asking.",
+      "help_patient_identifier": "Remove patient or personal identifiers before asking.",
+      "help_prompt_injection": "This request cannot be sent to the documentation assistant.",
+      "help_unsafe_markup": "HTML or executable markup is not accepted.",
+      "help_external_url": "Remove external links and describe the issue in plain text.",
+      "help_hidden_characters": "Remove hidden or bidirectional characters before asking."
+    },
+    "shortcuts": {
+      "open-model-settings": "Open model settings",
+      "open-member-panel": "Open membership",
+      "open-abstract-manager": "Open abstract library",
+      "open-skills-mcp": "Open Skills & MCP",
+      "open-blind-review": "Go to blind review",
+      "open-conference-module": "Go to modules",
+      "open-github-issues": "Report on GitHub"
     }
   },
   "blind_review": {
@@ -716,7 +734,11 @@
       "contradictory": "Contradictory",
       "not-verifiable": "Not verifiable"
     },
-    "reviewer": { "pubmed": "PubMed", "citecheck": "CiteCheck", "doi-mcp": "DOI MCP" },
+    "reviewer": {
+      "pubmed": "PubMed",
+      "citecheck": "CiteCheck",
+      "doi-mcp": "DOI MCP"
+    },
     "external_status": {
       "verified": "Search completed",
       "issues-found": "Issues found",
@@ -745,6 +767,7 @@
     "record_title": "AI Assistance Record",
     "record_operations": "RSNA classification-aware language editing; structure and compliance review",
     "record_verify": "Independent author verification is required.",
-    "copy_reminder": "Copy excludes the product disclaimer; author verification is still required before use."
+    "copy_reminder": "Copy excludes the product disclaimer; author verification is still required before use.",
+    "creative_output_warning": "Creative-mode content is generated from a short idea. Its facts, data, eligibility, and submission compliance are not guaranteed; verify every statement before use."
   }
 }

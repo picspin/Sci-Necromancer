@@ -1,0 +1,58 @@
+[
+  {
+    "id": "use-modules",
+    "label": "如何使用各个投稿与图像模块？",
+    "query": "如何使用各个模块？",
+    "articleId": "modules",
+    "shortcutId": "open-conference-module",
+    "audience": "all"
+  },
+  {
+    "id": "configure-anthropic",
+    "label": "如何配置 Anthropic API？",
+    "query": "如何配置 Anthropic Messages API？",
+    "articleId": "personal-api",
+    "shortcutId": "open-model-settings",
+    "audience": "all"
+  },
+  {
+    "id": "api-not-responding",
+    "label": "API 配置后为什么没有响应？",
+    "query": "API 配置后没有响应或模型加载失败怎么办？",
+    "articleId": "troubleshooting",
+    "shortcutId": "open-model-settings",
+    "audience": "all"
+  },
+  {
+    "id": "use-blind-review",
+    "label": "盲审会检查哪些内容？",
+    "query": "如何使用盲审和科研核验？",
+    "articleId": "blind-review",
+    "shortcutId": "open-blind-review",
+    "audience": "all"
+  },
+  {
+    "id": "use-skills-mcp",
+    "label": "Skills & MCP 如何启用？",
+    "query": "如何启用 Skills、MCP 和科研核验 Agent？",
+    "articleId": "skills-mcp",
+    "shortcutId": "open-skills-mcp",
+    "audience": "all"
+  },
+  {
+    "id": "how-to-register",
+    "label": "如何注册和登录会员？",
+    "query": "如何注册或登录会员？",
+    "articleId": "membership",
+    "shortcutId": "open-member-panel",
+    "audience": "guest"
+  },
+  {
+    "id": "missing-credits",
+    "label": "为什么学分或签到状态没有更新？",
+    "query": "会员学分或签到状态没有更新怎么办？",
+    "articleId": "membership",
+    "shortcutId": "open-member-panel",
+    "audience": "member"
+  }
+]

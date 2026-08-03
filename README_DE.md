@@ -15,7 +15,7 @@
 
 ## Überblick
 
-SCI-Necromancer ist ein quelloffener KI-Assistent für Abstracts medizinischer Bildgebungs- und Kardiologiekongresse. Aus Quellenmaterial entstehen im Standardmodus oder im spielerischen **邪修-/Alchemie-Modus** strukturierte Entwürfe für ISMRM, RSNA, ECR/ER und ESC.
+SCI-Necromancer ist ein quelloffener KI-Assistent für Abstracts medizinischer Bildgebungs-, Kardiologie- und Onkologiekongresse. Aus Quellenmaterial entstehen im Standardmodus oder im spielerischen **邪修-/Alchemie-Modus** strukturierte Entwürfe für ISMRM, RSNA, ECR/ER, ESC, ASCO und ESMO.
 
 Die Anwendung unterstützt Analyse, Sprachoptimierung, Formatierung, Abbildungen, Export und unabhängige Blindprüfung. Sie **garantiert nicht** die Richtigkeit von Daten, Ethikvoten, De-Identifizierung, Statistik, Zitaten oder Einreichungsregeln. Die Verantwortung bleibt bei den Autorinnen und Autoren.
 
@@ -29,12 +29,13 @@ Vue 3 stellt die gemeinsame Oberfläche und Kongress-Slices bereit. Deterministi
 
 - Geführter Ablauf von Quelle, Analyse und Klassifikation bis Generierung, Speichern und Export.
 - Einheitliche „一键炼丹“-Aktion im kreativen 邪修-Modus.
-- ISMRM, RSNA Science/Education, ECR/ER und ESC.
+- ISMRM, RSNA Science/Education, ECR/ER, ESC, ASCO und ESMO.
 - Vollständige englische/chinesische UI-Lokalisierung inklusive Fehlern und Barrierefreiheit.
 - Bildgenerierung/-bearbeitung sowie Markdown-, PDF-, JSON- und Bildexport.
 - Neun Journal-Stilvorlagen und sieben erklärbare Schaubild-Layouts mit manueller Übersteuerung.
+- Öffentlicher **Sci Guide** mit unbegrenzten statischen Hilfen, dokumentgestützten MGA-Antworten, Quellen und ausschließlich erlaubter Navigation – ohne Mitglieder-Credits.
 - Optionale Mitgliedsdienste: GitHub-Anmeldung, fünf Start-Boni, täglicher Check-in, verwaltete Gemini-/GPT-Image-Generierung, Stripe-Aufladung und explizites privates Supabase-Speichern.
-- Ein verwalteter Standardablauf Analyse→Generierung kostet einen Bonus; Neugenerierung, Deep Update oder ein einzelnes Bild kosten je einen Bonus. BYOK verbraucht keine Plattform-Boni.
+- Eine verwaltete Abstract-, Kreativ-, Neugenerierungs-, Deep-Update- oder Bildaufgabe kostet zwei Credits; ein Blind Review kostet einen Credit. BYOK verbraucht keine Plattform-Credits.
 - Getrennte Skills-/MCP-Schalter, sicherer lokaler JSON-Manifestimport und herunterladbarer Review-Skill.
 - Strukturierte Prüfung von Ethik, Einwilligung, De-Identifizierung, Daten, Methodik, Zitaten und Kongressregeln.
 - Fail-closed: Nicht verfügbare Evidenzdienste gelten niemals als verifiziert.
@@ -54,7 +55,7 @@ Danach die von Vite ausgegebene lokale URL öffnen und den Anbieter unter **Mode
 
 ## Verwendung
 
-1. ISMRM, RSNA, ECR/ER oder ESC wählen.
+1. ISMRM, RSNA, ECR/ER, ESC, ASCO oder ESMO wählen.
 2. Quellenmaterial einfügen/hochladen oder im 邪修-Modus eine Forschungsidee eingeben.
 3. Analysieren, Einreichungsroute bestätigen und Abstract generieren.
 4. Speichern, exportieren oder unabhängig blind prüfen.
@@ -83,6 +84,8 @@ HTTPS-Facades und Trusted-Edge-Token für CiteCheck/DOI MCP sind im [Backend-Lei
 - [ISMRM Submission Guide](https://www.ismrm.org/26m/call/submission-guide/)
 - [ECR Abstract Submission](https://www.myesr.org/congress/submit/abstract-submission/)
 - [ESC Abstract Rules](https://www.escardio.org/events/congresses/esc-congress/call-for-science/abstracts/rules/)
+- [ASCO Annual Meeting Submission Requirements](https://www.asco.org/annual-meeting/abstracts-presentations/submission-details/requirements)
+- [ESMO Congress 2026 Abstract Regulations](https://dam.esmo.org/image/upload/v1770284726/ESMO-Congress-2026-Abstract-Regulations_ahdmjx.pdf)
 - [STARD](https://www.equator-network.org/reporting-guidelines/stard/) · [TRIPOD](https://www.tripod-statement.org/)
 
 Offizielle Regeln ändern sich. Interne Referenzen sind nur Entwurfshilfen; vor jeder Einreichung gilt die aktuelle Kongresswebsite.

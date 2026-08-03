@@ -172,6 +172,7 @@
         :loading-message="loadingMessage"
         conference="ISMRM"
         :source-text="inputText"
+        :creative-mode="abstractMode === 'creative'"
         :abstract-type="selectedAbstractType || undefined"
       />
     </div>
@@ -552,6 +553,10 @@ const setActiveTab = (tab: 'abstract') => {
 };
 
 const setAbstractMode = (mode: GenerationMode) => {
+  if (abstractMode.value === mode) return;
   abstractMode.value = mode;
+  generatedAbstract.value = null;
+  error.value = null;
+  resetWorkflow();
 };
 </script>

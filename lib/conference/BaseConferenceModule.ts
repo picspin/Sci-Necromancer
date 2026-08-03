@@ -154,6 +154,8 @@ export abstract class BaseConferenceModule implements ConferenceModule {
       RSNA: { primary: '#2196F3', secondary: '#64B5F6', accent: '#1565C0' },
       ER: { primary: '#9C27B0', secondary: '#BA68C8', accent: '#6A1B9A' },
       ESC: { primary: '#C41E3A', secondary: '#E57373', accent: '#8B0000' },
+      ASCO: { primary: '#1F6FA9', secondary: '#56A0D3', accent: '#F1B82D' },
+      ESMO: { primary: '#72246C', secondary: '#9D4B96', accent: '#E1A82B' },
       IMAGE: { primary: '#6366F1', secondary: '#818CF8', accent: '#4F46E5' },
     };
 

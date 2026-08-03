@@ -51,11 +51,11 @@ Provide a low-friction membership layer without weakening BYOK, privacy, or wall
 
 ## Managed workflow billing
 
-- A one-bonus abstract workflow permits, server-side and across refreshes: analysis once, initial generation once, one additional generation, and deep update once (maximum four provider calls).
-- Re-analysis always starts a new one-bonus workflow.
+- A two-credit abstract workflow permits, server-side and across refreshes: analysis once, initial generation once, one additional generation, and deep update once (maximum four provider calls).
+- Re-analysis and one-click creative generation each start a new two-credit workflow.
 - A third generation or second deep update opens a confirmation dialog with:
-  1. re-analyze and generate (recommended, one bonus), or
-  2. continue current result as a standalone task (one bonus).
+  1. re-analyze and generate (recommended, two credits), or
+  2. continue current result as a standalone task (two credits).
 - Cancel performs no call and no charge. Failed calls producing no deliverable do not consume an allowance and refund any reservation.
 - Deep update is a distinct high-reasoning operation. Gemini uses high thinking, OpenAI-compatible providers use high reasoning when supported, and Anthropic uses extended thinking when supported. Unsupported BYOK never silently degrades to ordinary generation.
 - BYOK workflows may track UX allowances locally, but no wallet security relies on browser state.
@@ -64,7 +64,7 @@ Provide a low-friction membership layer without weakening BYOK, privacy, or wall
 
 - Blind Review obeys BYOK-first routing. Without text BYOK, every click is one managed bonus task. Selected PubMed/CiteCheck/DOI checks are included in that task, not separately charged. No deliverable means refund; retries are new tasks.
 - Member Benefits exposes separate Nano Banana and GPT Image checkboxes. They enable availability only; selecting a model and invoking generation performs the charge.
-- A corresponding image BYOK configuration wins. Otherwise each managed image request costs one bonus. There is no silent cross-provider fallback.
+- A corresponding image BYOK configuration wins. Otherwise each managed image request costs two credits. There is no silent cross-provider fallback.
 - Managed model IDs are environment-overridable. Defaults use currently public provider models; UI branding does not promise an unavailable future model.
 
 ## UI requirements

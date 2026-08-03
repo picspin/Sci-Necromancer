@@ -34,6 +34,8 @@ export class GuidelineService {
     { conference: 'RSNA', fileName: 'RSNA-abstract-submission-guidelines.md' },
     { conference: 'ER', fileName: 'ER-abstract-submission-guidelines.md' },
     { conference: 'ESC', fileName: 'ESC-congress-abstract-submission-guide.md' },
+    { conference: 'ASCO', fileName: 'ASCO-annual-meeting-abstract-guidelines.md' },
+    { conference: 'ESMO', fileName: 'ESMO-2026-congress-abstract-guidelines.md' },
   ];
 
   /**

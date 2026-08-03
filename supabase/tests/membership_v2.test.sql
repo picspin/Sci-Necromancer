@@ -1,6 +1,6 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(21);
+select plan(28);
 
 insert into auth.users (
   instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,
@@ -109,6 +109,11 @@ select is(
   1,
   'analysis reservation is the first provider call'
 );
+select is(
+  (select credit_cost from public.managed_generation_tasks where id = (select task_id from workflow_test)),
+  2,
+  'a managed abstract workflow reserves two credits'
+);
 select public.settle_bonus_task(
   '11111111-1111-4111-8111-111111111111', (select task_id from workflow_test), true, false
 );
@@ -151,12 +156,94 @@ select is(
   'the fully used workflow closes automatically'
 );
 
+create temporary table expired_without_output_test(task_id uuid, balance_before integer);
+insert into expired_without_output_test
+select
+  (reservation->>'task_id')::uuid,
+  (reservation->>'bonus_balance')::integer + 2
+from (
+  select public.reserve_bonus_task(
+    '11111111-1111-4111-8111-111111111111',
+    'expired-without-output-v2-test',
+    'analysis_generation'
+  ) as reservation
+) reserved;
+select public.settle_bonus_task(
+  '11111111-1111-4111-8111-111111111111',
+  (select task_id from expired_without_output_test),
+  true,
+  false
+);
+update public.managed_generation_tasks
+set updated_at = now() - interval '31 minutes'
+where id = (select task_id from expired_without_output_test);
+select public.recover_stale_tasks('11111111-1111-4111-8111-111111111111');
+select is(
+  (select status from public.managed_generation_tasks
+   where id = (select task_id from expired_without_output_test)),
+  'refunded',
+  'an expired analysis workflow with no generated abstract is refunded'
+);
+select is(
+  (select bonus_balance from public.member_profiles
+   where user_id = '11111111-1111-4111-8111-111111111111'),
+  (select balance_before from expired_without_output_test),
+  'an expired workflow without a deliverable refunds its exact two-credit reservation'
+);
+
+create temporary table failed_without_output_test(task_id uuid, balance_before integer);
+insert into failed_without_output_test
+select
+  (reservation->>'task_id')::uuid,
+  (reservation->>'bonus_balance')::integer + 2
+from (
+  select public.reserve_bonus_task(
+    '11111111-1111-4111-8111-111111111111',
+    'failed-without-output-v2-test',
+    'analysis_generation'
+  ) as reservation
+) reserved;
+select public.settle_bonus_task(
+  '11111111-1111-4111-8111-111111111111',
+  (select task_id from failed_without_output_test),
+  true,
+  false
+);
+select public.continue_bonus_task(
+  '11111111-1111-4111-8111-111111111111',
+  (select task_id from failed_without_output_test),
+  'generation'
+);
+select public.settle_bonus_task(
+  '11111111-1111-4111-8111-111111111111',
+  (select task_id from failed_without_output_test),
+  false,
+  false
+);
+select is(
+  (select status from public.managed_generation_tasks
+   where id = (select task_id from failed_without_output_test)),
+  'refunded',
+  'a failed initial generation refunds a workflow that produced no abstract'
+);
+select is(
+  (select bonus_balance from public.member_profiles
+   where user_id = '11111111-1111-4111-8111-111111111111'),
+  (select balance_before from failed_without_output_test),
+  'a failed initial generation immediately refunds its exact two-credit reservation'
+);
+
 select is(
   (public.reserve_bonus_task(
     '11111111-1111-4111-8111-111111111111', 'blind-review-v2-test', 'blind_review'
   )->>'charged')::boolean,
   true,
   'blind review is a separately charged managed task'
+);
+select is(
+  (select credit_cost from public.managed_generation_tasks where idempotency_key = 'blind-review-v2-test'),
+  1,
+  'blind review reserves one credit'
 );
 select public.settle_bonus_task(
   '11111111-1111-4111-8111-111111111111',
@@ -193,12 +280,17 @@ create temporary table refund_test(task_id uuid, balance_before integer);
 insert into refund_test
 select
   (reservation->>'task_id')::uuid,
-  (reservation->>'bonus_balance')::integer + 1
+  (reservation->>'bonus_balance')::integer + 2
 from (
   select public.reserve_bonus_task(
     '11111111-1111-4111-8111-111111111111', 'refund-v2-test', 'image_generation'
   ) as reservation
 ) reserved;
+select is(
+  (select credit_cost from public.managed_generation_tasks where id = (select task_id from refund_test)),
+  2,
+  'managed image generation reserves two credits'
+);
 select public.settle_bonus_task(
   '11111111-1111-4111-8111-111111111111', (select task_id from refund_test), false, true
 );

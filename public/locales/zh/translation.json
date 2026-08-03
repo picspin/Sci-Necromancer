@@ -152,7 +152,11 @@
     "abstract": "摘要",
     "keywords": "关键词",
     "categories": "类别",
-    "category_type": { "main": "主分类", "sub": "子分类", "secondary": "次分类" },
+    "category_type": {
+      "main": "主分类",
+      "sub": "子分类",
+      "secondary": "次分类"
+    },
     "word_count": "字数统计",
     "no_content": "您生成的内容将显示在这里。",
     "begin_prompt": "请在左侧面板提供输入开始。",
@@ -189,7 +193,7 @@
     "personal_api_help": "在本地使用您自己的供应商凭据；BYOK 调用不消耗学分。",
     "member_services_tab": "会员权益",
     "member_login_required": "登录后方可启用平台托管模型与 Supabase 云保存。",
-    "managed_text_help": "使用学分调用平台托管文本模型；分析到生成的一次完整任务仅扣 1 学分。",
+    "managed_text_help": "使用学分调用平台托管文本模型；一次分析—生成或一键炼丹任务消耗 2 学分。",
     "managed_data_route": "会员托管请求使用已配置的 MGA 服务，并受对应供应商条款约束。",
     "managed_image_help": "使用学分调用平台托管的 Imagen 4 或 GPT Image 1。",
     "cloud_save_help": "将主动选择的摘要保存至您的 Supabase 私有账户。",
@@ -281,8 +285,8 @@
     "view_account": "查看账户",
     "member_rule_signup": "完成验证的新账户会自动且仅一次获得 5 学分。",
     "member_rule_checkin": "每日签到 +1 学分；第 7 天共获得 +2，随后重新开始周期。",
-    "member_rule_abstract": "一次托管摘要任务消耗 1 学分，包含分析、初次生成、一次再次生成和一次深度更新。",
-    "member_rule_image": "每次托管 Nanobanana pro 或 GPT-Image 生图消耗 1 学分；对应能力的 BYOK 始终优先。",
+    "member_rule_abstract": "一次托管摘要或一键炼丹任务消耗 2 学分，并包含该任务允许的分析、生成、再次生成及深度更新步骤。",
+    "member_rule_image": "每次托管 Nanobanana pro 或 GPT-Image 生图消耗 2 学分；对应能力的 BYOK 始终优先。",
     "member_rule_storage": "云端默认保存 30 篇摘要（每篇 10 KB）；可消耗学分永久扩容至 100/500 篇。"
   },
   "capabilities": {
@@ -399,10 +403,10 @@
   },
   "workflow_reentry": {
     "title": "当前任务的内含次数已用完",
-    "regeneration_description": "请选择重新开始“分析—生成”任务，或基于当前结果继续生成；两种操作均消耗 1 学分。",
-    "deep_update_description": "请选择重新开始“分析—生成”任务，或再次执行强制高推理深度更新；两种操作均消耗 1 学分。",
-    "reanalyze": "重新分析并生成（推荐）· 1 学分",
-    "continue": "继续当前结果 · 1 学分"
+    "regeneration_description": "请选择重新开始“分析—生成”任务，或基于当前结果继续生成；两种操作均消耗 2 学分。",
+    "deep_update_description": "请选择重新开始“分析—生成”任务，或再次执行强制高推理深度更新；两种操作均消耗 2 学分。",
+    "reanalyze": "重新分析并生成（推荐）· 2 学分",
+    "continue": "继续当前结果 · 2 学分"
   },
   "tooltips": {
     "creative_mode_disabled": "请先生成摘要以启用此模式。",
@@ -511,7 +515,7 @@
     "generation_only": "仅文生图",
     "more_journal_styles": "更多核心出版风格",
     "select_more_journal_style": "选择其他出版风格",
-    "confirm_managed_fallback": "个人生图 API 调用失败。是否改用已选择的会员托管生图服务并消耗 1 学分？取消则不调用托管模型，也不扣费。",
+    "confirm_managed_fallback": "个人生图 API 调用失败。是否改用已选择的会员托管生图服务并消耗 2 学分？取消则不调用托管模型，也不扣费。",
     "schematic_layout": "示意图布局结构",
     "layouts": {
       "linear_sequential": "线性流程 / 时序通路",
@@ -539,6 +543,23 @@
     "detected_fields": "已识别字段：",
     "keyword_help": "输入 research、journal、layout 或 color 等关键词以获取建议",
     "generated_alt": "生成的科研图像"
+  },
+  "oncology": {
+    "submission_type": "投稿类型",
+    "category": "肿瘤学分类",
+    "study_design": "研究／报告设计",
+    "presentation_recommendation": "建议展示形式",
+    "analysis_complete": "肿瘤学三层分析完成",
+    "rule_version": "规则版本",
+    "confidence": "置信度",
+    "keywords": "建议关键词",
+    "official_category": "官方分类",
+    "presentation_advisory": "此处仅为准备建议，最终展示形式由会议主办方决定。",
+    "author_review_required": "缺失事实将保留为作者待确认问题。投稿前必须核验数据、伦理、注册、资助、披露、引文、匿名化及最新官方规则。",
+    "asco_description": "面向 ASCO 常规、Late-Breaking 与 Trials in Progress 摘要的 track/subcategory 投稿指导。",
+    "esmo_description": "面向 ESMO 常规、Late-Breaking 与 Trial in Progress 摘要的分类和展示建议。",
+    "save_title": "保存肿瘤学摘要",
+    "creative_hint": "仅描述可以核验的研究构想；缺失事实将保留为明确的作者待确认问题。"
   },
   "ecr": {
     "title": "欧洲放射学大会 (ECR)",
@@ -613,51 +634,48 @@
       "learning_center": "学习中心剧场（条件性）"
     }
   },
-  "help": {
-    "title": "网站使用与配置提示",
-    "close": "关闭帮助",
-    "navigation": "帮助目录",
-    "sections": {
-      "s1": {
-        "title": "分析上传文件并生成会议摘要",
-        "content": "步骤：\n• 选择目标会议（ISMRM、RSNA、ER/ECR 或 ESC）。\n• 已有论文选择标准分析，核心想法扩展选择邪修模式。\n• 上传 PDF 或 DOCX 文件，或直接粘贴论文文本。\n• 点击“分析”提取分类与关键词，并审阅建议。\n• 选择建议的摘要类型，再点击“生成”。\n• 审阅按会议规范组织的输出，并按需导出。\n\n提示：\n• 大文件处理时间更长；提取失败时可直接粘贴文本。\n• 分类概率属于基于内容的建议，应结合投稿策略调整。"
-      },
-      "s2": {
-        "title": "配置 AI 模型",
-        "content": "网站支持 Google AI（Gemini）和 OpenAI 兼容提供商。打开“模型配置”，选择提供商，填写凭据与模型后保存。凭据保存在浏览器存储中；调用所选提供商时会按其 API 流程发送。"
-      },
-      "s21": {
-        "title": "Google AI 配置",
-        "content": "• 在模型配置中选择 Google AI。\n• 填写 Google AI API 密钥。\n• 选择文本模型和图像模型。\n• 保存设置。\n\n请根据质量、成本、延迟及数据处理条款选择模型；提供商暂时不可用时可稍后重试。"
-      },
-      "s22": {
-        "title": "OpenAI 兼容接口配置",
-        "content": "• 选择 OpenAI 兼容接口。\n• 填写所选提供商的 Base URL 与 API 密钥。\n• 刷新模型列表，并选择文本、视觉和图像模型。\n\n不同提供商的模型标识和接口支持不同；请确认其图像生成功能兼容性。"
-      },
-      "s23": {
-        "title": "图像模型配置",
-        "content": "标准模式根据规格编辑已上传图像；创意模式使用已有摘要作为新配图的上下文。OpenAI 兼容提供商可能支持图像生成与视觉分析，Google 提供商可能支持 Imagen。图像 MCP 仍是单独配置的可选工具。"
-      },
-      "s24": {
-        "title": "MCP 与盲审配置",
-        "content": "可在“模型配置 → MCP 工具”中启用数据库和图像工具。盲审机制不同：PubMed、CiteCheck 与 DOI MCP 均由管理员在后端预部署，用户只需勾选复选框，无需配置端点、命令、软件包或令牌。后端不可用时会明确标记，绝不会视为已核验。"
-      },
-      "s25": {
-        "title": "期刊视觉风格与示意图布局",
-        "content": "图像切片提供 LANCET、NATURE、NEJM、SCIENCE 及 JAMA & BMJ、RADIOLOGY、IEEE/ICML/NeurIPS、CELL、PNAS 风格。选择期刊与布局后，图像规格会同步显示相应视觉品味和结构规则，结构化 JSON 也会使用同一选择。\n\nJAMA & BMJ 采用克制的英伦临床编辑风格；RADIOLOGY 强调 Medical Imaging 与诊断图像；IEEE/ICML/NeurIPS 强调算法和数据流；CELL 强调生物机制与图形摘要。七种布局分别适配时序流程、中心靶点、输入-处理-输出、跨尺度嵌套、前后对照、组织场景和模块矩阵。"
-      },
-      "s3": {
-        "title": "摘要存储与同步",
-        "content": "已保存摘要保留在浏览器存储中。摘要管理器支持加载、删除、导出与导入。配置并启用 Supabase 后，可选的云端同步可能支持跨设备访问。"
-      },
-      "s4": {
-        "title": "摘要与图像导出",
-        "content": "摘要可导出为 Markdown、PDF 或 JSON；生成图像可按其可用格式下载。导出或投稿前，必须由作者完成独立核验。"
-      },
-      "s5": {
-        "title": "会员权益",
-        "content": "• 新注册并完成验证后自动获得 5 学分。\n• 每日主动签到 +1；连续第 7 天额外 +1，随后重新计数。\n• 可按需启用 GLM-5.2、Nanobanana pro 与 GPT-Image 托管模型。\n• 默认云端保存 30 篇摘要，每篇上限 10 KB；可使用学分扩容。\n• 已配置对应 BYOK 时优先使用个人 API，不消耗会员学分。\n\nAI 生成与润色可能不准确；使用者必须独立核验数据、伦理、引用及投稿合规性。"
-      }
+  "help_assistant": {
+    "title": "炼气师",
+    "open": "打开炼气师",
+    "subtitle": "站点使用与故障排查助手",
+    "close": "关闭炼气师",
+    "welcome": "选择常见问题，或询问 Sci-Necromancer 的使用方法。静态帮助不占用每日 AI 次数。",
+    "question_label": "向炼气师提问",
+    "question_placeholder": "询问本站使用方法…",
+    "ask": "询问炼气师",
+    "stop": "停止",
+    "thinking": "炼气师正在查阅文档…",
+    "unavailable": "AI 帮助暂时不可用，静态帮助仍可正常使用。",
+    "ai_disclosure": "AI 生成的回答可能不准确，请以页面功能和引用文档为准。请勿提交 API 密钥、患者信息或科研正文。",
+    "accept_disclosure": "我已了解并继续",
+    "verification_required": "首次使用今日 AI 问答前，请先完成人机验证。",
+    "retry": "重新提问",
+    "ai_answer": "AI 回答",
+    "sources": "依据",
+    "remaining": "今日还可提问 {count} 次",
+    "was_helpful": "问题解决了吗？",
+    "resolved": "已解决",
+    "not_resolved": "未解决",
+    "browse_topics": "浏览全部帮助主题",
+    "new_conversation": "重新开始",
+    "errors": {
+      "help_question_required": "请输入问题。",
+      "help_question_too_long": "问题不能超过 1000 个字符。",
+      "help_sensitive_content": "请先移除 API 密钥或其他敏感信息。",
+      "help_patient_identifier": "请先移除患者或个人标识信息。",
+      "help_prompt_injection": "该请求不能发送给文档助手。",
+      "help_unsafe_markup": "不接受 HTML 或可执行标记。",
+      "help_external_url": "请移除外部链接，并用纯文本描述问题。",
+      "help_hidden_characters": "请先移除隐藏字符或双向控制字符。"
+    },
+    "shortcuts": {
+      "open-model-settings": "打开模型配置",
+      "open-member-panel": "打开会员账户",
+      "open-abstract-manager": "打开摘要库",
+      "open-skills-mcp": "打开 Skills & MCP",
+      "open-blind-review": "前往盲审",
+      "open-conference-module": "前往功能模块",
+      "open-github-issues": "前往 GitHub 反馈"
     }
   },
   "blind_review": {
@@ -702,7 +720,13 @@
       "conference-compliance": "会议规范",
       "reporting-guideline": "报告规范"
     },
-    "severity": { "critical": "严重", "high": "高", "medium": "中", "low": "低", "info": "提示" },
+    "severity": {
+      "critical": "严重",
+      "high": "高",
+      "medium": "中",
+      "low": "低",
+      "info": "提示"
+    },
     "verification_status": {
       "verified": "记录已核验",
       "supported": "有证据支持",
@@ -710,7 +734,11 @@
       "contradictory": "与证据矛盾",
       "not-verifiable": "无法核验"
     },
-    "reviewer": { "pubmed": "PubMed", "citecheck": "CiteCheck", "doi-mcp": "DOI MCP" },
+    "reviewer": {
+      "pubmed": "PubMed",
+      "citecheck": "CiteCheck",
+      "doi-mcp": "DOI MCP"
+    },
     "external_status": {
       "verified": "检索完成",
       "issues-found": "发现问题",
@@ -739,6 +767,7 @@
     "record_title": "AI 辅助记录",
     "record_operations": "基于 RSNA 分类的语言润色；结构与合规审查",
     "record_verify": "必须由作者独立核验。",
-    "copy_reminder": "复制内容不含产品免责声明；使用前仍须由作者核验。"
+    "copy_reminder": "复制内容不含产品免责声明；使用前仍须由作者核验。",
+    "creative_output_warning": "邪修模式内容由简短构想经生成式 AI 扩展，事实、数据、资格与投稿合规性均不受保障，使用前必须逐项核验。"
   }
 }

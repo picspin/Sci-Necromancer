@@ -58,6 +58,20 @@ const i18n = createI18n({
 });
 
 describe('ModelManager blind-review settings', () => {
+  it('opens directly to a help-selected configuration panel', () => {
+    render(ModelManager, {
+      props: { initialPanel: 'skills-mcp' },
+      global: {
+        plugins: [i18n],
+        stubs: { Modal: { template: '<div><slot /></div>' } },
+      },
+    });
+
+    expect(screen.getByRole('button', { name: 'Skills & MCP' }).getAttribute('aria-selected')).toBe(
+      'true'
+    );
+  });
+
   it('keeps the three managed model controls locked and links visitors to membership', async () => {
     render(ModelManager, {
       global: {

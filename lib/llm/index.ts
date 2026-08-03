@@ -96,7 +96,8 @@ async function withExplicitManagedFallback<T>(
   apiKey: string | undefined,
   runSelectedByok: () => Promise<T>,
   runManaged: () => Promise<T>,
-  managedAvailable: () => boolean = canUseManagedText
+  managedAvailable: () => boolean = canUseManagedText,
+  creditCost = 2
 ): Promise<T> {
   try {
     return await runSelectedByok();
@@ -107,8 +108,8 @@ async function withExplicitManagedFallback<T>(
     const isChinese = getAuxiliaryLocale() === 'zh';
     const approved = globalThis.confirm(
       isChinese
-        ? '个人 API 调用失败。是否改用会员托管模型并消耗 1 学分？取消则不调用托管模型，也不扣费。'
-        : 'Your personal API call failed. Use the managed member model for 1 bonus? Cancel makes no managed call and incurs no charge.'
+        ? `个人 API 调用失败。是否改用会员托管模型并消耗 ${creditCost} 学分？取消则不调用托管模型，也不扣费。`
+        : `Your personal API call failed. Use the managed member model for ${creditCost} ${creditCost === 1 ? 'credit' : 'credits'}? Cancel makes no managed call and incurs no charge.`
     );
     if (!approved) throw byokError;
     return runManaged();
@@ -138,7 +139,8 @@ export async function reviewAbstractBlind(prompt: string): Promise<BlindReviewMo
       apiKey,
       () => getService(false).reviewAbstractBlind(prompt, apiKey),
       () => runManagedBlindReview(prompt),
-      () => canUseManagedText() || canUseManagedResearchVerification()
+      () => canUseManagedText() || canUseManagedResearchVerification(),
+      1
     );
   }
   return runManagedBlindReview(prompt);

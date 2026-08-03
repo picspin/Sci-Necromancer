@@ -38,7 +38,7 @@ export class ConferenceRegistry {
     colorScheme: { primary: string; secondary: string; accent: string };
   }> {
     const modules = conferenceRouter.getAllModules();
-    const conferences: Conference[] = ['ISMRM', 'RSNA', 'ER', 'ESC'];
+    const conferences: Conference[] = ['ISMRM', 'RSNA', 'ER', 'ESC', 'ASCO', 'ESMO'];
 
     return conferences.map((conference) => {
       const module = modules.get(conference);

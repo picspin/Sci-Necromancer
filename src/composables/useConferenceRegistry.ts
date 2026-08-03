@@ -89,6 +89,20 @@ export function useConferenceRegistry() {
           available: false,
           colorScheme: defaultColorScheme,
         },
+        {
+          id: 'ASCO' as Conference,
+          name: 'ASCO Annual Meeting',
+          submissionUrl: '#',
+          available: false,
+          colorScheme: defaultColorScheme,
+        },
+        {
+          id: 'ESMO' as Conference,
+          name: 'ESMO Congress',
+          submissionUrl: '#',
+          available: false,
+          colorScheme: defaultColorScheme,
+        },
       ];
     }
     return ConferenceRegistry.getConferenceInfo();

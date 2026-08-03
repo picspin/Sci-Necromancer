@@ -36,6 +36,7 @@ interface TaskRow {
   bonus_balance: number;
   charged?: boolean;
   refunded?: boolean;
+  credit_cost?: number;
   call_count?: number;
   generation_count?: number;
   deep_update_count?: number;
@@ -85,6 +86,7 @@ function mapTask(row: TaskRow) {
     bonusBalance: row.bonus_balance,
     charged: row.charged ?? false,
     refunded: row.refunded ?? false,
+    creditCost: row.credit_cost ?? 0,
     callCount: row.call_count ?? 0,
     generationCount: row.generation_count ?? 0,
     deepUpdateCount: row.deep_update_count ?? 0,

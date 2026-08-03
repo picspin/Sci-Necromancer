@@ -38,6 +38,14 @@
           <p class="mt-1">{{ t('ai_disclosure.output_body') }}</p>
         </div>
 
+        <p
+          v-if="abstract && creativeMode"
+          data-testid="creative-output-warning"
+          class="rounded-md border border-fuchsia-400/50 bg-fuchsia-500/10 px-3 py-2 text-xs font-semibold text-fuchsia-100"
+        >
+          {{ t('ai_disclosure.creative_output_warning') }}
+        </p>
+
         <div v-if="abstract?.title" class="animate-fade-in">
           <h3 class="text-md mb-2 font-semibold text-brand-primary">{{ t('rsna.title_label') }}</h3>
           <div class="rounded-lg bg-base-100 p-4 text-sm text-text-secondary">
@@ -245,12 +253,14 @@ interface Props {
   conference?: Conference;
   abstractType?: AbstractType;
   sourceText?: string;
+  creativeMode?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
   conference: 'ISMRM',
   image: null,
   sourceText: '',
+  creativeMode: false,
 });
 const { t } = useI18n();
 const publicComplianceWarnings = computed(() =>

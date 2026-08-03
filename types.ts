@@ -1,5 +1,5 @@
 export type GenerationMode = 'standard' | 'creative';
-export type Conference = 'ISMRM' | 'RSNA' | 'JACC' | 'ER' | 'ESC' | 'IMAGE';
+export type Conference = 'ISMRM' | 'RSNA' | 'JACC' | 'ER' | 'ESC' | 'ASCO' | 'ESMO' | 'IMAGE';
 export type RSNASubmissionTrack = 'regular' | 'cutting-edge';
 export type RSNAContentType = 'science' | 'education';
 export type RSNAPresentationFormat =
@@ -36,6 +36,44 @@ export interface AIAssistanceRecord {
   mode: GenerationMode;
   operations: string[];
   authorVerificationRequired: true;
+}
+
+export type OncologySubmissionType =
+  'regular' | 'lba-shell' | 'lba-intent' | 'lba-final' | 'trial-in-progress';
+
+export type OncologyStudyDesign =
+  | 'interventional-trial'
+  | 'diagnostic-prognostic'
+  | 'biomarker-translational'
+  | 'observational-rwe'
+  | 'systematic-review-meta-analysis'
+  | 'preclinical-basic'
+  | 'ai-model-study'
+  | 'supportive-policy-nursing'
+  | 'trial-in-progress';
+
+export type ESMOPresentationFormat = 'proffered-paper' | 'rapid-oral' | 'poster' | 'eposter';
+
+export interface OncologyClassification {
+  conference: 'ASCO' | 'ESMO';
+  submissionType: OncologySubmissionType;
+  primaryCategory?: string;
+  alternativeCategories?: string[];
+  studyDesign?: OncologyStudyDesign;
+  confidence?: number;
+  rationale?: string[];
+  warnings?: string[];
+  ruleVersion: string;
+  presentationRecommendation?: ESMOPresentationFormat;
+  authorCount?: number;
+  tableCount?: number;
+  tableRows?: number;
+  tableText?: string;
+  hasFigures?: boolean;
+  containsPatientData?: boolean;
+  presenterIsSponsorEmployee?: boolean;
+  aiGeneratedOrAnalyzedResearchData?: boolean;
+  methodsDescribeAI?: boolean;
 }
 
 export type BlindReviewDimension =
@@ -111,6 +149,16 @@ export type AbstractType =
   // ESC Types
   | 'ESC Scientific Abstract'
   | 'ESC Young Investigator Award'
+  // ASCO Types
+  | 'ASCO Regular Abstract'
+  | 'ASCO Late-Breaking Shell'
+  | 'ASCO Late-Breaking Abstract'
+  | 'ASCO Trials in Progress'
+  // ESMO Types
+  | 'ESMO Regular Abstract'
+  | 'ESMO Late-Breaking Intent'
+  | 'ESMO Late-Breaking Abstract'
+  | 'ESMO Trial in Progress'
   // ER/ECR Types (European Congress of Radiology)
   | 'ER Scientific Abstract'
   | 'ECR Research Presentation'
@@ -130,6 +178,7 @@ export interface AbstractData {
   presentationGuidance?: string[];
   complianceWarnings?: string[];
   aiAssistance?: AIAssistanceRecord;
+  oncology?: OncologyClassification;
 }
 
 export interface ImageState {
@@ -161,6 +210,7 @@ export interface AnalysisResult {
   categories: Category[];
   keywords: string[];
   rsna?: RSNAClassification;
+  oncology?: OncologyClassification;
 }
 
 export interface ISMRMAnalysisBundle extends AnalysisResult {

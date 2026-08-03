@@ -1,6 +1,7 @@
 <template>
   <section
     v-if="blindReviewAvailable"
+    data-help-target="blind-review"
     class="rounded-lg border border-cyan-500/40 bg-cyan-500/10 p-4"
   >
     <div class="flex flex-wrap items-center justify-between gap-3">

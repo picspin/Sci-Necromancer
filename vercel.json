@@ -1,6 +1,7 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "regions": ["iad1"],
+  "rewrites": [{ "source": "/api/help", "destination": "/api/generate" }],
   "functions": {
     "api/generate.ts": { "maxDuration": 120 },
     "api/member/*.ts": { "maxDuration": 120 },

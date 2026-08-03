@@ -72,4 +72,34 @@ describe('OutputDisplay blind-review entry', () => {
     expect(screen.queryByText(/provisional RSNA 2023 fallback/i)).toBeNull();
     expect(screen.getByText('Verify the ethics approval statement.')).toBeTruthy();
   });
+
+  it('highlights the non-guarantee notice only for creative-mode output', () => {
+    const renderOutput = (creativeMode: boolean) =>
+      render(OutputDisplay, {
+        props: {
+          abstract: { impact: '', synopsis: '', abstract: 'Generated abstract', keywords: [] },
+          conference: 'ISMRM',
+          creativeMode,
+          isLoading: false,
+          error: null,
+        },
+        global: {
+          plugins: [i18n],
+          stubs: {
+            BlindReviewControl: true,
+            ExportButtons: true,
+            LiveRegion: true,
+            AbstractBody: true,
+            SvgIcon: true,
+          },
+        },
+      });
+
+    renderOutput(true);
+    expect(screen.getByTestId('creative-output-warning')).toBeTruthy();
+    cleanup();
+
+    renderOutput(false);
+    expect(screen.queryByTestId('creative-output-warning')).toBeNull();
+  });
 });

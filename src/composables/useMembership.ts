@@ -285,6 +285,7 @@ export function useMembership() {
     user: computed<User | null>(() => session.value?.user || null),
     status: computed(() => memberStatus.value),
     error: computed(() => error.value),
+    getAccessToken: async () => session.value?.access_token || null,
     initialize,
     refreshStatus,
     signInWithGitHub,

@@ -16,9 +16,15 @@ describe('member service RPC boundary', () => {
     expect(rpc).toHaveBeenCalledWith('member_status');
   });
 
-  it('reserves one bonus idempotently for an analysis-generation task', async () => {
+  it('maps the two-credit reservation for an analysis-generation task', async () => {
     const rpc = vi.fn().mockResolvedValue({
-      data: { task_id: 'task-1', status: 'reserved', bonus_balance: 4, charged: true },
+      data: {
+        task_id: 'task-1',
+        status: 'reserved',
+        bonus_balance: 3,
+        charged: true,
+        credit_cost: 2,
+      },
       error: null,
     });
     const service = createMemberService({ rpc });
@@ -26,8 +32,9 @@ describe('member service RPC boundary', () => {
     await expect(service.reserveTask('request-1', 'analysis_generation')).resolves.toMatchObject({
       taskId: 'task-1',
       status: 'reserved',
-      bonusBalance: 4,
+      bonusBalance: 3,
       charged: true,
+      creditCost: 2,
     });
     expect(rpc).toHaveBeenCalledWith('reserve_bonus_task', {
       p_idempotency_key: 'request-1',

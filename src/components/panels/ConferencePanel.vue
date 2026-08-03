@@ -77,6 +77,10 @@
         <RSNAPanel v-if="localActiveConference === 'RSNA'" />
         <ERPanel v-if="localActiveConference === 'ER'" />
         <ESCPanel v-if="localActiveConference === 'ESC'" />
+        <OncologyConferencePanel
+          v-if="localActiveConference === 'ASCO' || localActiveConference === 'ESMO'"
+          :conference="localActiveConference"
+        />
         <ImageGenerationPanel v-if="localActiveConference === 'IMAGE'" />
       </div>
     </template>
@@ -93,6 +97,7 @@ import RSNAPanel from './RSNAPanel.vue';
 import ESCPanel from './ESCPanel.vue';
 import ConferenceTab from './ConferenceTab.vue';
 import ERPanel from './ERPanel.vue';
+import OncologyConferencePanel from './OncologyConferencePanel.vue';
 import { ImageGenerationPanel } from './ImageGenerationPanel';
 
 const { t } = useI18n();

@@ -147,6 +147,7 @@
         :loading-message="loadingMessage"
         conference="ER"
         :source-text="inputText"
+        :creative-mode="abstractMode === 'creative'"
         :abstract-type="selectedAbstractType || 'ECR Research Presentation'"
       />
     </div>
@@ -631,6 +632,10 @@ const setActiveTab = (tab: 'abstract' | 'figure') => {
 };
 
 const setAbstractMode = (mode: GenerationMode) => {
+  if (abstractMode.value === mode) return;
   abstractMode.value = mode;
+  generatedAbstract.value = null;
+  error.value = null;
+  resetWorkflow();
 };
 </script>

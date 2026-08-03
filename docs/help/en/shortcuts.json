@@ -1,0 +1,58 @@
+[
+  {
+    "id": "use-modules",
+    "label": "How do I use each submission and image module?",
+    "query": "How do I use the modules?",
+    "articleId": "modules",
+    "shortcutId": "open-conference-module",
+    "audience": "all"
+  },
+  {
+    "id": "configure-anthropic",
+    "label": "How do I configure the Anthropic API?",
+    "query": "How do I configure Anthropic Messages?",
+    "articleId": "personal-api",
+    "shortcutId": "open-model-settings",
+    "audience": "all"
+  },
+  {
+    "id": "api-not-responding",
+    "label": "Why does my configured API not respond?",
+    "query": "My API does not respond or models fail to load.",
+    "articleId": "troubleshooting",
+    "shortcutId": "open-model-settings",
+    "audience": "all"
+  },
+  {
+    "id": "use-blind-review",
+    "label": "What does blind review verify?",
+    "query": "How do blind review and research verification work?",
+    "articleId": "blind-review",
+    "shortcutId": "open-blind-review",
+    "audience": "all"
+  },
+  {
+    "id": "use-skills-mcp",
+    "label": "How do I enable Skills & MCP?",
+    "query": "How do I enable Skills, MCP, and the research verification agent?",
+    "articleId": "skills-mcp",
+    "shortcutId": "open-skills-mcp",
+    "audience": "all"
+  },
+  {
+    "id": "how-to-register",
+    "label": "How do I register or sign in?",
+    "query": "How do I register or sign in as a member?",
+    "articleId": "membership",
+    "shortcutId": "open-member-panel",
+    "audience": "guest"
+  },
+  {
+    "id": "missing-credits",
+    "label": "Why are my credits or check-in status missing?",
+    "query": "My member credits or check-in status did not update.",
+    "articleId": "membership",
+    "shortcutId": "open-member-panel",
+    "audience": "member"
+  }
+]
