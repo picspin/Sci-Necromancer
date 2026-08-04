@@ -32,13 +32,17 @@ async function probeProviders() {
   }
   if (configured('GEMINI_API_KEY')) {
     const response = await fetch(
-      'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash',
-      { headers: { 'x-goog-api-key': process.env.GEMINI_API_KEY! } }
+      'https://generativelanguage.googleapis.com/v1beta/models?pageSize=1',
+      {
+        signal: AbortSignal.timeout(8_000),
+        headers: { 'x-goog-api-key': process.env.GEMINI_API_KEY! },
+      }
     ).catch(() => null);
     result.gemini = Boolean(response?.ok);
   }
   if (configured('OPENAI_API_KEY')) {
-    const response = await fetch('https://api.openai.com/v1/models/gpt-image-2', {
+    const response = await fetch('https://api.openai.com/v1/models', {
+      signal: AbortSignal.timeout(8_000),
       headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}` },
     }).catch(() => null);
     result.openai = Boolean(response?.ok);
