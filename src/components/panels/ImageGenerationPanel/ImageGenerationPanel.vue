@@ -295,8 +295,9 @@ const imageProviderOptions = computed<FloatingSelectOption[]>(() => [
   {
     value: 'nano-banana-pro',
     label:
-      '🍌 Nanobanana pro · ' +
+      '🍌 Nano Banana · Imagen 4 · ' +
       t('image_generation.member_provider') +
+      ` · ${t('image_generation.member_image_cost')}` +
       (state.value.mode === 'standard'
         ? ` · ${t('image_generation.generation_only')}`
         : nanoBananaAvailable.value
@@ -305,10 +306,21 @@ const imageProviderOptions = computed<FloatingSelectOption[]>(() => [
     disabled: !nanoBananaAvailable.value || state.value.mode === 'standard',
   },
   {
+    value: 'mga-gemini-3-pro-image-placeholder',
+    label: `🍌 Gemini 3 Pro Image · ${t('image_generation.deployment_pending')}`,
+    disabled: true,
+  },
+  {
+    value: 'mga-gemini-3-1-flash-image-placeholder',
+    label: `🍌 Gemini 3.1 Flash Image · ${t('image_generation.deployment_pending')}`,
+    disabled: true,
+  },
+  {
     value: 'gpt-image-2',
     label:
       'GPT-Image · ' +
       t('image_generation.member_provider') +
+      ` · ${t('image_generation.member_image_cost')}` +
       (gptImageAvailable.value ? '' : ' 🔒'),
     disabled: !gptImageAvailable.value,
   },

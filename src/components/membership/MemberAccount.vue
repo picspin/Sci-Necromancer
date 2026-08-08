@@ -118,25 +118,22 @@
       <section class="grid gap-3 sm:grid-cols-2">
         <div class="rounded-lg bg-base-100 p-3">
           <p class="text-xs text-text-secondary">{{ t('membership.checkin_cycle') }}</p>
-          <p class="mt-1 font-semibold text-text-primary">{{ status?.checkinCycle ?? 0 }}/7</p>
+          <p class="mt-1 font-semibold text-text-primary">
+            {{ status ? `${status.checkinCycle}/7` : '—' }}
+          </p>
         </div>
         <div class="rounded-lg bg-base-100 p-3">
           <p class="text-xs text-text-secondary">{{ t('membership.cloud_usage') }}</p>
           <p class="mt-1 font-semibold text-text-primary">
-            {{ status?.abstractCount ?? 0 }}/{{ status?.abstractQuota ?? 30 }}
+            {{ status ? `${status.abstractCount}/${status.abstractQuota}` : '—' }}
           </p>
         </div>
       </section>
 
       <section v-if="status && !status.checkedInToday" class="space-y-3">
-        <TurnstileChallenge
-          :key="challengeKey"
-          :site-key="turnstileSiteKey"
-          @token="turnstileToken = $event"
-        />
         <button
           type="button"
-          :disabled="!turnstileToken || isLoading"
+          :disabled="isLoading"
           class="w-full rounded-lg bg-brand-primary px-4 py-2 font-semibold text-white disabled:opacity-50"
           @click="dailyCheckIn"
         >
@@ -153,9 +150,9 @@
             <p class="text-sm font-medium text-text-primary">{{ t('membership.cloud_quota') }}</p>
             <p class="text-xs text-text-secondary">{{ t('membership.cloud_quota_help') }}</p>
           </div>
-          <div class="flex gap-2">
+          <div v-if="status" class="flex gap-2">
             <button
-              v-if="(status?.abstractQuota ?? 30) < 100"
+              v-if="status.abstractQuota < 100"
               type="button"
               class="rounded-md border border-base-300 px-3 py-1.5 text-xs text-text-primary"
               @click="upgradeQuota(100)"
@@ -163,12 +160,12 @@
               100 · 2 {{ t('membership.credit_unit') }}
             </button>
             <button
-              v-if="(status?.abstractQuota ?? 30) < 500"
+              v-if="status.abstractQuota < 500"
               type="button"
               class="rounded-md border border-base-300 px-3 py-1.5 text-xs text-text-primary"
               @click="upgradeQuota(500)"
             >
-              500 · {{ status?.abstractQuota === 100 ? 8 : 10 }}
+              500 · {{ status.abstractQuota === 100 ? 8 : 10 }}
               {{ t('membership.credit_unit') }}
             </button>
           </div>
@@ -252,7 +249,6 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useMembership } from '@/composables/useMembership';
-import TurnstileChallenge from './TurnstileChallenge.vue';
 import { localizeError } from '@/lib/i18n/errorMessages';
 import JumpingInput from '@/components/ui/JumpingInput.vue';
 import GitHubRepoLink from '@/components/ui/GitHubRepoLink.vue';
@@ -262,7 +258,6 @@ const { t } = useI18n();
 const membership = useMembership();
 const {
   configured,
-  turnstileSiteKey,
   isAuthenticated,
   isLoading,
   isStatusLoading,
@@ -295,8 +290,6 @@ const nickname = ref('');
 const profileNickname = ref('');
 const profileEmail = ref('');
 const newPassword = ref('');
-const turnstileToken = ref('');
-const challengeKey = ref(0);
 const rechargeBonus = ref(10);
 const localError = ref('');
 const notice = ref('');
@@ -366,9 +359,7 @@ async function submitEmailAuth() {
 
 const dailyCheckIn = () =>
   run(async () => {
-    await checkIn(turnstileToken.value);
-    turnstileToken.value = '';
-    challengeKey.value += 1;
+    await checkIn();
   });
 
 const upgradeQuota = (target: 100 | 500) =>

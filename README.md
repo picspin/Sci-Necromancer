@@ -72,7 +72,28 @@ npm run lint
 npm run build
 ```
 
-Deploy `dist/` to Cloudflare Pages/Workers static assets, Vercel, or Netlify with SPA fallback to `index.html`. Deploy `api/` separately to Vercel; [vercel.json](vercel.json) pins Functions to the US `iad1` region. Configure Supabase, Turnstile, provider, and Stripe server secrets from [.env.example](.env.example), then point every static host at it with `VITE_API_BASE_URL`. Apply both SQL files under `supabase/migrations/`. Never place server credentials in `VITE_*` variables. Provider use must still comply with its supported-region rules and terms.
+Deploy `api/` to Vercel and the browser app with the Worker configuration in
+[wrangler.jsonc](wrangler.jsonc), not as unwrapped static files. The Worker keeps `/api/*` and
+Supabase Auth traffic on the application origin, then reaches Vercel/Supabase over Cloudflare's
+server network. `VITE_API_BASE_URL` remains a browser fallback for hosts that cannot run the Worker;
+do not make a `.vercel.app` URL the only production path for mainland-China users. Set
+`VITE_SUPABASE_PROXY_PATH=/supabase` during non-`rad-sci.org` Cloudflare builds. The committed
+[.env.production](.env.production) contains browser-public production values so a normal
+`npm run build && npx wrangler deploy` cannot silently compile membership out of the application.
+Only Supabase publishable/anon keys belong there; keep service-role and provider secrets in Vercel.
+
+Member Functions run in Vercel `yul1`, close to the Canada Supabase region; provider-heavy Functions
+remain in `iad1`. Configure Supabase, Turnstile, provider, and Stripe server secrets from
+[.env.example](.env.example), apply every migration under `supabase/migrations/`, and never place
+server credentials in `VITE_*` variables. Provider use must still comply with its supported-region
+rules and terms.
+
+After both deployments, this command must return JSON (not the SPA HTML) and include
+`X-Sci-Proxy: member-api`:
+
+```bash
+curl -i https://www.rad-sci.org/api/health
+```
 
 Create the Stripe webhook at `/api/stripe-webhook`, pin it to API version `2026-02-25.clover`, and explicitly enable `checkout.session.completed`, `refund.created`, `refund.updated`, `charge.dispute.created`, and the selection-required `charge.dispute.funds_reinstated` event. Verify purchase, successful refund, duplicate delivery, dispute, and funds reinstatement with Stripe CLI in test mode before enabling live payments.
 

@@ -89,7 +89,7 @@ describe('managed MGA capability routing', () => {
     });
   });
 
-  it('routes Nano Banana membership generation to Imagen 4 via img_generator', async () => {
+  it('routes managed Nano Banana generation to healthy Imagen 4 via img_generator', async () => {
     enableMGA();
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(
@@ -123,7 +123,26 @@ describe('managed MGA capability routing', () => {
     expect(body.messages[0].content).toContain('imagen-4');
   });
 
-  it('routes the GPT Image membership option to GPT-Image-1 and accepts file events', async () => {
+  it('rejects Nano Banana editing and fails closed without MGA', async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(
+      callManagedProvider({
+        provider: 'nano-banana-pro',
+        prompt: 'Edit this image',
+        images: [{ data: 'aW1hZ2U=', mimeType: 'image/png' }],
+      })
+    ).rejects.toMatchObject({ code: 'invalid_generation_request', status: 400 });
+
+    vi.stubEnv('GEMINI_API_KEY', 'google-test-key');
+    await expect(
+      callManagedProvider({ provider: 'nano-banana-pro', prompt: 'Generate a figure' })
+    ).rejects.toMatchObject({ code: 'managed_provider_unavailable', status: 503 });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('routes GPT Image editing to GPT-Image-1 with the reference image input', async () => {
     enableMGA();
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(
@@ -144,11 +163,19 @@ describe('managed MGA capability routing', () => {
     vi.stubGlobal('fetch', fetchMock);
 
     await expect(
-      callManagedProvider({ provider: 'gpt-image-2', prompt: 'Generate a clinical figure' })
+      callManagedProvider({
+        provider: 'gpt-image-2',
+        prompt: 'Edit a clinical figure',
+        images: [{ data: 'aW1hZ2U=', mimeType: 'image/png' }],
+      })
     ).resolves.toEqual({ type: 'image', base64: 'aW1hZ2U=', mimeType: 'image/png' });
 
     const body = JSON.parse(String((fetchMock.mock.calls[0][1] as RequestInit).body));
     expect(body.messages[0].content).toContain('gpt-image-1');
+    expect(body.messages[1].content).toContainEqual({
+      type: 'image_url',
+      image_url: { url: 'data:image/png;base64,aW1hZ2U=' },
+    });
   });
 
   it('downloads an MGA signed image only from the configured HTTPS image host', async () => {

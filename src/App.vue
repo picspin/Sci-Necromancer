@@ -154,7 +154,7 @@ const {
   turnstileSiteKey,
 } = membership;
 const helpClient = createHelpAssistantClient({
-  baseUrl: import.meta.env.VITE_API_BASE_URL?.trim() || window.location.origin,
+  baseUrl: window.location.origin,
   getAccessToken,
 });
 

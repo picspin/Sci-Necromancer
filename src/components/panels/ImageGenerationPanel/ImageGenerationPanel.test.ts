@@ -14,6 +14,7 @@ const { generateImage, setImageProvider, panelState, providerState } = vi.hoiste
     openAIModelId: 'seedream-1.5' as string | null,
     googleSupportsEditing: true,
     openAISupportsEditing: true,
+    nanoAvailable: true,
   },
   panelState: {
     mode: 'standard',
@@ -54,7 +55,7 @@ vi.mock('@/composables/useImageGeneration', async () => {
       managedImageAvailable: computed(() => true),
       googleByokAvailable: computed(() => providerState.googleAvailable),
       openAIByokAvailable: computed(() => providerState.openAIAvailable),
-      nanoBananaAvailable: computed(() => false),
+      nanoBananaAvailable: computed(() => providerState.nanoAvailable),
       gptImageAvailable: computed(() => false),
       googleByokModelId: computed(() => providerState.googleModelId),
       openAIByokModelId: computed(() => providerState.openAIModelId),
@@ -88,6 +89,7 @@ const i18n = createI18n({ legacy: false, locale: 'en', messages: { en } });
 
 describe('ImageGenerationPanel provider controls', () => {
   it('uses one generation action with a compact provider selector', async () => {
+    panelState.mode = 'text-to-image';
     render(ImageGenerationPanel, {
       global: {
         plugins: [i18n],
@@ -105,12 +107,33 @@ describe('ImageGenerationPanel provider controls', () => {
     expect(screen.queryByRole('button', { name: /Nanobana/i })).toBeNull();
     expect(screen.getByRole('option', { name: 'Google · gemini-3-pro-image' })).toBeTruthy();
     expect(screen.getByRole('option', { name: 'OpenAI · seedream-1.5' })).toBeTruthy();
-    expect(screen.getByRole('option', { name: /🍌 Nanobanana pro · Member/ })).toBeTruthy();
-    expect(screen.getByRole('option', { name: /GPT-Image · Member/ })).toBeTruthy();
+    expect(
+      (
+        screen.getByRole('option', {
+          name: '🍌 Nano Banana · Imagen 4 · Member · 2 credits',
+        }) as HTMLOptionElement
+      ).disabled
+    ).toBe(false);
+    expect(
+      (
+        screen.getByRole('option', {
+          name: '🍌 Gemini 3 Pro Image · awaiting MGA deployment',
+        }) as HTMLOptionElement
+      ).disabled
+    ).toBe(true);
+    expect(
+      (
+        screen.getByRole('option', {
+          name: '🍌 Gemini 3.1 Flash Image · awaiting MGA deployment',
+        }) as HTMLOptionElement
+      ).disabled
+    ).toBe(true);
+    expect(screen.getByRole('option', { name: /GPT-Image · Member · 2 credits/ })).toBeTruthy();
     await fireEvent.update(screen.getByLabelText('Image provider'), 'openai-byok');
     expect(setImageProvider).toHaveBeenCalledWith('openai-byok');
     await fireEvent.click(screen.getByRole('button', { name: 'Generate image' }));
     expect(generateImage).toHaveBeenCalledOnce();
+    panelState.mode = 'standard';
   });
 
   it('shows configuration placeholders instead of locks for missing personal image APIs', () => {
@@ -146,7 +169,7 @@ describe('ImageGenerationPanel provider controls', () => {
     providerState.openAIModelId = 'seedream-1.5';
   });
 
-  it('disables generation-only providers in image-to-image mode', () => {
+  it('disables generation-only Imagen 4 and future MGA placeholders in image editing mode', () => {
     providerState.googleSupportsEditing = false;
     panelState.mode = 'standard';
 
@@ -167,7 +190,20 @@ describe('ImageGenerationPanel provider controls', () => {
       (screen.getByRole('option', { name: 'Google · gemini-3-pro-image' }) as HTMLOptionElement)
         .disabled
     ).toBe(true);
-    expect(screen.getByRole('option', { name: /Nanobanana pro.*text-to-image only/ })).toBeTruthy();
+    expect(
+      (
+        screen.getByRole('option', {
+          name: '🍌 Nano Banana · Imagen 4 · Member · 2 credits · text-to-image only',
+        }) as HTMLOptionElement
+      ).disabled
+    ).toBe(true);
+    expect(
+      (
+        screen.getByRole('option', {
+          name: '🍌 Gemini 3 Pro Image · awaiting MGA deployment',
+        }) as HTMLOptionElement
+      ).disabled
+    ).toBe(true);
 
     providerState.googleSupportsEditing = true;
   });

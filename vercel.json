@@ -4,7 +4,7 @@
   "rewrites": [{ "source": "/api/help", "destination": "/api/generate" }],
   "functions": {
     "api/generate.ts": { "maxDuration": 120 },
-    "api/member/*.ts": { "maxDuration": 120 },
+    "api/member/*.ts": { "maxDuration": 120, "regions": ["yul1"] },
     "api/blind-review.ts": { "maxDuration": 60 }
   }
 }

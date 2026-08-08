@@ -105,7 +105,7 @@ export function useImageGeneration() {
     () =>
       membership.isAuthenticated.value &&
       Boolean(membership.status.value) &&
-      (membership.status.value?.bonusBalance || 0) > 0
+      (membership.status.value?.bonusBalance || 0) >= 2
   );
   const googleByokAvailable = computed(() => hasImageByok(settings.value, 'nano-banana-pro'));
   const openAIByokAvailable = computed(() => hasImageByok(settings.value, 'gpt-image-2'));
@@ -163,7 +163,7 @@ export function useImageGeneration() {
       enabled &&
       membership.isAuthenticated.value &&
       membership.status.value &&
-      (membership.status.value.bonusBalance || 0) > 0
+      (membership.status.value.bonusBalance || 0) >= 2
     );
   };
 
@@ -484,13 +484,20 @@ export function useImageGeneration() {
         creativeContext = `Impact: ${abstract.abstractData.impact}\nSynopsis: ${abstract.abstractData.synopsis}`;
       }
 
-      const provider =
+      const byokProvider =
         state.value.imageProvider === 'google-byok'
           ? 'nano-banana-pro'
           : state.value.imageProvider === 'openai-byok'
             ? 'gpt-image-2'
-            : state.value.imageProvider;
+            : null;
+      const managedProvider =
+        byokProvider ||
+        (state.value.imageProvider === 'nano-banana-pro' ||
+        state.value.imageProvider === 'gpt-image-2'
+          ? state.value.imageProvider
+          : null);
       const runManagedImage = async () => {
+        if (!managedProvider) throw new Error('member_generation_locked');
         if (
           state.value.uploadedImages.reduce((total, image) => total + image.base64.length, 0) >
           3_200_000
@@ -502,7 +509,7 @@ export function useImageGeneration() {
             typeof crypto.randomUUID === 'function'
               ? crypto.randomUUID()
               : `image-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-          provider,
+          provider: managedProvider,
           operation: 'image_generation',
           prompt: finalPrompt.value,
           images: state.value.uploadedImages.map((image) => ({
@@ -514,12 +521,17 @@ export function useImageGeneration() {
         state.value.generatedImage = `data:${output.mimeType || 'image/png'};base64,${output.base64}`;
       };
       if (selectedImageRoute.value === 'byok') {
+        if (!byokProvider) throw new Error('member_generation_locked');
         try {
-          const result = await llm.generateImageForProvider(provider, imageState, creativeContext);
+          const result = await llm.generateImageForProvider(
+            byokProvider,
+            imageState,
+            creativeContext
+          );
           state.value.generatedImage = `data:image/png;base64,${result}`;
         } catch (byokError) {
           if (
-            !managedFallbackAvailable(provider) ||
+            !managedFallbackAvailable(byokProvider) ||
             !window.confirm(t('image_generation.confirm_managed_fallback'))
           )
             throw byokError;

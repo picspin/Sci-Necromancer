@@ -194,6 +194,9 @@ export default async function handler(request: VercelRequest, response: VercelRe
       throw new MemberServiceError('invalid_generation_request', 400);
     }
     const images = parseImages(request.body?.images);
+    if (provider === 'nano-banana-pro' && images.length) {
+      throw new MemberServiceError('invalid_generation_request', 400);
+    }
     const admin = createAdminSupabaseClient();
     const user = await requireAuthenticatedUser(request, admin);
     const member = createMemberService(createScopedMemberRpcClient(admin, user.id));

@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '../../backend/_types/vercel.js';
 import { createMemberService, MemberServiceError } from '../../backend/_member/memberService.js';
-import { prepareMemberApi, sendApiError, verifyTurnstile } from '../../backend/_member/http.js';
+import { prepareMemberApi, sendApiError } from '../../backend/_member/http.js';
 import {
   createAdminSupabaseClient,
   createScopedMemberRpcClient,
@@ -14,7 +14,6 @@ export default async function handler(request: VercelRequest, response: VercelRe
   if (request.method !== 'POST') return response.status(405).json({ error: 'method_not_allowed' });
 
   try {
-    await verifyTurnstile(request, request.body?.turnstileToken);
     const admin = createAdminSupabaseClient();
     const user = await requireAuthenticatedUser(request, admin);
     if (!user.email || !user.email_confirmed_at) {

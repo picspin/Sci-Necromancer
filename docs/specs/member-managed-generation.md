@@ -63,9 +63,9 @@ Provide a low-friction membership layer without weakening BYOK, privacy, or wall
 ## Managed review and image generation
 
 - Blind Review obeys BYOK-first routing. Without text BYOK, every click is one managed bonus task. Selected PubMed/CiteCheck/DOI checks are included in that task, not separately charged. No deliverable means refund; retries are new tasks.
-- Member Benefits exposes separate Nano Banana and GPT Image checkboxes. They enable availability only; selecting a model and invoking generation performs the charge.
-- A corresponding image BYOK configuration wins. Otherwise each managed image request costs two credits. There is no silent cross-provider fallback.
-- Managed model IDs are environment-overridable. Defaults use currently public provider models; UI branding does not promise an unavailable future model.
+- Member Benefits exposes separate Nano Banana and GPT Image checkboxes. The checkboxes enable availability only; invoking a model performs the charge.
+- A corresponding image BYOK configuration wins. Otherwise each managed Imagen 4 generation or GPT Image generation/edit costs two credits. Imagen 4 is generation-only, so managed reference-image editing remains on GPT Image. There is no silent cross-provider fallback.
+- Nano Banana currently routes to the healthy Imagen 4 deployment. Gemini 3 Pro Image and Gemini 3.1 Flash Image are visible only as disabled placeholders until MGA reports healthy deployments and publishes the integration contract.
 
 ## UI requirements
 

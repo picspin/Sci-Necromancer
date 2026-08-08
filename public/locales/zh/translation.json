@@ -195,7 +195,7 @@
     "member_login_required": "登录后方可启用平台托管模型与 Supabase 云保存。",
     "managed_text_help": "使用学分调用平台托管文本模型；一次分析—生成或一键炼丹任务消耗 2 学分。",
     "managed_data_route": "会员托管请求使用已配置的 MGA 服务，并受对应供应商条款约束。",
-    "managed_image_help": "使用学分调用平台托管的 Imagen 4 或 GPT Image 1。",
+    "managed_image_help": "使用会员学分调用 Imagen 4 版 Nano Banana 生图，或使用 GPT Image 生图与编辑。Gemini 3 Pro Image 和 Gemini 3.1 Flash Image 将在 MGA 健康部署后开放。",
     "cloud_save_help": "将主动选择的摘要保存至您的 Supabase 私有账户。",
     "mcp_tab": "Skills & MCP",
     "google_ai": "Google AI",
@@ -286,7 +286,7 @@
     "member_rule_signup": "完成验证的新账户会自动且仅一次获得 5 学分。",
     "member_rule_checkin": "每日签到 +1 学分；第 7 天共获得 +2，随后重新开始周期。",
     "member_rule_abstract": "一次托管摘要或一键炼丹任务消耗 2 学分，并包含该任务允许的分析、生成、再次生成及深度更新步骤。",
-    "member_rule_image": "每次托管 Nanobanana pro 或 GPT-Image 生图消耗 2 学分；对应能力的 BYOK 始终优先。",
+    "member_rule_image": "每次托管 Imagen 4 生图或 GPT-Image 生图/编辑均消耗 2 学分；对应能力的 BYOK 始终优先。",
     "member_rule_storage": "云端默认保存 30 篇摘要（每篇 10 KB）；可消耗学分永久扩容至 100/500 篇。"
   },
   "capabilities": {
@@ -511,7 +511,9 @@
     "google_byok": "Google 个人 API",
     "openai_byok": "OpenAI 兼容个人 API",
     "member_provider": "会员",
+    "member_image_cost": "2 学分",
     "image_model_pending": "🎨 生图模型待配置",
+    "deployment_pending": "等待 MGA 部署",
     "generation_only": "仅文生图",
     "more_journal_styles": "更多核心出版风格",
     "select_more_journal_style": "选择其他出版风格",

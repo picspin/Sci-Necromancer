@@ -10,13 +10,31 @@ import {
   MGA_RESEARCH_AGENT_ID,
 } from '@/lib/capabilities/managedResearchCapabilities';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL?.trim() || '';
+const directSupabaseUrl = import.meta.env.VITE_SUPABASE_URL?.trim() || '';
+const productionSupabaseProxyPath = ['rad-sci.org', 'www.rad-sci.org'].includes(
+  window.location.hostname
+)
+  ? '/supabase'
+  : '';
+const supabaseProxyPath =
+  import.meta.env.VITE_SUPABASE_PROXY_PATH?.trim() || productionSupabaseProxyPath;
+const supabaseUrl = supabaseProxyPath
+  ? new URL(supabaseProxyPath, window.location.origin).toString().replace(/\/$/, '')
+  : directSupabaseUrl;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY?.trim() || '';
-const apiBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim() || window.location.origin;
-const isConfigured = Boolean(supabaseUrl && supabaseAnonKey && apiBaseUrl);
+const configuredApiBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim() || '';
+const isConfigured = Boolean(directSupabaseUrl && supabaseAnonKey);
+const supabaseProjectRef = directSupabaseUrl
+  ? new URL(directSupabaseUrl).hostname.split('.')[0]
+  : '';
 const supabase: SupabaseClient | null = isConfigured
   ? createClient(supabaseUrl, supabaseAnonKey, {
-      auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
+      auth: {
+        persistSession: true,
+        autoRefreshToken: true,
+        detectSessionInUrl: true,
+        storageKey: `sb-${supabaseProjectRef}-auth-token`,
+      },
     })
   : null;
 
@@ -39,7 +57,8 @@ async function refreshAccessToken(): Promise<string | null> {
 }
 
 const api = createMemberApiClient({
-  baseUrl: apiBaseUrl,
+  baseUrl: window.location.origin,
+  fallbackBaseUrls: configuredApiBaseUrl ? [configuredApiBaseUrl] : [],
   getAccessToken: async () => session.value?.access_token || null,
   refreshAccessToken,
 });
@@ -218,20 +237,20 @@ export function useMembership() {
     memberStatus.value = null;
   }
 
-  async function bootstrap(turnstileToken: string) {
+  async function bootstrap() {
     isLoading.value = true;
     try {
-      await api.bootstrap(turnstileToken);
+      await api.bootstrap();
       await refreshStatus();
     } finally {
       isLoading.value = false;
     }
   }
 
-  async function checkIn(turnstileToken: string) {
+  async function checkIn() {
     isLoading.value = true;
     try {
-      const status = await api.checkIn(turnstileToken);
+      const status = await api.checkIn();
       memberStatus.value = status;
     } finally {
       isLoading.value = false;

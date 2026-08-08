@@ -15,7 +15,8 @@ export interface ProviderRequest {
   reasoning?: 'default' | 'high';
 }
 
-const providerTimeout = () => AbortSignal.timeout(105_000);
+const PROVIDER_TIMEOUT_MS = 105_000;
+const providerTimeout = (timeoutMs = PROVIDER_TIMEOUT_MS) => AbortSignal.timeout(timeoutMs);
 
 const PROVIDER_RESPONSE_LIMIT = 6_000_000;
 
@@ -28,7 +29,6 @@ function providerSecret(name: 'GEMINI_API_KEY' | 'OPENAI_API_KEY'): string {
 function providerModel(
   name:
     | 'GEMINI_TEXT_MODEL'
-    | 'GEMINI_IMAGE_MODEL'
     | 'OPENAI_IMAGE_MODEL'
     | 'MGA_TEXT_MODEL'
     | 'MGA_RESEARCH_AGENT_MODEL'
@@ -332,46 +332,14 @@ async function generateGeminiText(request: ProviderRequest): Promise<ManagedGene
 }
 
 async function generateNanoBananaImage(request: ProviderRequest): Promise<ManagedGenerationOutput> {
+  if (request.images?.length) {
+    throw new MemberServiceError('invalid_generation_request', 400);
+  }
   const mgaPayload = await callMGAImage(request);
-  if (mgaPayload) {
-    const image = await resolveMGAImage(mgaPayload);
-    if (!image) throw new MemberServiceError('managed_provider_empty_output', 502);
-    return { type: 'image', ...image };
-  }
-  const parts = (request.images || []).map((image) => ({
-    inlineData: { mimeType: image.mimeType, data: image.data },
-  }));
-  parts.push({ text: request.prompt } as any);
-
-  const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(
-      providerModel('GEMINI_IMAGE_MODEL', 'gemini-3-pro-image')
-    )}:generateContent`,
-    {
-      method: 'POST',
-      signal: providerTimeout(),
-      headers: {
-        'Content-Type': 'application/json',
-        'x-goog-api-key': providerSecret('GEMINI_API_KEY'),
-      },
-      body: JSON.stringify({
-        contents: [{ role: 'user', parts }],
-        generationConfig: { responseModalities: ['TEXT', 'IMAGE'] },
-      }),
-    }
-  );
-  const payload = await jsonOrProviderError(response);
-  const imagePart = payload.candidates?.[0]?.content?.parts?.find(
-    (part: { inlineData?: { data?: string } }) => part.inlineData?.data
-  );
-  if (!imagePart?.inlineData?.data) {
-    throw new MemberServiceError('managed_provider_empty_output', 502);
-  }
-  return {
-    type: 'image',
-    base64: imagePart.inlineData.data,
-    mimeType: imagePart.inlineData.mimeType || 'image/png',
-  };
+  if (!mgaPayload) throw new MemberServiceError('managed_provider_unavailable', 503);
+  const image = await resolveMGAImage(mgaPayload);
+  if (!image) throw new MemberServiceError('managed_provider_empty_output', 502);
+  return { type: 'image', ...image };
 }
 
 async function generateOpenAIImage(request: ProviderRequest): Promise<ManagedGenerationOutput> {

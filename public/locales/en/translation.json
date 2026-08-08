@@ -195,7 +195,7 @@
     "member_login_required": "Sign in to activate provider-managed models and Supabase cloud save.",
     "managed_text_help": "Use the managed text model with credits; one analysis-to-generation or creative workflow costs 2 credits.",
     "managed_data_route": "Managed member requests use the configured MGA provider. Provider terms apply.",
-    "managed_image_help": "Use managed Imagen 4 or GPT Image 1 with bonus.",
+    "managed_image_help": "Use managed Nano Banana with Imagen 4 for image generation, or GPT Image for generation and editing. Gemini 3 Pro Image and Gemini 3.1 Flash Image remain unavailable until MGA deploys them.",
     "cloud_save_help": "Save selected abstracts to your private Supabase account.",
     "mcp_tab": "Skills & MCP",
     "google_ai": "Google AI",
@@ -286,7 +286,7 @@
     "member_rule_signup": "A verified new account automatically receives 5 credits once.",
     "member_rule_checkin": "Daily check-in gives +1 credit; day 7 gives +2 total and restarts the cycle.",
     "member_rule_abstract": "One managed abstract or one-click creative workflow costs 2 credits and includes the task's allowed analysis, generation, regeneration, and deep-update steps.",
-    "member_rule_image": "Each managed Nanobanana pro or GPT-Image generation costs 2 credits. Capability-specific BYOK always takes priority.",
+    "member_rule_image": "Each managed Imagen 4 generation or GPT-Image generation/edit costs 2 credits. Capability-specific BYOK always takes priority.",
     "member_rule_storage": "Cloud storage includes 30 abstracts (10 KB each); permanent 100/500 upgrades cost credits."
   },
   "capabilities": {
@@ -511,7 +511,9 @@
     "google_byok": "Google BYOK",
     "openai_byok": "OpenAI-compatible BYOK",
     "member_provider": "Member",
+    "member_image_cost": "2 credits",
     "image_model_pending": "🎨 image model not configured",
+    "deployment_pending": "awaiting MGA deployment",
     "generation_only": "text-to-image only",
     "more_journal_styles": "More core publication styles",
     "select_more_journal_style": "Select another publication style",

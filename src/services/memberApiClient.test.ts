@@ -59,7 +59,7 @@ describe('member API client', () => {
     );
   });
 
-  it('sends the Supabase access token and idempotency key for managed generation', async () => {
+  it('sends managed GPT Image edit inputs with the member token and one idempotency key', async () => {
     const fetcher = vi.fn().mockResolvedValue(
       new Response(
         JSON.stringify({
@@ -81,7 +81,8 @@ describe('member API client', () => {
         idempotencyKey: 'request-1',
         provider: 'gpt-image-2',
         operation: 'image_generation',
-        prompt: 'Create a figure',
+        prompt: 'Edit this figure',
+        images: [{ data: 'cmVmZXJlbmNl', mimeType: 'image/png' }],
       })
     ).resolves.toMatchObject({ bonusBalance: 4 });
     expect(fetcher).toHaveBeenCalledWith(
@@ -94,6 +95,13 @@ describe('member API client', () => {
         }),
       })
     );
+    const request = fetcher.mock.calls[0][1] as RequestInit;
+    expect(JSON.parse(String(request.body))).toMatchObject({
+      provider: 'gpt-image-2',
+      operation: 'image_generation',
+      prompt: 'Edit this figure',
+      images: [{ data: 'cmVmZXJlbmNl', mimeType: 'image/png' }],
+    });
   });
 
   it('fails locally when no authenticated session exists', async () => {
@@ -145,6 +153,102 @@ describe('member API client', () => {
         headers: expect.objectContaining({ Authorization: 'Bearer fresh-member-jwt' }),
       })
     );
+  });
+
+  it('falls back to a reachable member API when the primary route is unavailable', async () => {
+    const fetcher = vi
+      .fn()
+      .mockRejectedValueOnce(new TypeError('Failed to fetch'))
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            bonusBalance: 7,
+            checkedInToday: false,
+            checkinCycle: 2,
+            lastSeenAt: '2026-08-06T00:00:00Z',
+            signupBonusClaimed: true,
+            abstractCount: 0,
+            abstractQuota: 30,
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } }
+        )
+      );
+    const client = createMemberApiClient({
+      baseUrl: 'https://primary-api.example.test',
+      fallbackBaseUrls: ['https://same-origin.example.test'],
+      getAccessToken: async () => 'member-jwt',
+      fetcher,
+    });
+
+    await expect(client.getStatus()).resolves.toMatchObject({ bonusBalance: 7 });
+    expect(fetcher).toHaveBeenNthCalledWith(
+      2,
+      'https://same-origin.example.test/api/member/status',
+      expect.objectContaining({
+        headers: expect.objectContaining({ Authorization: 'Bearer member-jwt' }),
+      })
+    );
+  });
+
+  it('does not replay a write request against a fallback origin', async () => {
+    const fetcher = vi.fn().mockRejectedValue(new TypeError('Failed to fetch'));
+    const client = createMemberApiClient({
+      baseUrl: 'https://primary-api.example.test',
+      fallbackBaseUrls: ['https://fallback-api.example.test'],
+      getAccessToken: async () => 'member-jwt',
+      fetcher,
+    });
+
+    await expect(client.createCheckout(10)).rejects.toMatchObject({
+      code: 'member_api_unreachable',
+      status: 503,
+    });
+    expect(fetcher).toHaveBeenCalledOnce();
+    expect(fetcher.mock.calls[0][0]).toBe('https://primary-api.example.test/api/member/checkout');
+  });
+
+  it('times out a blackholed primary route before trying the fallback', async () => {
+    vi.useFakeTimers();
+    try {
+      const fetcher = vi
+        .fn()
+        .mockImplementationOnce((_url, init: RequestInit) => {
+          return new Promise<Response>((_resolve, reject) => {
+            init.signal?.addEventListener('abort', () =>
+              reject(new DOMException('Aborted', 'AbortError'))
+            );
+          });
+        })
+        .mockResolvedValueOnce(
+          new Response(
+            JSON.stringify({
+              bonusBalance: 7,
+              checkedInToday: false,
+              checkinCycle: 2,
+              lastSeenAt: '2026-08-06T00:00:00Z',
+              signupBonusClaimed: true,
+              abstractCount: 0,
+              abstractQuota: 30,
+            }),
+            { status: 200, headers: { 'Content-Type': 'application/json' } }
+          )
+        );
+      const client = createMemberApiClient({
+        baseUrl: 'https://blackholed-api.example.test',
+        fallbackBaseUrls: ['https://same-origin.example.test'],
+        requestTimeoutMs: 5,
+        getAccessToken: async () => 'member-jwt',
+        fetcher,
+      });
+
+      const status = client.getStatus();
+      await vi.advanceTimersByTimeAsync(5);
+
+      await expect(status).resolves.toMatchObject({ bonusBalance: 7 });
+      expect(fetcher).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('sends the expected cloud version for compare-and-swap updates', async () => {

@@ -10,6 +10,8 @@ export class MemberApiError extends Error {
   }
 }
 
+const LONG_MEMBER_REQUEST_TIMEOUT_MS = 130_000;
+
 export interface MemberStatus {
   bonusBalance: number;
   checkedInToday: boolean;
@@ -37,44 +39,97 @@ export interface ManagedCapabilityDescriptor {
 
 interface MemberApiClientOptions {
   baseUrl: string;
+  fallbackBaseUrls?: string[];
   getAccessToken: () => Promise<string | null>;
   refreshAccessToken?: () => Promise<string | null>;
   fetcher?: typeof fetch;
+  requestTimeoutMs?: number;
 }
 
 export function createMemberApiClient(options: MemberApiClientOptions) {
-  const baseUrl = options.baseUrl.replace(/\/$/, '');
+  const baseUrls = [...new Set([options.baseUrl, ...(options.fallbackBaseUrls || [])])]
+    .map((url) => url.trim().replace(/\/$/, ''))
+    .filter(Boolean);
   const fetcher = options.fetcher || fetch;
+  const defaultTimeoutMs = options.requestTimeoutMs ?? 15_000;
 
   async function request<T>(
     path: string,
     init: RequestInit = {},
-    extraHeaders: Record<string, string> = {}
+    extraHeaders: Record<string, string> = {},
+    timeoutMs = defaultTimeoutMs
   ): Promise<T> {
-    const performRequest = (token: string) =>
-      fetcher(`${baseUrl}${path}`, {
-        ...init,
-        headers: {
-          Authorization: `Bearer ${token}`,
-          ...(init.body ? { 'Content-Type': 'application/json' } : {}),
-          ...extraHeaders,
-          ...(init.headers || {}),
-        },
-      });
+    const method = (init.method || 'GET').toUpperCase();
+    const requestBaseUrls = method === 'GET' || method === 'HEAD' ? baseUrls : baseUrls.slice(0, 1);
+    const performRequest = async (baseUrl: string, token: string) => {
+      const controller = new AbortController();
+      const abortFromCaller = () => controller.abort(init.signal?.reason);
+      if (init.signal?.aborted) abortFromCaller();
+      else init.signal?.addEventListener('abort', abortFromCaller, { once: true });
+      const timeout = globalThis.setTimeout(() => controller.abort(), timeoutMs);
+      try {
+        return await fetcher(`${baseUrl}${path}`, {
+          ...init,
+          signal: controller.signal,
+          headers: {
+            Authorization: `Bearer ${token}`,
+            ...(init.body ? { 'Content-Type': 'application/json' } : {}),
+            ...extraHeaders,
+            ...(init.headers || {}),
+          },
+        });
+      } finally {
+        globalThis.clearTimeout(timeout);
+        init.signal?.removeEventListener('abort', abortFromCaller);
+      }
+    };
 
-    const token = await options.getAccessToken();
+    let token = await options.getAccessToken();
     if (!token) throw new MemberApiError('unauthenticated', 401);
-    let response = await performRequest(token);
-    if (response.status === 401 && options.refreshAccessToken) {
-      const refreshedToken = await options.refreshAccessToken();
-      if (refreshedToken) response = await performRequest(refreshedToken);
+    let refreshed = false;
+    let lastTransportError: unknown;
+
+    for (const [index, baseUrl] of requestBaseUrls.entries()) {
+      try {
+        let response = await performRequest(baseUrl, token);
+        if (response.status === 401 && options.refreshAccessToken && !refreshed) {
+          refreshed = true;
+          const refreshedToken = await options.refreshAccessToken();
+          if (refreshedToken) {
+            token = refreshedToken;
+            response = await performRequest(baseUrl, token);
+          }
+        }
+        if (!response.ok) {
+          const payload = (await response.json().catch(() => ({}))) as { error?: string };
+          if ([502, 503, 504].includes(response.status) && index < requestBaseUrls.length - 1) {
+            lastTransportError = new Error(payload.error || 'member_api_unreachable');
+            continue;
+          }
+          throw new MemberApiError(payload.error || 'member_api_error', response.status);
+        }
+        if (response.status === 204) return undefined as T;
+        if (!response.headers.get('Content-Type')?.toLowerCase().includes('application/json')) {
+          lastTransportError = new Error('member_api_invalid_response');
+          continue;
+        }
+        try {
+          return (await response.json()) as T;
+        } catch (responseError) {
+          lastTransportError = responseError;
+        }
+      } catch (requestError) {
+        if (requestError instanceof MemberApiError || init.signal?.aborted) throw requestError;
+        lastTransportError = requestError;
+      }
     }
-    if (!response.ok) {
-      const payload = (await response.json().catch(() => ({}))) as { error?: string };
-      throw new MemberApiError(payload.error || 'member_api_error', response.status);
-    }
-    if (response.status === 204) return undefined as T;
-    return response.json() as Promise<T>;
+
+    const code =
+      lastTransportError instanceof Error &&
+      lastTransportError.message === 'member_api_invalid_response'
+        ? 'member_api_invalid_response'
+        : 'member_api_unreachable';
+    throw new MemberApiError(code, 503);
   }
 
   async function listAbstracts() {
@@ -113,17 +168,16 @@ export function createMemberApiClient(options: MemberApiClientOptions) {
             prompt: input.prompt,
           }),
         },
-        { 'Idempotency-Key': input.idempotencyKey }
+        { 'Idempotency-Key': input.idempotencyKey },
+        LONG_MEMBER_REQUEST_TIMEOUT_MS
       ),
-    bootstrap: (turnstileToken: string) =>
+    bootstrap: () =>
       request<{ bonus_balance: number; awarded: boolean }>('/api/member/bootstrap', {
         method: 'POST',
-        body: JSON.stringify({ turnstileToken }),
       }),
-    checkIn: (turnstileToken: string) =>
+    checkIn: () =>
       request<MemberStatus & { awarded: boolean }>('/api/member/check-in', {
         method: 'POST',
-        body: JSON.stringify({ turnstileToken }),
       }),
     generate: (input: {
       idempotencyKey: string;
@@ -158,7 +212,8 @@ export function createMemberApiClient(options: MemberApiClientOptions) {
             size: input.size,
           }),
         },
-        { 'Idempotency-Key': input.idempotencyKey }
+        { 'Idempotency-Key': input.idempotencyKey },
+        LONG_MEMBER_REQUEST_TIMEOUT_MS
       ),
     createCheckout: (bonus: number) =>
       request<{ url: string }>('/api/member/checkout', {
