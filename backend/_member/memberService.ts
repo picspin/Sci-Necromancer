@@ -28,6 +28,13 @@ interface MemberStatusRow {
   signup_bonus_claimed?: boolean;
   abstract_count?: number;
   abstract_quota?: 30 | 100 | 500;
+  credit_history?: Array<{
+    id: string;
+    delta: number;
+    reason: string;
+    created_at: string;
+    metadata?: Record<string, unknown>;
+  }>;
 }
 
 interface TaskRow {
@@ -40,9 +47,10 @@ interface TaskRow {
   call_count?: number;
   generation_count?: number;
   deep_update_count?: number;
+  analysis_count?: number;
 }
 
-export type ManagedWorkflowOperation = 'generation' | 'regeneration' | 'deep_update';
+export type ManagedWorkflowOperation = 'analysis' | 'generation' | 'regeneration' | 'deep_update';
 
 function unwrap<T>(result: RpcResult<T>): T {
   if (result.error) {
@@ -90,6 +98,7 @@ function mapTask(row: TaskRow) {
     callCount: row.call_count ?? 0,
     generationCount: row.generation_count ?? 0,
     deepUpdateCount: row.deep_update_count ?? 0,
+    analysisCount: row.analysis_count ?? 0,
   };
 }
 
@@ -105,6 +114,13 @@ export function createMemberService(client: MemberRpcClient) {
         signupBonusClaimed: row.signup_bonus_claimed ?? false,
         abstractCount: row.abstract_count ?? 0,
         abstractQuota: row.abstract_quota ?? 30,
+        creditHistory: (row.credit_history ?? []).map((entry) => ({
+          id: entry.id,
+          delta: entry.delta,
+          reason: entry.reason,
+          createdAt: entry.created_at,
+          metadata: entry.metadata ?? {},
+        })),
       };
     },
 

@@ -117,7 +117,12 @@ export async function generateManagedText(input: {
 }): Promise<{
   text: string;
   workflowId: string;
-  workflow: { callCount: number; generationCount: number; deepUpdateCount: number };
+  workflow: {
+    analysisCount: number;
+    callCount: number;
+    generationCount: number;
+    deepUpdateCount: number;
+  };
 }> {
   try {
     const result = await api.generate({

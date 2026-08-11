@@ -50,6 +50,7 @@ export function assertGenerationRoute(
   const hasWorkflow = Boolean(workflowId);
   const valid =
     (operation === 'analysis' && isTextProvider && !hasWorkflow) ||
+    (operation === 'analysis' && isTextProvider && hasWorkflow) ||
     (operation === 'generation' && isTextProvider && hasWorkflow) ||
     ((operation === 'regeneration' || operation === 'deep_update') && isTextProvider) ||
     (operation === 'blind_review' && isTextProvider && !hasWorkflow) ||
@@ -159,7 +160,8 @@ export default async function handler(request: VercelRequest, response: VercelRe
                 : 'regeneration'
               : 'analysis_generation';
     const workflowOperation =
-      continuingWorkflow && ['generation', 'regeneration', 'deep_update'].includes(operation)
+      continuingWorkflow &&
+      ['analysis', 'generation', 'regeneration', 'deep_update'].includes(operation)
         ? (operation as ManagedWorkflowOperation)
         : undefined;
     const completeWorkflow = !continuingWorkflow && operation !== 'analysis';

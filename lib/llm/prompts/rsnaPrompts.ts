@@ -41,7 +41,9 @@ Presentation eligibility:
 Choose up to three category candidates from this controlled vocabulary, ranked by probability, but identify exactly one primary RSNA category through the highest probability:
 ${RSNA_CATEGORIES.join(', ')}
 
-Choose 3-7 keywords only from this controlled RSNA reference vocabulary:
+Choose 3-5 keywords only from this controlled RSNA reference vocabulary. Return only keywords
+that are directly supported by the source text, ordered by relevance. Do not add generic terms
+merely to fill the allowed quota:
 ${RSNA_KEYWORDS.join(', ')}
 
 Detect reporting guidance conditionally:

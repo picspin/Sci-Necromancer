@@ -8,8 +8,8 @@ const i18n = createI18n({ legacy: false, locale: 'en', messages: { en } });
 
 describe('WorkflowReentryDialog', () => {
   it.each([
-    ['Re-analyze and generate', 'reanalyze'],
-    ['Continue current result', 'continue'],
+    ['Start a new analysis round', 'reanalyze'],
+    ['Continue · 1 credit', 'continue'],
     ['Cancel', 'cancel'],
   ] as const)('returns the %s choice', async (label, expected) => {
     const wrapper = mount(WorkflowReentryDialog, { global: { plugins: [i18n] } });
@@ -36,12 +36,12 @@ describe('WorkflowReentryDialog', () => {
     ).open('regeneration');
     await wrapper.vm.$nextTick();
     await wrapper.vm.$nextTick();
-    expect(document.activeElement?.textContent).toContain('Re-analyze and generate');
+    expect(document.activeElement?.textContent).toContain('Start a new analysis round');
 
     const buttons = wrapper.findAll('button');
     (buttons.at(-1)!.element as HTMLButtonElement).focus();
     await wrapper.find('[role="dialog"]').trigger('keydown', { key: 'Tab' });
-    expect(document.activeElement?.textContent).toContain('Re-analyze and generate');
+    expect(document.activeElement?.textContent).toContain('Start a new analysis round');
 
     await wrapper.find('[role="dialog"]').trigger('keydown', { key: 'Escape' });
     await expect(choice).resolves.toBe('cancel');

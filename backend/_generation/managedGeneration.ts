@@ -14,6 +14,7 @@ interface WalletBoundary {
     callCount?: number;
     generationCount?: number;
     deepUpdateCount?: number;
+    analysisCount?: number;
   }>;
   continueWorkflow(
     taskId: string,
@@ -24,6 +25,7 @@ interface WalletBoundary {
     callCount?: number;
     generationCount?: number;
     deepUpdateCount?: number;
+    analysisCount?: number;
   }>;
   settleTask(
     taskId: string,
@@ -89,6 +91,7 @@ export async function runManagedGeneration(
         callCount: reservation.callCount ?? 1,
         generationCount: reservation.generationCount ?? 0,
         deepUpdateCount: reservation.deepUpdateCount ?? 0,
+        analysisCount: reservation.analysisCount ?? 0,
       },
     };
   } catch (providerError) {

@@ -20,6 +20,15 @@ export interface MemberStatus {
   signupBonusClaimed: boolean;
   abstractCount: number;
   abstractQuota: 30 | 100 | 500;
+  creditHistory: CreditHistoryEntry[];
+}
+
+export interface CreditHistoryEntry {
+  id: string;
+  delta: number;
+  reason: string;
+  createdAt: string;
+  metadata: Record<string, unknown>;
 }
 
 export interface ManagedImageInput {
@@ -198,7 +207,12 @@ export function createMemberApiClient(options: MemberApiClientOptions) {
         output: { type: 'text' | 'image'; text?: string; base64?: string; mimeType?: string };
         bonusBalance: number;
         workflowId: string;
-        workflow: { callCount: number; generationCount: number; deepUpdateCount: number };
+        workflow: {
+          analysisCount: number;
+          callCount: number;
+          generationCount: number;
+          deepUpdateCount: number;
+        };
       }>(
         '/api/generate',
         {

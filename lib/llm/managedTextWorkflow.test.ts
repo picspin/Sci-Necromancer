@@ -3,6 +3,7 @@ import {
   beginManagedTextWorkflow,
   completeManagedTextWorkflow,
   acquireManagedTextCall,
+  getManagedAnalysisRetryNotice,
   registerManagedTextWorkflow,
 } from './managedTextWorkflow';
 
@@ -21,6 +22,49 @@ describe('managed text workflow', () => {
       workflowId: undefined,
     });
     expect(generation.idempotencyKey).toBe(analysisKey);
+  });
+
+  it('keeps abandoned analysis retries in one round and starts a new round after generation', () => {
+    const firstKey = beginManagedTextWorkflow('RSNA:source-a');
+    registerManagedTextWorkflow('RSNA:source-a', firstKey, 'server-a', {
+      analysisCount: 1,
+      callCount: 1,
+      generationCount: 0,
+      deepUpdateCount: 0,
+    });
+
+    expect(beginManagedTextWorkflow('RSNA:source-a')).toBe(firstKey);
+    expect(acquireManagedTextCall('analysis', 'RSNA:source-a')).toMatchObject({
+      operation: 'analysis',
+      workflowId: 'server-a',
+    });
+
+    registerManagedTextWorkflow('RSNA:source-a', firstKey, 'server-a', {
+      analysisCount: 2,
+      callCount: 3,
+      generationCount: 1,
+      deepUpdateCount: 0,
+    });
+    expect(beginManagedTextWorkflow('RSNA:source-a')).not.toBe(firstKey);
+  });
+
+  it('warns before the second free analysis and marks the third as chargeable', () => {
+    const key = beginManagedTextWorkflow('RSNA:retry-source');
+    registerManagedTextWorkflow('RSNA:retry-source', key, 'server-retry', {
+      analysisCount: 1,
+      callCount: 1,
+      generationCount: 0,
+      deepUpdateCount: 0,
+    });
+    expect(getManagedAnalysisRetryNotice('RSNA:retry-source')).toBe('one_free_remaining');
+
+    registerManagedTextWorkflow('RSNA:retry-source', key, 'server-retry', {
+      analysisCount: 2,
+      callCount: 2,
+      generationCount: 0,
+      deepUpdateCount: 0,
+    });
+    expect(getManagedAnalysisRetryNotice('RSNA:retry-source')).toBe('charge_applies');
   });
 
   it('uses a new single-call key after the workflow completes', () => {

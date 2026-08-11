@@ -3,6 +3,7 @@ export type ManagedTextOperation = 'analysis' | 'generation' | 'regeneration' | 
 interface ActiveWorkflow {
   clientKey: string;
   serverId?: string;
+  analysisCount?: number;
   callCount?: number;
   generationCount?: number;
   deepUpdateCount?: number;
@@ -64,8 +65,15 @@ function pruneExpired(): void {
 
 export function beginManagedTextWorkflow(context: string): string {
   pruneExpired();
+  const key = contextKey(context);
+  const active = workflows.get(key);
+  if (active && (active.generationCount ?? 0) === 0 && (active.deepUpdateCount ?? 0) === 0) {
+    active.updatedAt = Date.now();
+    persist();
+    return active.clientKey;
+  }
   const clientKey = createKey();
-  workflows.set(contextKey(context), { clientKey, updatedAt: Date.now() });
+  workflows.set(key, { clientKey, analysisCount: 0, updatedAt: Date.now() });
   persist();
   return clientKey;
 }
@@ -108,7 +116,12 @@ export function registerManagedTextWorkflow(
   context: string,
   clientKey: string,
   serverId: string,
-  counters?: { callCount: number; generationCount: number; deepUpdateCount: number }
+  counters?: {
+    analysisCount: number;
+    callCount: number;
+    generationCount: number;
+    deepUpdateCount: number;
+  }
 ): void {
   const key = contextKey(context);
   const workflow = workflows.get(key);
@@ -133,8 +146,18 @@ export function managedTextCallRequiresNewCharge(
   const workflow = getManagedTextWorkflowState(context);
   if (!workflow?.serverId) return false;
   return operation === 'regeneration'
-    ? (workflow.generationCount ?? 0) >= 2
+    ? (workflow.generationCount ?? 0) >= 1
     : (workflow.deepUpdateCount ?? 0) >= 1;
+}
+
+export function getManagedAnalysisRetryNotice(
+  context: string
+): 'one_free_remaining' | 'charge_applies' | null {
+  const workflow = getManagedTextWorkflowState(context);
+  if (!workflow?.serverId || (workflow.generationCount ?? 0) > 0) return null;
+  if ((workflow.analysisCount ?? 0) === 1) return 'one_free_remaining';
+  if ((workflow.analysisCount ?? 0) >= 2) return 'charge_applies';
+  return null;
 }
 
 export async function prepareManagedTextReentry(

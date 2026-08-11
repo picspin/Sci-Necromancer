@@ -4,7 +4,20 @@ import { createMemberService, MemberServiceError } from './memberService';
 describe('member service RPC boundary', () => {
   it('returns the authenticated member wallet status', async () => {
     const rpc = vi.fn().mockResolvedValue({
-      data: { bonus_balance: 6, checked_in_today: true, last_seen_at: '2026-07-28T10:00:00Z' },
+      data: {
+        bonus_balance: 6,
+        checked_in_today: true,
+        last_seen_at: '2026-07-28T10:00:00Z',
+        credit_history: [
+          {
+            id: 'entry-1',
+            delta: -1,
+            reason: 'generation',
+            created_at: '2026-08-11T10:00:00Z',
+            metadata: { conference: 'RSNA' },
+          },
+        ],
+      },
       error: null,
     });
     const service = createMemberService({ rpc });
@@ -12,6 +25,7 @@ describe('member service RPC boundary', () => {
     await expect(service.getStatus()).resolves.toMatchObject({
       bonusBalance: 6,
       checkedInToday: true,
+      creditHistory: [expect.objectContaining({ id: 'entry-1', delta: -1, reason: 'generation' })],
     });
     expect(rpc).toHaveBeenCalledWith('member_status');
   });

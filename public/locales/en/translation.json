@@ -37,6 +37,26 @@
     "language_toggle": "Language"
   },
   "membership": {
+    "analysis_retry_warning": "You have 1 free analysis retry left. Further repeated analysis will deduct 1 credit. Continue?",
+    "credit_history": "Credit history",
+    "credit_history_recent": "Latest 50 entries",
+    "credit_history_empty": "No credit changes yet.",
+    "credit_reasons": {
+      "signup": "Verified account bonus",
+      "daily_checkin": "Daily check-in",
+      "analysis_retry": "Repeated analysis",
+      "generation": "Content generation",
+      "deep_update": "Deep update",
+      "image_generation": "Image generation",
+      "blind_review": "Blind review",
+      "task_reservation": "AI service usage",
+      "task_refund": "Failed-call refund",
+      "storage_upgrade": "Cloud storage upgrade",
+      "stripe_purchase": "Credit purchase",
+      "stripe_refund": "Purchase refund",
+      "stripe_dispute": "Payment dispute",
+      "stripe_reinstatement": "Dispute reinstatement"
+    },
     "title": "Membership & bonus",
     "service_unavailable": "Member services are not enabled on this deployment. Personal API configuration remains available.",
     "sign_in_help": "Sign in to use provider-managed text and image generation without configuring an API key.",
@@ -403,10 +423,10 @@
   },
   "workflow_reentry": {
     "title": "This workflow allowance has been used",
-    "regeneration_description": "Choose whether to begin a new analysis-to-generation workflow or continue from the current result. Either action costs 2 credits.",
-    "deep_update_description": "Choose whether to begin a new analysis-to-generation workflow or run another high-reasoning deep update. Either action costs 2 credits.",
-    "reanalyze": "Re-analyze and generate (recommended) · 2 credits",
-    "continue": "Continue current result · 2 credits"
+    "regeneration_description": "The current round already produced a result. Start a new analysis round or generate once more from the current result; the completed generation costs 1 credit.",
+    "deep_update_description": "The current round already used its deep update. Start a new analysis round or run one standalone deep update; the completed update costs 1 credit.",
+    "reanalyze": "Start a new analysis round",
+    "continue": "Continue · 1 credit"
   },
   "tooltips": {
     "creative_mode_disabled": "Generate an abstract first to enable this mode.",
@@ -615,7 +635,11 @@
     "cutting_edge_topic": "Cutting-Edge topic",
     "select_topic": "Select an eligible topic",
     "primary_category": "Primary RSNA category (choose one)",
+    "select_category": "Select an RSNA category",
     "keywords": "Keywords",
+    "keyword_constraint": "choose 3–7",
+    "add_keyword": "Add a keyword from the RSNA list",
+    "remove_keyword": "Remove keyword",
     "reporting_guidance": "Conditional reporting guidance",
     "why_route": "Why this route",
     "checks_required": "Checks required",

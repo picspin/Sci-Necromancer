@@ -59,7 +59,7 @@
           </button>
           <button
             type="button"
-            :disabled="isLoading || !classification"
+            :disabled="isLoading || !classification || Boolean(generatedAbstract)"
             class="rounded-lg bg-brand-primary px-4 py-3 font-bold text-white disabled:cursor-not-allowed disabled:opacity-50"
             @click="handleGenerate"
           >
@@ -69,7 +69,7 @@
         <button
           v-else
           type="button"
-          :disabled="isLoading || !inputText.trim()"
+          :disabled="isLoading || !inputText.trim() || Boolean(generatedAbstract)"
           class="w-full rounded-lg bg-brand-primary px-4 py-3 font-bold text-white disabled:cursor-not-allowed disabled:opacity-50"
           @click="handleCreative"
         >
@@ -98,7 +98,7 @@
           v-if="generatedAbstract"
           type="button"
           class="w-full rounded-lg bg-purple-700 px-4 py-2 font-semibold text-white"
-          :disabled="isLoading"
+          :disabled="isLoading || deepUpdateCompleted"
           @click="handleDeepUpdate"
         >
           {{ t('buttons.deep_update') }}
@@ -255,7 +255,10 @@ import {
 } from '@/lib/conference/oncologyRules';
 import { fileProcessingService } from '@/lib/file/FileProcessingService';
 import { localizeError } from '@/lib/i18n/errorMessages';
-import { prepareManagedTextReentry } from '@/lib/llm/managedTextWorkflow';
+import {
+  getManagedAnalysisRetryNotice,
+  prepareManagedTextReentry,
+} from '@/lib/llm/managedTextWorkflow';
 import { useAbstract } from '@/composables/useAbstract';
 import { useSettings } from '@/composables/useSettings';
 import Modal from '@/components/ui/Modal.vue';
@@ -290,6 +293,7 @@ const saveTitle = ref('');
 const saveTitleInput = ref<HTMLInputElement | null>(null);
 const workflowReentryDialog = ref<InstanceType<typeof WorkflowReentryDialog> | null>(null);
 const generateAfterReanalysis = ref(false);
+const deepUpdateCompleted = ref(false);
 
 const abstractTypeForSubmission = (submissionType: OncologyClassification['submissionType']) => {
   const map: Record<
@@ -319,6 +323,7 @@ const resetGeneratedState = () => {
   selectedCategories.value = [];
   selectedKeywords.value = [];
   generatedAbstract.value = null;
+  deepUpdateCompleted.value = false;
   selectedAbstractType.value = conferenceModule.value.abstractTypes[0];
 };
 
@@ -373,6 +378,11 @@ const handleFileChange = async (event: Event) => {
 
 const handleAnalyze = async () => {
   if (!inputText.value.trim()) return;
+  if (
+    getManagedAnalysisRetryNotice(workflowContext.value) === 'one_free_remaining' &&
+    !window.confirm(t('membership.analysis_retry_warning'))
+  )
+    return;
   isLoading.value = true;
   loadingMessage.value = t('loading_messages.analyzing_content');
   error.value = null;
@@ -489,6 +499,7 @@ const handleDeepUpdate = async () => {
       workflowContext.value
     );
     generatedAbstract.value = attachCompliance(result, classification.value);
+    deepUpdateCompleted.value = true;
   } catch (caught) {
     error.value = localizeError(caught, t, 'errors.deep_update_failed');
   } finally {

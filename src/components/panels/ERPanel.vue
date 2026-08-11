@@ -66,7 +66,7 @@
                 </button>
                 <button
                   @click="handleGenerateAbstract"
-                  :disabled="isLoading || !selectedAbstractType"
+                  :disabled="isLoading || !selectedAbstractType || Boolean(generatedAbstract)"
                   class="flex-1 flex items-center justify-center gap-2 bg-brand-primary hover:bg-brand-secondary text-white font-bold py-3 px-4 rounded-lg transition-all duration-300 disabled:bg-base-300/50 disabled:cursor-not-allowed"
                   :aria-label="t('buttons.generate_abstract')"
                 >
@@ -77,7 +77,7 @@
               <button
                 v-else
                 @click="handleGenerateCreative"
-                :disabled="isLoading || !inputText.trim()"
+                :disabled="isLoading || !inputText.trim() || Boolean(generatedAbstract)"
                 class="w-full flex items-center justify-center gap-2 bg-brand-primary hover:bg-brand-secondary text-white font-bold py-3 px-4 rounded-lg transition-all duration-300 disabled:bg-base-300/50 disabled:cursor-not-allowed"
               >
                 <SvgIcon type="sparkles" class="h-5 w-5" />
@@ -113,7 +113,7 @@
             <button
               v-if="generatedAbstract?.abstract"
               @click="handleDeepUpdate"
-              :disabled="isLoading"
+              :disabled="isLoading || deepUpdateCompleted"
               class="w-full flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-700 text-white font-semibold py-2 px-4 rounded-lg transition-all duration-300 disabled:bg-base-300/50 disabled:cursor-not-allowed animate-fade-in"
               :title="t('tooltips.deep_update')"
             >
@@ -240,7 +240,10 @@ import OutputDisplay from '@/components/OutputDisplay.vue';
 import { fileProcessingService } from '@/lib/file/FileProcessingService';
 import { useSettings } from '@/composables/useSettings';
 import { localizeError } from '@/lib/i18n/errorMessages';
-import { prepareManagedTextReentry } from '@/lib/llm/managedTextWorkflow';
+import {
+  getManagedAnalysisRetryNotice,
+  prepareManagedTextReentry,
+} from '@/lib/llm/managedTextWorkflow';
 import { useAbstract } from '@/composables/useAbstract';
 import { useI18n } from 'vue-i18n';
 import { getMemeTranslation } from '@/lib/i18n';
@@ -280,6 +283,7 @@ const modalStep = ref<'analysis' | 'type'>('analysis');
 const generatedAbstract = ref<AbstractData | null>(null);
 const workflowReentryDialog = ref<InstanceType<typeof WorkflowReentryDialog> | null>(null);
 const generateAfterReanalysis = ref(false);
+const deepUpdateCompleted = ref(false);
 
 // ECR Abstract Types
 const ecrAbstractTypes: AbstractTypeSuggestion[] = [
@@ -298,6 +302,7 @@ const resetWorkflow = () => {
   typeSuggestions.value = [];
   selectedAbstractType.value = null;
   generatedAbstract.value = null;
+  deepUpdateCompleted.value = false;
 };
 
 const handleTextChange = () => {
@@ -365,6 +370,12 @@ const handleAnalyze = async () => {
     error.value = t('errors.no_input');
     return;
   }
+  const workflowContext = `ER:${inputText.value}`;
+  if (
+    getManagedAnalysisRetryNotice(workflowContext) === 'one_free_remaining' &&
+    !window.confirm(t('membership.analysis_retry_warning'))
+  )
+    return;
   isLoading.value = true;
   loadingMessage.value = t('loading_messages.analyzing_content');
   error.value = null;
@@ -537,6 +548,7 @@ Keywords: ${generatedAbstract.value.keywords.join(', ')}`;
 
     result.categories = selectedCategories.value;
     generatedAbstract.value = result;
+    deepUpdateCompleted.value = true;
   } catch (e) {
     error.value = localizeError(e, t, 'errors.deep_update_failed');
   } finally {

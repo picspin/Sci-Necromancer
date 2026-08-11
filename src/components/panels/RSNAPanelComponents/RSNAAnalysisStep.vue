@@ -71,6 +71,17 @@
             {{ Math.round(category.probability * 100) }}%
           </span>
         </label>
+        <select
+          v-if="categoryCandidates.length === 0"
+          v-model="selectedCategoryName"
+          data-test="rsna-category-fallback"
+          class="w-full rounded border border-base-300 bg-base-100 p-2"
+        >
+          <option value="">{{ t('rsna.select_category') }}</option>
+          <option v-for="category in RSNA_CATEGORIES" :key="category" :value="category">
+            {{ category }}
+          </option>
+        </select>
       </div>
     </fieldset>
 
@@ -81,9 +92,11 @@
       </legend>
       <div class="flex flex-wrap gap-2">
         <button
-          v-for="keyword in result.keywords"
+          v-for="keyword in selectedKeywords"
           :key="keyword"
           type="button"
+          :data-test="`selected-keyword-${keyword}`"
+          :aria-label="`${t('rsna.remove_keyword')}: ${keyword}`"
           @click="toggleKeyword(keyword)"
           :class="[
             'rounded-full border px-3 py-1 text-sm transition',
@@ -92,11 +105,12 @@
               : 'border-base-300 bg-base-100 text-text-secondary',
           ]"
         >
-          {{ keyword }}
+          {{ keyword }} <span aria-hidden="true">×</span>
         </button>
       </div>
       <select
         v-model="keywordToAdd"
+        data-test="rsna-keyword-select"
         class="mt-3 w-full rounded border border-base-300 bg-base-100 p-2 text-sm"
         @change="addKeyword"
       >
@@ -169,6 +183,7 @@ import type {
 } from '@/types';
 import {
   RSNA_CUTTING_EDGE_TOPICS,
+  RSNA_CATEGORIES,
   RSNA_KEYWORDS,
   getAllowedPresentationFormats,
   normalizeRSNAAnalysis,
@@ -207,9 +222,16 @@ const reportingOptions: RSNAReportingGuideline[] = [
 const cuttingEdgeTopics = RSNA_CUTTING_EDGE_TOPICS;
 
 const allowedFormats = computed(() => getAllowedPresentationFormats(contentType.value));
-const selectedCategory = computed(() =>
-  categoryCandidates.find((category) => category.name === selectedCategoryName.value)
-);
+const selectedCategory = computed(() => {
+  const candidate = categoryCandidates.find(
+    (category) => category.name === selectedCategoryName.value
+  );
+  if (candidate) return candidate;
+  if ((RSNA_CATEGORIES as readonly string[]).includes(selectedCategoryName.value)) {
+    return { name: selectedCategoryName.value, type: 'main' as const, probability: 1 };
+  }
+  return undefined;
+});
 const availableKeywords = computed(() =>
   selectedKeywords.value.length >= 7
     ? []
