@@ -53,7 +53,7 @@ Detect reporting guidance conditionally:
 Return this JSON shape:
 {
   "categories": [{"name":"...","type":"main","probability":0.0}],
-  "keywords": ["3-7 normalized keywords"],
+  "keywords": ["3-5 source-supported normalized keywords, ordered by relevance"],
   "rsna": {
     "track":"regular|cutting-edge",
     "contentType":"science|education",

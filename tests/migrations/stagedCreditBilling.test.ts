@@ -12,6 +12,10 @@ describe('staged member credit billing migration', () => {
     expect(migration).toContain("when p_task_kind = 'analysis_generation' then 0");
     expect(migration).toContain('case when task.analysis_count >= 2 then 1 else 0 end');
     expect(migration).toContain("ledger_reason := 'analysis_retry'");
+    expect(migration).toContain("'task:staged-billing-adjustment:'");
+    expect(migration).toContain(
+      'then task_record.generation_count + task_record.deep_update_count'
+    );
   });
 
   it('charges successful generation and deep update separately while preserving image cost', () => {

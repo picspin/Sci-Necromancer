@@ -255,8 +255,8 @@ export function useMembership() {
   async function checkIn() {
     isLoading.value = true;
     try {
-      const status = await api.checkIn();
-      memberStatus.value = status;
+      await api.checkIn();
+      await refreshStatus();
     } finally {
       isLoading.value = false;
     }

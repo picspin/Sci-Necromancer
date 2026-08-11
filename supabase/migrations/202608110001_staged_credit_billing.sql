@@ -18,6 +18,65 @@ alter table public.bonus_ledger add constraint bonus_ledger_reason_check check (
   'stripe_purchase', 'stripe_refund', 'stripe_dispute', 'stripe_reinstatement'
 ));
 
+do $$
+declare
+  task_record public.managed_generation_tasks%rowtype;
+  desired_cost integer;
+  refund_amount integer;
+  inserted_count integer;
+begin
+  for task_record in
+    select * from public.managed_generation_tasks
+    where status <> 'refunded'
+    for update
+  loop
+    desired_cost := case
+      when task_record.task_kind = 'analysis_generation'
+        then task_record.generation_count + task_record.deep_update_count
+      when task_record.task_kind in ('regeneration', 'deep_update', 'blind_review') then 1
+      when task_record.task_kind = 'image_generation' then 2
+      else task_record.credit_cost
+    end;
+    refund_amount := greatest(0, task_record.credit_cost - desired_cost);
+
+    if refund_amount > 0 then
+      insert into public.bonus_ledger (user_id, idempotency_key, delta, reason, metadata)
+      values (
+        task_record.user_id,
+        'task:staged-billing-adjustment:' || task_record.id::text,
+        refund_amount,
+        'task_refund',
+        jsonb_build_object(
+          'task_id', task_record.id,
+          'migration', 'staged_credit_billing',
+          'previous_credit_cost', task_record.credit_cost,
+          'new_credit_cost', desired_cost
+        )
+      ) on conflict (user_id, idempotency_key) do nothing;
+      get diagnostics inserted_count = row_count;
+      if inserted_count = 1 then
+        update public.member_profiles
+          set bonus_balance = bonus_balance + refund_amount, updated_at = now()
+          where user_id = task_record.user_id;
+      end if;
+    end if;
+
+    update public.managed_generation_tasks
+      set analysis_count = case
+            when task_kind = 'analysis_generation' then greatest(analysis_count, 1)
+            else analysis_count end,
+          credit_cost = least(credit_cost, desired_cost),
+          in_flight_credit_cost = case
+            when not in_flight then 0
+            when in_flight_operation in ('generation', 'regeneration', 'deep_update') then 1
+            when task_kind = 'image_generation' then 2
+            when task_kind = 'blind_review' then 1
+            else 0 end
+      where id = task_record.id;
+  end loop;
+end;
+$$;
+
 create or replace function public.member_status(p_user_id uuid)
 returns jsonb
 language plpgsql
