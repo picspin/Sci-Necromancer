@@ -216,8 +216,16 @@ async function callMGAText(request: ProviderRequest) {
     },
     body: JSON.stringify({
       model: providerModel('MGA_TEXT_MODEL', 'glm-5.2'),
-      messages: [{ role: 'user', content: request.prompt }],
+      messages: [
+        {
+          role: 'system',
+          content:
+            'Return exactly one valid JSON object matching the user-requested schema. Do not wrap JSON in Markdown fences or add prose.',
+        },
+        { role: 'user', content: request.prompt },
+      ],
       stream: false,
+      response_format: { type: 'json_object' },
       ...(request.reasoning === 'high' ? { reasoning_effort: 'high' } : {}),
     }),
   });

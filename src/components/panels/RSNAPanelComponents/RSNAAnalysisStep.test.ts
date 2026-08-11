@@ -47,6 +47,7 @@ describe('RSNAAnalysisStep', () => {
     const categoryInputs = wrapper.findAll('input[name="rsna-category"]');
     expect(categoryInputs).toHaveLength(2);
     expect((categoryInputs[0].element as HTMLInputElement).checked).toBe(true);
+    expect(wrapper.find('[data-test="rsna-category-select"]').exists()).toBe(true);
 
     await wrapper.get('[data-test="confirm-rsna-analysis"]').trigger('click');
     const confirmation = wrapper.emitted('confirm')?.[0];
@@ -68,7 +69,7 @@ describe('RSNAAnalysisStep', () => {
       props: { result: { ...result, categories: [] } },
     });
 
-    const fallback = wrapper.get('[data-test="rsna-category-fallback"]');
+    const fallback = wrapper.get('[data-test="rsna-category-select"]');
     await fallback.setValue('Neuroradiology');
     const confirm = wrapper.get('[data-test="confirm-rsna-analysis"]');
     expect((confirm.element as HTMLButtonElement).disabled).toBe(false);

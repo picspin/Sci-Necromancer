@@ -22,6 +22,7 @@ import {
   validateDocumentationQuestion,
 } from '../backend/_help/documentationAssistant.js';
 import { reserveHelpUsage, settleHelpUsage } from '../backend/_help/helpUsage.js';
+import { relayAnthropicRequest } from '../backend/_generation/anthropicByok.js';
 
 const PROVIDERS = new Set<ManagedProvider>(['gemini-3.6-flash', 'nano-banana-pro', 'gpt-image-2']);
 const TASK_KINDS = new Set<ManagedTaskKind>([
@@ -86,6 +87,20 @@ export default async function handler(request: VercelRequest, response: VercelRe
     return response.status(403).json({ error: 'origin_not_allowed' });
   if (request.method === 'OPTIONS') return response.status(204).send('');
   if (request.method !== 'POST') return response.status(405).json({ error: 'method_not_allowed' });
+
+  if (request.body?.capability === 'anthropic_byok') {
+    try {
+      const result = await relayAnthropicRequest({
+        resource: request.body?.resource,
+        baseUrl: request.body?.baseUrl,
+        apiKey: request.body?.apiKey,
+        body: request.body?.body,
+      });
+      return response.status(result.status).json(result.payload);
+    } catch (error) {
+      return sendApiError(response, error);
+    }
+  }
 
   if (request.body?.capability === 'documentation_assistant') {
     const idempotencyKey = request.headers['idempotency-key'];

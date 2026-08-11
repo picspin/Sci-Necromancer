@@ -5,6 +5,7 @@ import {
   acquireManagedTextCall,
   getManagedAnalysisRetryNotice,
   registerManagedTextWorkflow,
+  managedConferenceContext,
 } from './managedTextWorkflow';
 
 describe('managed text workflow', () => {
@@ -89,5 +90,10 @@ describe('managed text workflow', () => {
     registerManagedTextWorkflow('RSNA:source-b', second, 'server-b');
     expect(acquireManagedTextCall('generation', 'ISMRM:source-a').workflowId).toBe('server-a');
     expect(acquireManagedTextCall('generation', 'RSNA:source-b').workflowId).toBe('server-b');
+  });
+
+  it('does not confuse source text that starts with a conference prefix for a prepared context', () => {
+    expect(managedConferenceContext('ER', 'study')).toBe('ER:study');
+    expect(managedConferenceContext('ER', 'ER:study')).toBe('ER:ER:study');
   });
 });

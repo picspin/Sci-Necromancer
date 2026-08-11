@@ -21,6 +21,8 @@ import {
   validateRSNADraft,
 } from '../conference/rsnaRules';
 import { assertBlindReviewAssessment } from '../review/blindReview';
+import { parseStructuredModelOutput } from './modelResponse';
+import { anthropicApiUrl } from './providerUrl';
 
 function settings() {
   try {
@@ -31,18 +33,15 @@ function settings() {
 }
 
 function parseJson(text: string): any {
-  const cleaned = text
-    .trim()
-    .replace(/^```(?:json)?\s*/i, '')
-    .replace(/\s*```$/, '');
-  return JSON.parse(cleaned);
+  const parsed = parseStructuredModelOutput(text);
+  if (parsed === null) throw new Error('Anthropic response did not contain valid JSON');
+  return parsed;
 }
 
 async function callAnthropic(prompt: string, apiKey?: string, highThinking = false): Promise<any> {
   const configured = settings();
   const key = apiKey || configured.anthropicApiKey;
   if (!key) throw new Error('Anthropic API key is required');
-  const baseUrl = (configured.anthropicBaseUrl || 'https://api.anthropic.com').replace(/\/$/, '');
   const body: Record<string, unknown> = {
     model: configured.anthropicTextModel || 'claude-sonnet-4-5',
     max_tokens: highThinking ? 12000 : 6000,
@@ -51,7 +50,8 @@ async function callAnthropic(prompt: string, apiKey?: string, highThinking = fal
     messages: [{ role: 'user', content: prompt }],
   };
   if (highThinking) body.thinking = { type: 'enabled', budget_tokens: 6000 };
-  const response = await fetch(`${baseUrl}/v1/messages`, {
+  const target = anthropicApiUrl(configured.anthropicBaseUrl, 'messages');
+  const request: RequestInit = {
     method: 'POST',
     headers: {
       'x-api-key': key,
@@ -60,7 +60,24 @@ async function callAnthropic(prompt: string, apiKey?: string, highThinking = fal
       'content-type': 'application/json',
     },
     body: JSON.stringify(body),
-  });
+  };
+  let response: Response;
+  try {
+    response = await fetch(target, request);
+  } catch (error) {
+    if (!(error instanceof TypeError)) throw error;
+    response = await fetch('/api/generate', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        capability: 'anthropic_byok',
+        resource: 'messages',
+        baseUrl: configured.anthropicBaseUrl || 'https://api.anthropic.com',
+        apiKey: key,
+        body,
+      }),
+    });
+  }
   if (!response.ok)
     throw new Error(`Anthropic API failed: ${response.status} ${await response.text()}`);
   const payload = await response.json();

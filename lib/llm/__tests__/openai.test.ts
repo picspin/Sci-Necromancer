@@ -20,6 +20,30 @@ describe('OpenAI LLM Service', () => {
   });
 
   describe('analyzeContent', () => {
+    it('parses fenced JSON returned by an OpenAI-compatible managed provider', async () => {
+      global.fetch = vi.fn().mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          choices: [
+            {
+              message: {
+                content:
+                  '```json\n{"categories":[{"name":"Neuro","type":"main","probability":0.9}],"keywords":["MRI","Stroke","Diffusion"]}\n```',
+              },
+            },
+          ],
+        }),
+      });
+
+      const { analyzeContent } = await import('@/lib/llm/openai');
+      const result = await analyzeContent('Test research content');
+
+      expect(result).toMatchObject({
+        categories: [{ name: 'Neuro', type: 'main', probability: 0.9 }],
+        keywords: ['MRI', 'Stroke', 'Diffusion'],
+      });
+    });
+
     it('should call OpenAI API with correct parameters', async () => {
       const mockResponse = {
         choices: [

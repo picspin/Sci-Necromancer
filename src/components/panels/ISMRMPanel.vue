@@ -213,6 +213,7 @@ import { getMemeTranslation } from '@/lib/i18n';
 import { localizeError } from '@/lib/i18n/errorMessages';
 import {
   getManagedAnalysisRetryNotice,
+  managedConferenceContext,
   prepareManagedTextReentry,
 } from '@/lib/llm/managedTextWorkflow';
 
@@ -249,6 +250,7 @@ const generatedAbstract = ref<AbstractData | null>(null);
 const workflowReentryDialog = ref<InstanceType<typeof WorkflowReentryDialog> | null>(null);
 const generateAfterReanalysis = ref(false);
 const deepUpdateCompleted = ref(false);
+const workflowContext = () => managedConferenceContext('ISMRM', inputText.value);
 
 const resetWorkflow = () => {
   analysisResult.value = null;
@@ -317,9 +319,8 @@ const handleAnalyze = async () => {
     error.value = t('errors.no_input');
     return;
   }
-  const workflowContext = `ISMRM:${inputText.value}`;
   if (
-    getManagedAnalysisRetryNotice(workflowContext) === 'one_free_remaining' &&
+    getManagedAnalysisRetryNotice(workflowContext()) === 'one_free_remaining' &&
     !window.confirm(t('membership.analysis_retry_warning'))
   )
     return;
@@ -397,7 +398,7 @@ const handleGenerateAbstract = async () => {
   }
   if (
     !(await prepareManagedTextReentry(
-      inputText.value,
+      workflowContext(),
       'regeneration',
       () => workflowReentryDialog.value?.open('regeneration') ?? Promise.resolve('cancel'),
       async () => {
@@ -418,7 +419,9 @@ const handleGenerateAbstract = async () => {
       selectedCategories.value,
       selectedKeywords.value,
       impact.value,
-      synopsis.value
+      synopsis.value,
+      'generation',
+      workflowContext()
     );
     result.categories = selectedCategories.value;
     generatedAbstract.value = result;
@@ -494,7 +497,7 @@ const handleDeepUpdate = async () => {
   if (!generatedAbstract.value || !selectedAbstractType.value) return;
   if (
     !(await prepareManagedTextReentry(
-      inputText.value,
+      workflowContext(),
       'deep_update',
       () => workflowReentryDialog.value?.open('deep_update') ?? Promise.resolve('cancel'),
       async () => {
@@ -532,7 +535,7 @@ Keywords: ${generatedAbstract.value.keywords.join(', ')}`;
       impact.value,
       synopsis.value,
       'deep_update',
-      inputText.value
+      workflowContext()
     );
 
     result.categories = selectedCategories.value;

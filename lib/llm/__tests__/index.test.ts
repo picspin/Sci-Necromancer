@@ -167,6 +167,113 @@ describe('LLM Index - Provider Selection', () => {
     expect(typeof generateCreativeAbstractForConference).toBe('function');
   });
 
+  it('keeps fenced MGA analysis and ER generation in one managed workflow', async () => {
+    localStorage.setItem(
+      'app-settings',
+      JSON.stringify({ provider: 'google', memberManagedTextEnabled: true })
+    );
+    generateManagedTextMock
+      .mockResolvedValueOnce({
+        text: '```json\n{"categories":[{"name":"Chest","type":"main","probability":0.9}],"keywords":["CT","Lung","Screening"]}\n```',
+        workflowId: '11111111-1111-4111-8111-111111111111',
+        workflow: {
+          analysisCount: 1,
+          callCount: 1,
+          generationCount: 0,
+          deepUpdateCount: 0,
+        },
+      })
+      .mockResolvedValueOnce({
+        text: JSON.stringify({
+          abstract: 'Generated ECR abstract',
+          impact: '',
+          synopsis: '',
+          keywords: ['CT', 'Lung', 'Screening'],
+        }),
+        workflowId: '11111111-1111-4111-8111-111111111111',
+        workflow: {
+          analysisCount: 1,
+          callCount: 2,
+          generationCount: 1,
+          deepUpdateCount: 0,
+        },
+      });
+    const { analyzeContentForConference, generateAbstractForConference } =
+      await import('@/lib/llm/index');
+
+    const analysis = await analyzeContentForConference('Source manuscript', 'ER');
+    expect(analysis.categories).toHaveLength(1);
+    await generateAbstractForConference(
+      'Source manuscript',
+      'ECR Research Presentation',
+      analysis.categories,
+      analysis.keywords,
+      'ER'
+    );
+
+    expect(generateManagedTextMock.mock.calls[1][0]).toMatchObject({
+      operation: 'generation',
+      workflowId: '11111111-1111-4111-8111-111111111111',
+    });
+  });
+
+  it('keeps ISMRM bundle analysis and generation in the same canonical workflow', async () => {
+    localStorage.setItem(
+      'app-settings',
+      JSON.stringify({ provider: 'google', memberManagedTextEnabled: true })
+    );
+    generateManagedTextMock
+      .mockResolvedValueOnce({
+        text: JSON.stringify({
+          categories: [{ name: 'Neuro', type: 'main', probability: 0.9 }],
+          keywords: ['MRI', 'Stroke', 'Diffusion'],
+          impact: 'Clinical impact.',
+          synopsis: 'Structured synopsis.',
+          typeSuggestions: [{ type: 'Standard Abstract', probability: 0.9 }],
+        }),
+        workflowId: '22222222-2222-4222-8222-222222222222',
+        workflow: {
+          analysisCount: 1,
+          callCount: 1,
+          generationCount: 0,
+          deepUpdateCount: 0,
+        },
+      })
+      .mockResolvedValueOnce({
+        text: JSON.stringify({
+          abstract: 'Generated ISMRM abstract',
+          impact: 'Clinical impact.',
+          synopsis: 'Structured synopsis.',
+          keywords: ['MRI', 'Stroke', 'Diffusion'],
+        }),
+        workflowId: '22222222-2222-4222-8222-222222222222',
+        workflow: {
+          analysisCount: 1,
+          callCount: 2,
+          generationCount: 1,
+          deepUpdateCount: 0,
+        },
+      });
+    const { analyzeISMRMBundle, generateFinalAbstract } = await import('@/lib/llm/index');
+
+    const analysis = await analyzeISMRMBundle('ISMRM source');
+    await generateFinalAbstract(
+      'ISMRM source',
+      'Standard Abstract',
+      analysis.categories,
+      analysis.keywords,
+      analysis.impact,
+      analysis.synopsis,
+      'generation',
+      'ISMRM:ISMRM source'
+    );
+
+    expect(generateManagedTextMock.mock.calls[1][0]).toMatchObject({
+      operation: 'generation',
+      workflowId: '22222222-2222-4222-8222-222222222222',
+    });
+  });
+
   it('routes the existing blind-review action through the enabled managed research agent', async () => {
     canUseManagedTextMock.mockReturnValue(false);
     canUseManagedResearchVerificationMock.mockReturnValue(true);

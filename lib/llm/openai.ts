@@ -32,8 +32,10 @@ import {
   abandonManagedTextWorkflow,
   beginManagedTextWorkflow,
   completeManagedTextWorkflow,
+  managedConferenceContext,
   registerManagedTextWorkflow,
 } from './managedTextWorkflow';
+import { parseStructuredModelOutput } from './modelResponse';
 
 // Get settings from localStorage
 const getSettings = () => {
@@ -86,11 +88,7 @@ async function callOpenAIAPI(
         result.workflowId,
         result.workflow
       );
-      try {
-        return JSON.parse(result.text);
-      } catch {
-        return result.text;
-      }
+      return parseStructuredModelOutput(result.text) ?? result.text;
     } catch (error) {
       if (options.beginWorkflow) completeManagedTextWorkflow(billing.idempotencyKey);
       throw error;
@@ -139,12 +137,7 @@ async function callOpenAIAPI(
     throw new Error('No content in API response');
   }
 
-  try {
-    return JSON.parse(content);
-  } catch {
-    // Return raw content if not JSON
-    return content;
-  }
+  return parseStructuredModelOutput(content) ?? content;
 }
 
 export async function analyzeISMRMBundle(
@@ -378,7 +371,7 @@ export async function generateRSNAAbstract(
   const raw = await callOpenAIAPI(prompt, finalApiKey, baseUrl, model, {
     finishWorkflow: true,
     workflowStage: 'generation',
-    workflowContext: `RSNA:${workflowContext}`,
+    workflowContext: managedConferenceContext('RSNA', workflowContext),
     ...(managedOperation === 'deep_update'
       ? { standaloneOperation: 'deep_update' as const, highReasoning: true }
       : {}),

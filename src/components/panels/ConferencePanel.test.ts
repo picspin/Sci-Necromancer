@@ -26,7 +26,7 @@ vi.mock('@/composables/useConferenceRegistry', () => ({
         id,
         name: id,
         submissionUrl: '#',
-        available: true,
+        available: id !== 'ESC',
         colorScheme: { primary: '#123456', secondary: '#234567', accent: '#345678' },
       }))
     ),
@@ -59,6 +59,10 @@ describe('ConferencePanel navigation', () => {
     for (const label of ['ISMRM', 'RSNA', 'ER', 'ESC', 'ASCO', 'ESMO', 'IMAGE']) {
       expect(wrapper.findAll('button').some((button) => button.text().includes(label))).toBe(true);
     }
+
+    const esc = wrapper.findAll('button').find((button) => button.text().includes('ESC'))!;
+    expect((esc.element as HTMLButtonElement).disabled).toBe(true);
+    expect(esc.attributes('title')).toBe('ui.coming_soon');
 
     await wrapper
       .findAll('button')

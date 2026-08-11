@@ -72,8 +72,10 @@ describe('OncologyConferencePanel', () => {
     await waitFor(() => {
       expect(screen.getAllByText('AI for diagnostics and profiling').length).toBeGreaterThan(0);
     });
+    expect(screen.getByRole('dialog')).toBeTruthy();
     expect(screen.getAllByText(/trial-in-progress/i)).toHaveLength(2);
     expect(screen.getByText(/poster/i)).toBeTruthy();
+    await fireEvent.click(screen.getByRole('button', { name: /confirm.*continue/i }));
     expect((screen.getByRole('button', { name: /generate/i }) as HTMLButtonElement).disabled).toBe(
       false
     );
@@ -101,6 +103,7 @@ describe('OncologyConferencePanel', () => {
       'Randomized phase III breast cancer trial with final results.'
     );
     await fireEvent.click(screen.getByRole('button', { name: /analyze/i }));
+    await fireEvent.click(await screen.findByRole('button', { name: /confirm.*continue/i }));
     await fireEvent.click(await screen.findByRole('button', { name: /generate/i }));
 
     await waitFor(() => expect(llmMocks.generateAbstractForConference).toHaveBeenCalledOnce());
@@ -112,6 +115,33 @@ describe('OncologyConferencePanel', () => {
     expect(screen.getByRole('button', { name: /save/i })).toBeTruthy();
     expect(screen.getByRole('button', { name: /clear/i })).toBeTruthy();
     expect(screen.getByRole('button', { name: /deep update/i })).toBeTruthy();
+  });
+
+  it('does not reuse a previously confirmed classification after reanalysis fails', async () => {
+    llmMocks.analyzeContentForConference
+      .mockResolvedValueOnce({ categories: [], keywords: ['Clinical Trial'] })
+      .mockRejectedValueOnce(new Error('managed provider failed'));
+    render(OncologyConferencePanel, {
+      props: { conference: 'ASCO' },
+      global: { plugins: [i18n] },
+    });
+
+    await fireEvent.update(
+      screen.getByRole('textbox'),
+      'Randomized phase III breast cancer trial.'
+    );
+    await fireEvent.click(screen.getByRole('button', { name: /analyze/i }));
+    await fireEvent.click(await screen.findByRole('button', { name: /confirm.*continue/i }));
+    expect((screen.getByRole('button', { name: /generate/i }) as HTMLButtonElement).disabled).toBe(
+      false
+    );
+
+    await fireEvent.click(screen.getByRole('button', { name: /analyze/i }));
+    await waitFor(() =>
+      expect(
+        (screen.getByRole('button', { name: /generate/i }) as HTMLButtonElement).disabled
+      ).toBe(true)
+    );
   });
 
   it('keeps the shared creative mode as a single organizer-aware action', async () => {

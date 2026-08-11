@@ -71,17 +71,19 @@
             {{ Math.round(category.probability * 100) }}%
           </span>
         </label>
-        <select
-          v-if="categoryCandidates.length === 0"
-          v-model="selectedCategoryName"
-          data-test="rsna-category-fallback"
-          class="w-full rounded border border-base-300 bg-base-100 p-2"
-        >
-          <option value="">{{ t('rsna.select_category') }}</option>
-          <option v-for="category in RSNA_CATEGORIES" :key="category" :value="category">
-            {{ category }}
-          </option>
-        </select>
+        <label class="mt-3 block space-y-1 text-sm">
+          <span class="font-medium text-text-secondary">{{ t('rsna.select_category') }}</span>
+          <select
+            v-model="selectedCategoryName"
+            data-test="rsna-category-select"
+            class="w-full rounded border border-base-300 bg-base-100 p-2"
+          >
+            <option value="">{{ t('rsna.select_category') }}</option>
+            <option v-for="category in RSNA_CATEGORIES" :key="category" :value="category">
+              {{ category }}
+            </option>
+          </select>
+        </label>
       </div>
     </fieldset>
 

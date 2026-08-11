@@ -12,6 +12,7 @@ import {
   BlindReviewModelAssessment,
   ISMRMAnalysisBundle,
   AIProvider,
+  Conference,
   Settings,
 } from '../../types';
 import {
@@ -32,6 +33,7 @@ import {
   enabledMGAResearchToolIds,
   hasEnabledMGAResearchAgent,
 } from '../capabilities/managedResearchCapabilities';
+import { managedConferenceContext } from './managedTextWorkflow';
 
 // Export writing style utilities
 export {
@@ -120,11 +122,12 @@ export const analyzeISMRMBundle = async (text: string): Promise<ISMRMAnalysisBun
   requireAIDisclosureAcceptance();
   const apiKey = getApiKey();
   const service = getService();
-  if (!apiKey) return openai.analyzeISMRMBundle(text, undefined, text, true);
+  const workflowContext = managedConferenceContext('ISMRM', text);
+  if (!apiKey) return openai.analyzeISMRMBundle(text, undefined, workflowContext, true);
   return withExplicitManagedFallback(
     apiKey,
     () => service.analyzeISMRMBundle(text, apiKey),
-    () => openai.analyzeISMRMBundle(text, undefined, text, true)
+    () => openai.analyzeISMRMBundle(text, undefined, workflowContext, true)
   );
 };
 
@@ -302,11 +305,12 @@ export const generateImageForProvider = (
 // Conference-specific functions
 export const analyzeContentForConference = async (
   text: string,
-  conference: string
+  conference: Conference
 ): Promise<AnalysisResult> => {
   requireAIDisclosureAcceptance();
   const apiKey = getApiKey();
   const service = getService();
+  const managedContext = managedConferenceContext(conference, text);
   if (conference === 'RSNA') {
     const locale = getAuxiliaryLocale();
     const run = () => service.analyzeRSNAContent(text, apiKey, locale);
@@ -316,25 +320,24 @@ export const analyzeContentForConference = async (
     );
   }
   if (service === openai || service === anthropic) {
-    const context = `${conference}:${text}`;
-    const run = () => service.analyzeContent(text, apiKey, context);
-    if (!apiKey) return openai.analyzeContent(text, undefined, context, true);
+    const run = () => service.analyzeContent(text, apiKey, managedContext);
+    if (!apiKey) return openai.analyzeContent(text, undefined, managedContext, true);
     return withExplicitManagedFallback(apiKey, run, () =>
-      openai.analyzeContent(text, undefined, context, true)
+      openai.analyzeContent(text, undefined, managedContext, true)
     );
   }
   if ('analyzeContentForConference' in service) {
     const run = () => (service as any).analyzeContentForConference(text, conference);
-    if (!apiKey) return openai.analyzeContent(text, undefined, `${conference}:${text}`, true);
+    if (!apiKey) return openai.analyzeContent(text, undefined, managedContext, true);
     return withExplicitManagedFallback(apiKey, run, () =>
-      openai.analyzeContent(text, undefined, `${conference}:${text}`, true)
+      openai.analyzeContent(text, undefined, managedContext, true)
     );
   }
   // Fallback to regular analysis
   const run = () => service.analyzeContent(text, apiKey);
-  if (!apiKey) return openai.analyzeContent(text, undefined, `${conference}:${text}`, true);
+  if (!apiKey) return openai.analyzeContent(text, undefined, managedContext, true);
   return withExplicitManagedFallback(apiKey, run, () =>
-    openai.analyzeContent(text, undefined, `${conference}:${text}`, true)
+    openai.analyzeContent(text, undefined, managedContext, true)
   );
 };
 
@@ -343,7 +346,7 @@ export const generateAbstractForConference = async (
   type: AbstractType,
   categories: Category[],
   keywords: string[],
-  conference: string,
+  conference: Conference,
   conferenceContext?: RSNAClassification | string,
   managedOperation: 'generation' | 'deep_update' = 'generation',
   workflowContext = text
@@ -417,7 +420,7 @@ export const generateAbstractForConference = async (
     );
   }
   if (service === openai || service === anthropic) {
-    const context = `${conference}:${workflowContext}`;
+    const context = managedConferenceContext(conference, workflowContext);
     const run = () =>
       service.generateFinalAbstract(
         text,
@@ -459,7 +462,7 @@ export const generateAbstractForConference = async (
     );
   }
   // Fallback to regular generation
-  const context = `${conference}:${workflowContext}`;
+  const context = managedConferenceContext(conference, workflowContext);
   const run = () =>
     service.generateFinalAbstract(
       text,
@@ -503,7 +506,7 @@ export const generateAbstractForConference = async (
 
 export const generateCreativeAbstractForConference = async (
   coreIdea: string,
-  conference: string,
+  conference: Conference,
   rsna?: RSNAClassification,
   category?: string,
   keywords: string[] = []

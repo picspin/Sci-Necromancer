@@ -1,3 +1,5 @@
+import type { Conference } from '../../types';
+
 export type ManagedTextOperation = 'analysis' | 'generation' | 'regeneration' | 'deep_update';
 
 interface ActiveWorkflow {
@@ -29,6 +31,10 @@ function contextKey(context: string): string {
     hash = Math.imul(hash, 16777619);
   }
   return `workflow-${(hash >>> 0).toString(36)}-${context.length}`;
+}
+
+export function managedConferenceContext(conference: Conference, context: string): string {
+  return `${conference}:${context}`;
 }
 
 function hydrate(): void {

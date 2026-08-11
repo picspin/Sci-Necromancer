@@ -572,6 +572,7 @@
     "study_design": "Study/reporting design",
     "presentation_recommendation": "Suggested presentation format",
     "analysis_complete": "Three-layer oncology analysis complete",
+    "confirm_continue": "Confirm classification and continue",
     "rule_version": "Rule version",
     "confidence": "Confidence",
     "keywords": "Suggested keywords",

@@ -86,7 +86,9 @@ describe('managed MGA capability routing', () => {
       model: 'glm-5.2',
       reasoning_effort: 'high',
       stream: false,
+      response_format: { type: 'json_object' },
     });
+    expect(JSON.parse(String(request.body)).messages[0]).toMatchObject({ role: 'system' });
   });
 
   it('routes managed Nano Banana generation to healthy Imagen 4 via img_generator', async () => {

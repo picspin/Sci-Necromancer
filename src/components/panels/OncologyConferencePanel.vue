@@ -59,7 +59,7 @@
           </button>
           <button
             type="button"
-            :disabled="isLoading || !classification || Boolean(generatedAbstract)"
+            :disabled="isLoading || !analysisConfirmed || Boolean(generatedAbstract)"
             class="rounded-lg bg-brand-primary px-4 py-3 font-bold text-white disabled:cursor-not-allowed disabled:opacity-50"
             @click="handleGenerate"
           >
@@ -105,93 +105,99 @@
         </button>
       </div>
 
-      <div class="space-y-4">
-        <aside
-          v-if="classification"
-          class="space-y-3 rounded-lg border border-base-300 bg-base-100 p-4 text-sm"
-          aria-live="polite"
-        >
-          <h3 class="font-semibold text-text-primary">{{ t('oncology.analysis_complete') }}</h3>
-
-          <label class="block text-xs font-medium text-text-secondary" :for="`${conference}-type`">
-            {{ t('oncology.submission_type') }}
-          </label>
-          <select
-            :id="`${conference}-type`"
-            v-model="selectedAbstractType"
-            class="w-full rounded-md border border-base-300 bg-base-100 p-2 text-text-primary"
-          >
-            <option v-for="type in conferenceModule.abstractTypes" :key="type" :value="type">
-              {{ type }}
-            </option>
-          </select>
-
-          <label
-            class="block text-xs font-medium text-text-secondary"
-            :for="`${conference}-category`"
-          >
-            {{ t('oncology.official_category') }}
-          </label>
-          <select
-            :id="`${conference}-category`"
-            :value="selectedCategories[0]?.name"
-            class="w-full rounded-md border border-base-300 bg-base-100 p-2 text-text-primary"
-            @change="selectCategory"
-          >
-            <option
-              v-for="category in conferenceModule.getCategories()"
-              :key="category.name"
-              :value="category.name"
-            >
-              {{ category.name }}
-            </option>
-          </select>
-
-          <p>
-            <strong>{{ t('oncology.submission_type') }}:</strong>
-            {{ classification.submissionType }}
-          </p>
-          <p>
-            <strong>{{ t('oncology.category') }}:</strong> {{ selectedCategories[0]?.name }}
-          </p>
-          <p>
-            <strong>{{ t('oncology.study_design') }}:</strong> {{ classification.studyDesign }}
-          </p>
-          <p>
-            <strong>{{ t('oncology.confidence') }}:</strong>
-            {{ Math.round((classification.confidence ?? 0) * 100) }}%
-          </p>
-          <p v-if="classification.presentationRecommendation">
-            <strong>{{ t('oncology.presentation_recommendation') }}:</strong>
-            {{ classification.presentationRecommendation }}
-          </p>
-          <p
-            v-if="conference === 'ESMO' && classification.presentationRecommendation"
-            class="text-xs text-amber-200"
-          >
-            {{ t('oncology.presentation_advisory') }}
-          </p>
-          <p
-            class="rounded-md border border-amber-500/30 bg-amber-500/10 p-2 text-xs text-amber-100"
-          >
-            {{ t('oncology.author_review_required') }}
-          </p>
-        </aside>
-
-        <OutputDisplay
-          :abstract="generatedAbstract"
-          :categories="selectedCategories"
-          :keywords="selectedKeywords"
-          :is-loading="isLoading"
-          :error="error"
-          :loading-message="loadingMessage"
-          :conference="conference"
-          :source-text="inputText"
-          :creative-mode="mode === 'creative'"
-          :abstract-type="selectedAbstractType"
-        />
-      </div>
+      <OutputDisplay
+        :abstract="generatedAbstract"
+        :categories="selectedCategories"
+        :keywords="selectedKeywords"
+        :is-loading="isLoading"
+        :error="error"
+        :loading-message="loadingMessage"
+        :conference="conference"
+        :source-text="inputText"
+        :creative-mode="mode === 'creative'"
+        :abstract-type="selectedAbstractType"
+      />
     </div>
+
+    <Modal
+      v-if="isAnalysisModalOpen && classification"
+      size="lg"
+      :aria-label="t('oncology.analysis_complete')"
+      @close="cancelAnalysis"
+    >
+      <aside class="space-y-3 text-sm" aria-live="polite">
+        <h3 class="font-semibold text-text-primary">{{ t('oncology.analysis_complete') }}</h3>
+
+        <label class="block text-xs font-medium text-text-secondary" :for="`${conference}-type`">
+          {{ t('oncology.submission_type') }}
+        </label>
+        <select
+          :id="`${conference}-type`"
+          v-model="selectedAbstractType"
+          class="w-full rounded-md border border-base-300 bg-base-100 p-2 text-text-primary"
+        >
+          <option v-for="type in conferenceModule.abstractTypes" :key="type" :value="type">
+            {{ type }}
+          </option>
+        </select>
+
+        <label
+          class="block text-xs font-medium text-text-secondary"
+          :for="`${conference}-category`"
+        >
+          {{ t('oncology.official_category') }}
+        </label>
+        <select
+          :id="`${conference}-category`"
+          :value="selectedCategories[0]?.name"
+          class="w-full rounded-md border border-base-300 bg-base-100 p-2 text-text-primary"
+          @change="selectCategory"
+        >
+          <option
+            v-for="category in conferenceModule.getCategories()"
+            :key="category.name"
+            :value="category.name"
+          >
+            {{ category.name }}
+          </option>
+        </select>
+
+        <p>
+          <strong>{{ t('oncology.submission_type') }}:</strong>
+          {{ classification.submissionType }}
+        </p>
+        <p>
+          <strong>{{ t('oncology.category') }}:</strong> {{ selectedCategories[0]?.name }}
+        </p>
+        <p>
+          <strong>{{ t('oncology.study_design') }}:</strong> {{ classification.studyDesign }}
+        </p>
+        <p>
+          <strong>{{ t('oncology.confidence') }}:</strong>
+          {{ Math.round((classification.confidence ?? 0) * 100) }}%
+        </p>
+        <p v-if="classification.presentationRecommendation">
+          <strong>{{ t('oncology.presentation_recommendation') }}:</strong>
+          {{ classification.presentationRecommendation }}
+        </p>
+        <p
+          v-if="conference === 'ESMO' && classification.presentationRecommendation"
+          class="text-xs text-amber-200"
+        >
+          {{ t('oncology.presentation_advisory') }}
+        </p>
+        <p class="rounded-md border border-amber-500/30 bg-amber-500/10 p-2 text-xs text-amber-100">
+          {{ t('oncology.author_review_required') }}
+        </p>
+        <button
+          type="button"
+          class="w-full rounded-lg bg-brand-primary px-4 py-3 font-bold text-white hover:bg-brand-secondary"
+          @click="confirmAnalysis"
+        >
+          {{ t('oncology.confirm_continue') }}
+        </button>
+      </aside>
+    </Modal>
 
     <Modal v-if="showSaveModal" @close="showSaveModal = false">
       <div class="space-y-4">
@@ -294,6 +300,8 @@ const saveTitleInput = ref<HTMLInputElement | null>(null);
 const workflowReentryDialog = ref<InstanceType<typeof WorkflowReentryDialog> | null>(null);
 const generateAfterReanalysis = ref(false);
 const deepUpdateCompleted = ref(false);
+const isAnalysisModalOpen = ref(false);
+const analysisConfirmed = ref(false);
 
 const abstractTypeForSubmission = (submissionType: OncologyClassification['submissionType']) => {
   const map: Record<
@@ -324,6 +332,8 @@ const resetGeneratedState = () => {
   selectedKeywords.value = [];
   generatedAbstract.value = null;
   deepUpdateCompleted.value = false;
+  isAnalysisModalOpen.value = false;
+  analysisConfirmed.value = false;
   selectedAbstractType.value = conferenceModule.value.abstractTypes[0];
 };
 
@@ -386,14 +396,11 @@ const handleAnalyze = async () => {
   isLoading.value = true;
   loadingMessage.value = t('loading_messages.analyzing_content');
   error.value = null;
-  generatedAbstract.value = null;
+  resetGeneratedState();
   try {
     const modelAnalysis = await llm.analyzeContentForConference(inputText.value, props.conference);
     applyClassification(inputText.value, modelAnalysis.keywords);
-    if (generateAfterReanalysis.value) {
-      generateAfterReanalysis.value = false;
-      await handleGenerate();
-    }
+    isAnalysisModalOpen.value = true;
   } catch (caught) {
     generateAfterReanalysis.value = false;
     error.value = localizeError(caught, t, 'errors.analysis_failed');
@@ -403,7 +410,7 @@ const handleAnalyze = async () => {
 };
 
 const handleGenerate = async () => {
-  if (!classification.value) return;
+  if (!classification.value || !analysisConfirmed.value) return;
   if (
     !(await prepareManagedTextReentry(
       workflowContext.value,
@@ -435,7 +442,7 @@ const handleGenerate = async () => {
       props.conference,
       profile.value.ruleVersion,
       'generation',
-      workflowContext.value
+      inputText.value
     );
     generatedAbstract.value = attachCompliance(result, classification.value);
   } catch (caught) {
@@ -511,6 +518,21 @@ const selectCategory = (event: Event) => {
   const name = (event.target as HTMLSelectElement).value;
   selectedCategories.value = [{ name, type: 'main', probability: 1 }];
   if (classification.value) classification.value.primaryCategory = name;
+};
+
+const confirmAnalysis = () => {
+  analysisConfirmed.value = true;
+  isAnalysisModalOpen.value = false;
+  if (generateAfterReanalysis.value) {
+    generateAfterReanalysis.value = false;
+    void handleGenerate();
+  }
+};
+
+const cancelAnalysis = () => {
+  isAnalysisModalOpen.value = false;
+  analysisConfirmed.value = false;
+  generateAfterReanalysis.value = false;
 };
 
 const openSaveModal = () => {

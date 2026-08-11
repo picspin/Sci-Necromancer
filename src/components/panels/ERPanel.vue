@@ -242,6 +242,7 @@ import { useSettings } from '@/composables/useSettings';
 import { localizeError } from '@/lib/i18n/errorMessages';
 import {
   getManagedAnalysisRetryNotice,
+  managedConferenceContext,
   prepareManagedTextReentry,
 } from '@/lib/llm/managedTextWorkflow';
 import { useAbstract } from '@/composables/useAbstract';
@@ -284,6 +285,7 @@ const generatedAbstract = ref<AbstractData | null>(null);
 const workflowReentryDialog = ref<InstanceType<typeof WorkflowReentryDialog> | null>(null);
 const generateAfterReanalysis = ref(false);
 const deepUpdateCompleted = ref(false);
+const workflowContext = () => managedConferenceContext('ER', inputText.value);
 
 // ECR Abstract Types
 const ecrAbstractTypes: AbstractTypeSuggestion[] = [
@@ -370,9 +372,8 @@ const handleAnalyze = async () => {
     error.value = t('errors.no_input');
     return;
   }
-  const workflowContext = `ER:${inputText.value}`;
   if (
-    getManagedAnalysisRetryNotice(workflowContext) === 'one_free_remaining' &&
+    getManagedAnalysisRetryNotice(workflowContext()) === 'one_free_remaining' &&
     !window.confirm(t('membership.analysis_retry_warning'))
   )
     return;
@@ -438,10 +439,9 @@ const handleTypeSelection = (type: AbstractType) => {
 };
 
 const handleGenerateAbstract = async () => {
-  const workflowContext = `ER:${inputText.value}`;
   if (
     !(await prepareManagedTextReentry(
-      workflowContext,
+      workflowContext(),
       'regeneration',
       () => workflowReentryDialog.value?.open('regeneration') ?? Promise.resolve('cancel'),
       async () => {
@@ -470,7 +470,10 @@ const handleGenerateAbstract = async () => {
       selectedAbstractType.value,
       selectedCategories.value,
       selectedKeywords.value,
-      'ER'
+      'ER',
+      undefined,
+      'generation',
+      inputText.value
     );
     generatedAbstract.value = result;
   } catch (e) {
@@ -502,10 +505,9 @@ const handleGenerateCreative = async () => {
 
 const handleDeepUpdate = async () => {
   if (!generatedAbstract.value || !selectedAbstractType.value) return;
-  const workflowContext = `ER:${inputText.value}`;
   if (
     !(await prepareManagedTextReentry(
-      workflowContext,
+      workflowContext(),
       'deep_update',
       () => workflowReentryDialog.value?.open('deep_update') ?? Promise.resolve('cancel'),
       async () => {
@@ -543,7 +545,7 @@ Keywords: ${generatedAbstract.value.keywords.join(', ')}`;
       '',
       '',
       'deep_update',
-      `ER:${inputText.value}`
+      workflowContext()
     );
 
     result.categories = selectedCategories.value;
