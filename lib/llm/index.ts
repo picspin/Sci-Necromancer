@@ -12,14 +12,20 @@ import {
   BlindReviewModelAssessment,
   ISMRMAnalysisBundle,
   AIProvider,
+  Conference,
   Settings,
+  AIAssistanceRecord,
 } from '../../types';
 import {
   normalizeRSNAAnalysis,
   normalizeRSNAKeywords,
   RSNA_CATEGORIES,
 } from '../conference/rsnaRules';
-import { requireAIDisclosureAcceptance } from '../compliance/aiDisclosure';
+import {
+  createAIAssistanceRecord,
+  getTrustedAIAssistance,
+  requireAIDisclosureAcceptance,
+} from '../compliance/aiDisclosure';
 import {
   canUseManagedText,
   canUseManagedResearchVerification,
@@ -32,6 +38,7 @@ import {
   enabledMGAResearchToolIds,
   hasEnabledMGAResearchAgent,
 } from '../capabilities/managedResearchCapabilities';
+import { managedConferenceContext } from './managedTextWorkflow';
 
 // Export writing style utilities
 export {
@@ -63,6 +70,91 @@ const getTextRoute = () => {
   const rawSettings = getSettings();
   const settings = { ...rawSettings, provider: rawSettings.provider || 'google' } as Settings;
   return { settings, route: resolveTextRoute(settings, canUseManagedText()) };
+};
+
+const compatibleProviderDisplayName = (
+  baseUrl: string | undefined,
+  officialHostname: string,
+  officialName: string,
+  protocolName: string
+): string => {
+  const configuredUrl = baseUrl?.trim();
+  if (!configuredUrl) return officialName;
+  try {
+    const hostname = new URL(configuredUrl).hostname.toLowerCase();
+    if (hostname === officialHostname || hostname.endsWith(`.${officialHostname}`)) {
+      return officialName;
+    }
+    return `${protocolName} (${hostname})`;
+  } catch {
+    return `configured ${protocolName}`;
+  }
+};
+
+const currentTextModel = (): Pick<
+  AIAssistanceRecord,
+  'provider' | 'providerDisplayName' | 'model'
+> => {
+  const { settings, route } = getTextRoute();
+  if (route === 'managed') {
+    return { provider: 'mga', providerDisplayName: 'MGA', model: 'MGA managed text model' };
+  }
+  if (settings.provider === 'anthropic') {
+    return {
+      provider: 'anthropic',
+      providerDisplayName: compatibleProviderDisplayName(
+        settings.anthropicBaseUrl,
+        'api.anthropic.com',
+        'Anthropic',
+        'Anthropic Messages-compatible API'
+      ),
+      model: settings.anthropicTextModel || 'claude-sonnet-4-5',
+    };
+  }
+  if (settings.provider === 'openai') {
+    return {
+      provider: 'openai',
+      providerDisplayName: compatibleProviderDisplayName(
+        settings.openAIBaseUrl,
+        'api.openai.com',
+        'OpenAI',
+        'OpenAI-compatible API'
+      ),
+      model: settings.openAITextModel || 'gpt-4o',
+    };
+  }
+  return {
+    provider: 'google',
+    providerDisplayName: 'Google',
+    model: settings.model || 'gemini-2.5-pro',
+  };
+};
+
+const withAIAssistance = (
+  result: AbstractData,
+  mode: 'standard' | 'creative',
+  operations: string[]
+): AbstractData => {
+  const trustedManagedRecord = getTrustedAIAssistance(result);
+  const identity = trustedManagedRecord ?? currentTextModel();
+  const {
+    aiAssistance: _untrustedAssistance,
+    aiAssistanceRecords: _untrustedRecords,
+    ...safeResult
+  } = result;
+  return {
+    ...safeResult,
+    aiAssistance: createAIAssistanceRecord({
+      provider: identity.provider,
+      providerDisplayName: identity.providerDisplayName,
+      model: identity.model,
+      modelType: trustedManagedRecord?.modelType,
+      mode,
+      operations,
+      methodsDisclosureRequired: trustedManagedRecord?.methodsDisclosureRequired,
+      generatedAt: trustedManagedRecord?.generatedAt,
+    }),
+  };
 };
 
 const getApiKey = (): string | undefined => {
@@ -120,11 +212,12 @@ export const analyzeISMRMBundle = async (text: string): Promise<ISMRMAnalysisBun
   requireAIDisclosureAcceptance();
   const apiKey = getApiKey();
   const service = getService();
-  if (!apiKey) return openai.analyzeISMRMBundle(text, undefined, text, true);
+  const workflowContext = managedConferenceContext('ISMRM', text);
+  if (!apiKey) return openai.analyzeISMRMBundle(text, undefined, workflowContext, true);
   return withExplicitManagedFallback(
     apiKey,
     () => service.analyzeISMRMBundle(text, apiKey),
-    () => openai.analyzeISMRMBundle(text, undefined, text, true)
+    () => openai.analyzeISMRMBundle(text, undefined, workflowContext, true)
   );
 };
 
@@ -137,7 +230,18 @@ export async function reviewAbstractBlind(prompt: string): Promise<BlindReviewMo
   if (apiKey) {
     return withExplicitManagedFallback(
       apiKey,
-      () => getService(false).reviewAbstractBlind(prompt, apiKey),
+      async () => {
+        const assessment = await getService(false).reviewAbstractBlind(prompt, apiKey);
+        const identity = currentTextModel();
+        return {
+          ...assessment,
+          aiAssistance: createAIAssistanceRecord({
+            ...identity,
+            mode: 'standard',
+            operations: ['independent abstract review'],
+          }),
+        };
+      },
       () => runManagedBlindReview(prompt),
       () => canUseManagedText() || canUseManagedResearchVerification(),
       1
@@ -169,7 +273,22 @@ async function runManagedBlindReview(prompt: string): Promise<BlindReviewModelAs
       })
     : await generateManagedText({ prompt, idempotencyKey, operation: 'blind_review' });
   try {
-    return assertBlindReviewAssessment(JSON.parse(result.text));
+    const assessment = assertBlindReviewAssessment(JSON.parse(result.text));
+    const fallbackIdentity = currentTextModel();
+    return {
+      ...assessment,
+      aiAssistance: createAIAssistanceRecord({
+        provider: result.provider ?? fallbackIdentity.provider,
+        model: result.model ?? fallbackIdentity.model,
+        modelType:
+          result.modelType ?? (useResearchAgent ? 'research-agent' : 'large-language-model'),
+        mode: 'standard',
+        operations: useResearchAgent
+          ? ['independent abstract review', 'read-only literature verification']
+          : ['independent abstract review'],
+        methodsDisclosureRequired: useResearchAgent,
+      }),
+    };
   } catch {
     throw new Error('blind_review.invalid_model_response');
   }
@@ -234,45 +353,56 @@ export const generateFinalAbstract = async (
       managedOperation,
       workflowContext
     );
-  if (!apiKey)
-    return openai.generateFinalAbstract(
-      text,
-      type,
-      categories,
-      keywords,
-      impact,
-      synopsis,
-      undefined,
-      managedOperation,
-      workflowContext,
-      true
-    );
-  return withExplicitManagedFallback(apiKey, run, () =>
-    openai.generateFinalAbstract(
-      text,
-      type,
-      categories,
-      keywords,
-      impact,
-      synopsis,
-      undefined,
-      managedOperation,
-      workflowContext,
-      true
-    )
-  );
+  const result = !apiKey
+    ? await openai.generateFinalAbstract(
+        text,
+        type,
+        categories,
+        keywords,
+        impact,
+        synopsis,
+        undefined,
+        managedOperation,
+        workflowContext,
+        true
+      )
+    : await withExplicitManagedFallback(apiKey, run, () =>
+        openai.generateFinalAbstract(
+          text,
+          type,
+          categories,
+          keywords,
+          impact,
+          synopsis,
+          undefined,
+          managedOperation,
+          workflowContext,
+          true
+        )
+      );
+  return withAIAssistance(result, 'standard', [
+    'abstract drafting',
+    'language revision',
+    managedOperation === 'deep_update' ? 'deep revision' : 'structure and compliance review',
+  ]);
 };
 
 export const generateCreativeAbstract = async (coreIdea: string): Promise<AbstractData> => {
   requireAIDisclosureAcceptance();
   const apiKey = getApiKey();
   const service = getService();
-  if (!apiKey) return openai.generateCreativeAbstract(coreIdea, undefined, true);
-  return withExplicitManagedFallback(
-    apiKey,
-    () => service.generateCreativeAbstract(coreIdea, apiKey),
-    () => openai.generateCreativeAbstract(coreIdea, undefined, true)
-  );
+  const result = !apiKey
+    ? await openai.generateCreativeAbstract(coreIdea, undefined, true)
+    : await withExplicitManagedFallback(
+        apiKey,
+        () => service.generateCreativeAbstract(coreIdea, apiKey),
+        () => openai.generateCreativeAbstract(coreIdea, undefined, true)
+      );
+  return withAIAssistance(result, 'creative', [
+    'content generation from an author-supplied concept',
+    'language drafting',
+    'structure and compliance review',
+  ]);
 };
 
 export const generateImage = (imageState: ImageState, creativeContext: string): Promise<string> => {
@@ -302,11 +432,12 @@ export const generateImageForProvider = (
 // Conference-specific functions
 export const analyzeContentForConference = async (
   text: string,
-  conference: string
+  conference: Conference
 ): Promise<AnalysisResult> => {
   requireAIDisclosureAcceptance();
   const apiKey = getApiKey();
   const service = getService();
+  const managedContext = managedConferenceContext(conference, text);
   if (conference === 'RSNA') {
     const locale = getAuxiliaryLocale();
     const run = () => service.analyzeRSNAContent(text, apiKey, locale);
@@ -316,25 +447,24 @@ export const analyzeContentForConference = async (
     );
   }
   if (service === openai || service === anthropic) {
-    const context = `${conference}:${text}`;
-    const run = () => service.analyzeContent(text, apiKey, context);
-    if (!apiKey) return openai.analyzeContent(text, undefined, context, true);
+    const run = () => service.analyzeContent(text, apiKey, managedContext);
+    if (!apiKey) return openai.analyzeContent(text, undefined, managedContext, true);
     return withExplicitManagedFallback(apiKey, run, () =>
-      openai.analyzeContent(text, undefined, context, true)
+      openai.analyzeContent(text, undefined, managedContext, true)
     );
   }
   if ('analyzeContentForConference' in service) {
     const run = () => (service as any).analyzeContentForConference(text, conference);
-    if (!apiKey) return openai.analyzeContent(text, undefined, `${conference}:${text}`, true);
+    if (!apiKey) return openai.analyzeContent(text, undefined, managedContext, true);
     return withExplicitManagedFallback(apiKey, run, () =>
-      openai.analyzeContent(text, undefined, `${conference}:${text}`, true)
+      openai.analyzeContent(text, undefined, managedContext, true)
     );
   }
   // Fallback to regular analysis
   const run = () => service.analyzeContent(text, apiKey);
-  if (!apiKey) return openai.analyzeContent(text, undefined, `${conference}:${text}`, true);
+  if (!apiKey) return openai.analyzeContent(text, undefined, managedContext, true);
   return withExplicitManagedFallback(apiKey, run, () =>
-    openai.analyzeContent(text, undefined, `${conference}:${text}`, true)
+    openai.analyzeContent(text, undefined, managedContext, true)
   );
 };
 
@@ -343,7 +473,7 @@ export const generateAbstractForConference = async (
   type: AbstractType,
   categories: Category[],
   keywords: string[],
-  conference: string,
+  conference: Conference,
   conferenceContext?: RSNAClassification | string,
   managedOperation: 'generation' | 'deep_update' = 'generation',
   workflowContext = text
@@ -351,6 +481,12 @@ export const generateAbstractForConference = async (
   requireAIDisclosureAcceptance();
   const apiKey = getApiKey();
   const service = getService();
+  const finalize = (result: AbstractData) =>
+    withAIAssistance(result, 'standard', [
+      `${conference} classification-informed abstract drafting`,
+      'language revision',
+      managedOperation === 'deep_update' ? 'deep revision' : 'structure and compliance review',
+    ]);
   if (conference === 'RSNA') {
     const auxiliaryLocale = getAuxiliaryLocale();
     const category = categories[0]?.name;
@@ -395,29 +531,38 @@ export const generateAbstractForConference = async (
     } as const;
     const run = () =>
       service.generateRSNAAbstract(promptInput, apiKey, managedOperation, workflowContext);
-    if (!apiKey)
-      return openai.generateRSNAAbstract(
-        promptInput,
-        undefined,
-        managedOperation,
-        workflowContext,
-        true
-      );
-    return withExplicitManagedFallback(apiKey, run, () =>
-      openai.generateRSNAAbstract(promptInput, undefined, managedOperation, workflowContext, true)
-    );
+    const result = !apiKey
+      ? await openai.generateRSNAAbstract(
+          promptInput,
+          undefined,
+          managedOperation,
+          workflowContext,
+          true
+        )
+      : await withExplicitManagedFallback(apiKey, run, () =>
+          openai.generateRSNAAbstract(
+            promptInput,
+            undefined,
+            managedOperation,
+            workflowContext,
+            true
+          )
+        );
+    return finalize(result);
   }
   if ('generateAbstractForConference' in service) {
-    return (service as any).generateAbstractForConference(
-      text,
-      type,
-      categories,
-      keywords,
-      conference
+    return finalize(
+      await (service as any).generateAbstractForConference(
+        text,
+        type,
+        categories,
+        keywords,
+        conference
+      )
     );
   }
   if (service === openai || service === anthropic) {
-    const context = `${conference}:${workflowContext}`;
+    const context = managedConferenceContext(conference, workflowContext);
     const run = () =>
       service.generateFinalAbstract(
         text,
@@ -430,36 +575,37 @@ export const generateAbstractForConference = async (
         managedOperation,
         context
       );
-    if (!apiKey)
-      return openai.generateFinalAbstract(
-        text,
-        type,
-        categories,
-        keywords,
-        '',
-        '',
-        undefined,
-        managedOperation,
-        context,
-        true
-      );
-    return withExplicitManagedFallback(apiKey, run, () =>
-      openai.generateFinalAbstract(
-        text,
-        type,
-        categories,
-        keywords,
-        '',
-        '',
-        undefined,
-        managedOperation,
-        context,
-        true
-      )
-    );
+    const result = !apiKey
+      ? await openai.generateFinalAbstract(
+          text,
+          type,
+          categories,
+          keywords,
+          '',
+          '',
+          undefined,
+          managedOperation,
+          context,
+          true
+        )
+      : await withExplicitManagedFallback(apiKey, run, () =>
+          openai.generateFinalAbstract(
+            text,
+            type,
+            categories,
+            keywords,
+            '',
+            '',
+            undefined,
+            managedOperation,
+            context,
+            true
+          )
+        );
+    return finalize(result);
   }
   // Fallback to regular generation
-  const context = `${conference}:${workflowContext}`;
+  const context = managedConferenceContext(conference, workflowContext);
   const run = () =>
     service.generateFinalAbstract(
       text,
@@ -472,38 +618,39 @@ export const generateAbstractForConference = async (
       managedOperation,
       context
     );
-  if (!apiKey)
-    return openai.generateFinalAbstract(
-      text,
-      type,
-      categories,
-      keywords,
-      '',
-      '',
-      undefined,
-      managedOperation,
-      context,
-      true
-    );
-  return withExplicitManagedFallback(apiKey, run, () =>
-    openai.generateFinalAbstract(
-      text,
-      type,
-      categories,
-      keywords,
-      '',
-      '',
-      undefined,
-      managedOperation,
-      context,
-      true
-    )
-  );
+  const result = !apiKey
+    ? await openai.generateFinalAbstract(
+        text,
+        type,
+        categories,
+        keywords,
+        '',
+        '',
+        undefined,
+        managedOperation,
+        context,
+        true
+      )
+    : await withExplicitManagedFallback(apiKey, run, () =>
+        openai.generateFinalAbstract(
+          text,
+          type,
+          categories,
+          keywords,
+          '',
+          '',
+          undefined,
+          managedOperation,
+          context,
+          true
+        )
+      );
+  return finalize(result);
 };
 
 export const generateCreativeAbstractForConference = async (
   coreIdea: string,
-  conference: string,
+  conference: Conference,
   rsna?: RSNAClassification,
   category?: string,
   keywords: string[] = []
@@ -511,6 +658,13 @@ export const generateCreativeAbstractForConference = async (
   requireAIDisclosureAcceptance();
   const apiKey = getApiKey();
   const service = getService();
+  const finalize = (result: AbstractData) =>
+    withAIAssistance(result, 'creative', [
+      `${conference}-aware creative drafting`,
+      'content generation from an author-supplied concept',
+      'language drafting',
+      'structure and compliance review',
+    ]);
   if (conference === 'RSNA') {
     const execute = async (target: any, forceManaged = false) => {
       const auxiliaryLocale = getAuxiliaryLocale();
@@ -566,25 +720,31 @@ export const generateCreativeAbstractForConference = async (
         forceManaged
       );
     };
-    if (!apiKey) return execute(openai, true);
-    return withExplicitManagedFallback(
-      apiKey,
-      () => execute(service),
-      () => execute(openai, true)
-    );
+    const result = !apiKey
+      ? await execute(openai, true)
+      : await withExplicitManagedFallback(
+          apiKey,
+          () => execute(service),
+          () => execute(openai, true)
+        );
+    return finalize(result);
   }
   if ('generateCreativeAbstractForConference' in service) {
     const run = () =>
       (service as any).generateCreativeAbstractForConference(coreIdea, conference, apiKey);
-    if (!apiKey) return openai.generateCreativeAbstract(coreIdea, undefined, true);
-    return withExplicitManagedFallback(apiKey, run, () =>
-      openai.generateCreativeAbstract(coreIdea, undefined, true)
-    );
+    const result = !apiKey
+      ? await openai.generateCreativeAbstract(coreIdea, undefined, true)
+      : await withExplicitManagedFallback(apiKey, run, () =>
+          openai.generateCreativeAbstract(coreIdea, undefined, true)
+        );
+    return finalize(result);
   }
   // Fallback to regular creative generation
   const run = () => service.generateCreativeAbstract(coreIdea, apiKey);
-  if (!apiKey) return openai.generateCreativeAbstract(coreIdea, undefined, true);
-  return withExplicitManagedFallback(apiKey, run, () =>
-    openai.generateCreativeAbstract(coreIdea, undefined, true)
-  );
+  const result = !apiKey
+    ? await openai.generateCreativeAbstract(coreIdea, undefined, true)
+    : await withExplicitManagedFallback(apiKey, run, () =>
+        openai.generateCreativeAbstract(coreIdea, undefined, true)
+      );
+  return finalize(result);
 };

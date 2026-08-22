@@ -104,6 +104,7 @@ export function mergeBlindReviewReport(
         ? 'action-required'
         : 'verified-with-limitations',
     modelAssessment,
+    aiAssistance: modelAssessment.aiAssistance,
     externalVerification,
     disclaimer: 'blind_review.disclaimer',
   };

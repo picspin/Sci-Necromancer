@@ -47,6 +47,7 @@ describe('RSNAAnalysisStep', () => {
     const categoryInputs = wrapper.findAll('input[name="rsna-category"]');
     expect(categoryInputs).toHaveLength(2);
     expect((categoryInputs[0].element as HTMLInputElement).checked).toBe(true);
+    expect(wrapper.find('[data-test="rsna-category-select"]').exists()).toBe(true);
 
     await wrapper.get('[data-test="confirm-rsna-analysis"]').trigger('click');
     const confirmation = wrapper.emitted('confirm')?.[0];
@@ -61,5 +62,31 @@ describe('RSNAAnalysisStep', () => {
       contentType: 'science',
       primaryPresentationFormat: 'scientific-paper',
     });
+  });
+
+  it('lets the author recover from an empty model category result', async () => {
+    const wrapper = mount(RSNAAnalysisStep, {
+      props: { result: { ...result, categories: [] } },
+    });
+
+    const fallback = wrapper.get('[data-test="rsna-category-select"]');
+    await fallback.setValue('Neuroradiology');
+    const confirm = wrapper.get('[data-test="confirm-rsna-analysis"]');
+    expect((confirm.element as HTMLButtonElement).disabled).toBe(false);
+
+    await confirm.trigger('click');
+    expect(wrapper.emitted('confirm')?.[0]?.[0]).toMatchObject({ name: 'Neuroradiology' });
+  });
+
+  it('shows every selected keyword as a removable chip, including dropdown additions', async () => {
+    const wrapper = mount(RSNAAnalysisStep, { props: { result } });
+    const keywordSelect = wrapper.get('[data-test="rsna-keyword-select"]');
+
+    await keywordSelect.setValue('CT');
+    const added = wrapper.get('[data-test="selected-keyword-CT"]');
+    expect(added.text()).toContain('CT');
+
+    await added.trigger('click');
+    expect(wrapper.find('[data-test="selected-keyword-CT"]').exists()).toBe(false);
   });
 });

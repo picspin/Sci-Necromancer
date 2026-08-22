@@ -36,7 +36,13 @@ describe('managed MGA capability routing', () => {
         prompt: 'Verify this abstract without inventing evidence.',
         enabledCapabilityIds: ['mga-pubmed', 'mga-semantic-scholar'],
       })
-    ).resolves.toEqual({ type: 'text', text: JSON.stringify(assessment) });
+    ).resolves.toEqual({
+      type: 'text',
+      text: JSON.stringify(assessment),
+      provider: 'mga',
+      model: 'glm-5',
+      modelType: 'research-agent',
+    });
 
     expect(fetchMock).toHaveBeenCalledWith(
       'https://mga.example.com/api/v2/chat/agent',
@@ -71,7 +77,13 @@ describe('managed MGA capability routing', () => {
         prompt: 'Polish this abstract',
         reasoning: 'high',
       })
-    ).resolves.toEqual({ type: 'text', text: 'revised abstract' });
+    ).resolves.toEqual({
+      type: 'text',
+      text: 'revised abstract',
+      provider: 'mga',
+      model: 'glm-5.2',
+      modelType: 'large-language-model',
+    });
 
     expect(fetchMock).toHaveBeenCalledWith(
       'https://mga.example.com/api/v2/chat/completions',
@@ -86,7 +98,9 @@ describe('managed MGA capability routing', () => {
       model: 'glm-5.2',
       reasoning_effort: 'high',
       stream: false,
+      response_format: { type: 'json_object' },
     });
+    expect(JSON.parse(String(request.body)).messages[0]).toMatchObject({ role: 'system' });
   });
 
   it('routes managed Nano Banana generation to healthy Imagen 4 via img_generator', async () => {

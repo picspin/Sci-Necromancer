@@ -1,4 +1,5 @@
 import type { AIProvider, Settings } from '@/types';
+import { anthropicApiUrl } from '@/lib/llm/providerUrl';
 
 export interface ModelCatalog {
   text: string[];
@@ -33,16 +34,29 @@ export async function loadProviderModels(
 
   if (provider === 'anthropic') {
     if (!settings.anthropicApiKey?.trim()) throw new Error('model_manager.api_key_required');
-    const response = await fetcher(
-      `${normalizedBase(settings.anthropicBaseUrl, 'https://api.anthropic.com')}/v1/models`,
-      {
+    const apiKey = settings.anthropicApiKey.trim();
+    let response: Response;
+    try {
+      response = await fetcher(anthropicApiUrl(settings.anthropicBaseUrl, 'models'), {
         headers: {
-          'x-api-key': settings.anthropicApiKey.trim(),
+          'x-api-key': apiKey,
           'anthropic-version': '2023-06-01',
           'anthropic-dangerous-direct-browser-access': 'true',
         },
-      }
-    );
+      });
+    } catch (error) {
+      if (!(error instanceof TypeError)) throw error;
+      response = await fetcher('/api/generate', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          capability: 'anthropic_byok',
+          resource: 'models',
+          baseUrl: settings.anthropicBaseUrl || 'https://api.anthropic.com',
+          apiKey,
+        }),
+      });
+    }
     if (!response.ok) throw new Error(`model_manager.model_load_failed:${response.status}`);
     const payload = (await response.json()) as { data?: Array<{ id?: string }> };
     return { text: uniqueSorted((payload.data || []).map(({ id }) => id || '')), image: [] };

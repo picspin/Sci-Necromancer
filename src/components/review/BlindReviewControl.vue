@@ -130,7 +130,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
-import type { AbstractData, BlindReviewReport, Conference } from '@/types';
+import type { AIAssistanceRecord, AbstractData, BlindReviewReport, Conference } from '@/types';
 import { normalizeBlindReviewSettings } from '@/lib/review/reviewSettings';
 import { localizeError } from '@/lib/i18n/errorMessages';
 import { runBlindReview } from '@/services/blindReviewService';
@@ -146,6 +146,9 @@ const props = defineProps<{
   conference: Exclude<Conference, 'IMAGE' | 'JACC'>;
   sourceText: string;
   abstract: AbstractData;
+}>();
+const emit = defineEmits<{
+  'ai-assistance': [record: AIAssistanceRecord | null];
 }>();
 
 const { t, locale } = useI18n();
@@ -167,12 +170,21 @@ const reviewRoute = computed(() =>
   resolveBlindReviewRoute(settings.value, isAuthenticated.value && Boolean(status.value))
 );
 const usesManagedReview = computed(() => reviewRoute.value === 'managed');
+const reviewedAbstractFingerprint = computed(() =>
+  JSON.stringify({
+    title: props.abstract.title ?? '',
+    impact: props.abstract.impact,
+    synopsis: props.abstract.synopsis,
+    abstract: props.abstract.abstract ?? '',
+    keywords: props.abstract.keywords,
+  })
+);
 
 watch(
   [
     () => props.conference,
     () => props.sourceText,
-    () => props.abstract,
+    () => reviewedAbstractFingerprint.value,
     () => settings.value.blindReview,
     () => settings.value.capabilities,
   ],
@@ -180,6 +192,7 @@ watch(
     reviewRevision += 1;
     isRunning.value = false;
     report.value = null;
+    emit('ai-assistance', null);
     error.value = '';
   },
   { deep: true }
@@ -202,7 +215,10 @@ const handleReview = async () => {
           : { pubmed: false, citecheck: false, 'doi-mcp': false },
       },
     });
-    if (revision === reviewRevision) report.value = nextReport;
+    if (revision === reviewRevision) {
+      report.value = nextReport;
+      emit('ai-assistance', nextReport.aiAssistance ?? null);
+    }
   } catch (caught) {
     if (revision === reviewRevision) {
       error.value = localizeError(caught, t, 'blind_review.unknown_error');

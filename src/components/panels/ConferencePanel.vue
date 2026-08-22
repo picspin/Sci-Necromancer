@@ -76,7 +76,14 @@
         <ISMRMPanel v-if="localActiveConference === 'ISMRM'" />
         <RSNAPanel v-if="localActiveConference === 'RSNA'" />
         <ERPanel v-if="localActiveConference === 'ER'" />
-        <ESCPanel v-if="localActiveConference === 'ESC'" />
+        <div
+          v-if="localActiveConference === 'ESC'"
+          class="rounded-lg border border-base-300 bg-base-100 p-10 text-center"
+          data-test="esc-coming-soon"
+        >
+          <h2 class="text-xl font-bold text-text-primary">ESC</h2>
+          <p class="mt-2 text-text-secondary">{{ t('ui.coming_soon') }}</p>
+        </div>
         <OncologyConferencePanel
           v-if="localActiveConference === 'ASCO' || localActiveConference === 'ESMO'"
           :conference="localActiveConference"
@@ -94,7 +101,6 @@ import type { Conference } from '@/types';
 import { useConferenceRegistry } from '@/composables/useConferenceRegistry';
 import ISMRMPanel from './ISMRMPanel.vue';
 import RSNAPanel from './RSNAPanel.vue';
-import ESCPanel from './ESCPanel.vue';
 import ConferenceTab from './ConferenceTab.vue';
 import ERPanel from './ERPanel.vue';
 import OncologyConferencePanel from './OncologyConferencePanel.vue';

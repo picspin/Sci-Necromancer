@@ -33,6 +33,7 @@ const i18n = createI18n({
         status: { 'verified-with-limitations': '有限验证', 'action-required': '需要处理' },
         recommendation: { 'minor-revision': '小修' },
         external_title: '外部验证',
+        ai_acknowledgement: 'Agent 使用披露',
         finding_title: '审核发现',
         no_findings: '未发现明确问题',
         disclaimer: '自动审核不能证明研究数据真实，也不能替代作者、机构或会议的正式审核。',
@@ -79,6 +80,23 @@ describe('BlindReviewControl', () => {
         },
       ],
       disclaimer: 'blind_review.disclaimer',
+      aiAssistance: {
+        disclosureVersion: 'jama-2026-v1',
+        platform: {
+          name: 'Sci-Necromancer',
+          project: 'picspin/Sci-Necromancer',
+          url: 'https://www.rad-sci.org',
+        },
+        generatedAt: '2026-07-28T00:00:00.000Z',
+        provider: 'mga',
+        model: 'glm-5',
+        modelType: 'research-agent',
+        mode: 'standard',
+        operations: ['read-only literature verification'],
+        boundaries: ['source data', 'factual claims', 'references'],
+        methodsDisclosureRequired: true,
+        authorVerificationRequired: true,
+      },
     });
   });
 
@@ -98,7 +116,27 @@ describe('BlindReviewControl', () => {
     expect(
       screen.getByText('自动审核不能证明研究数据真实，也不能替代作者、机构或会议的正式审核。')
     ).toBeTruthy();
+    const emittedAssistance = view.emitted()['ai-assistance'] as unknown[][];
+    expect(emittedAssistance?.[0]?.[0]).toMatchObject({
+      provider: 'mga',
+      model: 'glm-5',
+      modelType: 'research-agent',
+      methodsDisclosureRequired: true,
+    });
     expect(runBlindReview).toHaveBeenCalledOnce();
+
+    await view.rerender({
+      conference: 'RSNA',
+      sourceText: '原始研究材料',
+      abstract: {
+        impact: '影响',
+        synopsis: '概要',
+        abstract: '摘要',
+        keywords: [],
+        aiAssistanceRecords: [emittedAssistance[0][0]],
+      },
+    });
+    expect(screen.getByText('独立盲审报告')).toBeTruthy();
 
     await view.rerender({
       conference: 'RSNA',

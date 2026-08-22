@@ -37,6 +37,26 @@
     "language_toggle": "语言切换"
   },
   "membership": {
+    "analysis_retry_warning": "你还可以再免费分析1次，否则重复操作将直接扣除1学分。是否继续？",
+    "credit_history": "学分明细",
+    "credit_history_recent": "最近50笔",
+    "credit_history_empty": "暂无学分变动记录。",
+    "credit_reasons": {
+      "signup": "认证会员赠送",
+      "daily_checkin": "每日签到",
+      "analysis_retry": "重复论文分析",
+      "generation": "内容生成",
+      "deep_update": "深度更新",
+      "image_generation": "图像生成",
+      "blind_review": "盲审分析",
+      "task_reservation": "AI 服务使用",
+      "task_refund": "失败调用退还",
+      "storage_upgrade": "云端存储升级",
+      "stripe_purchase": "充值学分",
+      "stripe_refund": "充值退款",
+      "stripe_dispute": "支付争议",
+      "stripe_reinstatement": "争议撤销返还"
+    },
     "title": "会员与学分",
     "service_unavailable": "当前部署尚未启用会员服务，个人 API 配置仍可正常使用。",
     "sign_in_help": "登录后无需配置 API Key，即可使用平台托管的生文与生图服务。",
@@ -356,6 +376,7 @@
     "markdown_title": "导出为 Markdown（.md）",
     "markdown_label": "导出为 Markdown",
     "pdf_label": "导出为 PDF",
+    "docx_label": "导出为 DOCX",
     "json_label": "导出为 JSON"
   },
   "errors": {
@@ -384,6 +405,7 @@
     "export_failed": "导出摘要失败。",
     "import_failed": "导入摘要失败。",
     "pdf_export_failed": "导出 PDF 失败，请重试。",
+    "docx_export_failed": "导出 DOCX 失败，请重试。",
     "insufficient_bonus": "学分余额不足，请签到、充值或改用个人 API。",
     "member_login_required": "请登录后使用托管生成，或配置个人 API。",
     "member_service_unavailable": "会员服务暂不可用，个人 API 模式仍可使用。",
@@ -403,10 +425,10 @@
   },
   "workflow_reentry": {
     "title": "当前任务的内含次数已用完",
-    "regeneration_description": "请选择重新开始“分析—生成”任务，或基于当前结果继续生成；两种操作均消耗 2 学分。",
-    "deep_update_description": "请选择重新开始“分析—生成”任务，或再次执行强制高推理深度更新；两种操作均消耗 2 学分。",
-    "reanalyze": "重新分析并生成（推荐）· 2 学分",
-    "continue": "继续当前结果 · 2 学分"
+    "regeneration_description": "当前轮次已经生成结果。你可以开始新的分析轮次，或基于当前结果再生成一次；成功生成将消耗 1 学分。",
+    "deep_update_description": "当前轮次已经完成深度更新。你可以开始新的分析轮次，或单独再做一次深度更新；成功更新将消耗 1 学分。",
+    "reanalyze": "开始新的分析轮次",
+    "continue": "继续 · 1 学分"
   },
   "tooltips": {
     "creative_mode_disabled": "请先生成摘要以启用此模式。",
@@ -552,6 +574,7 @@
     "study_design": "研究／报告设计",
     "presentation_recommendation": "建议展示形式",
     "analysis_complete": "肿瘤学三层分析完成",
+    "confirm_continue": "确认分类并继续",
     "rule_version": "规则版本",
     "confidence": "置信度",
     "keywords": "建议关键词",
@@ -615,7 +638,11 @@
     "cutting_edge_topic": "前沿研究主题",
     "select_topic": "选择符合资格的主题",
     "primary_category": "RSNA 主分类（仅选一项）",
+    "select_category": "选择一个 RSNA 主分类",
     "keywords": "关键词",
+    "keyword_constraint": "选择 3–7 个",
+    "add_keyword": "从 RSNA 词表添加关键词",
+    "remove_keyword": "移除关键词",
     "reporting_guidance": "条件性报告规范",
     "why_route": "分类依据",
     "checks_required": "需要核查",
@@ -759,7 +786,7 @@
     "google_terms": "Google Gemini API 条款",
     "no_guarantee": "AI 输出可能不完整、过时、误导或错误。本服务不保证事实准确性、原创性、法规或会议合规性、适用性、录用、发表或任何展示形式安排。",
     "author_duty": "作者必须独立核验全部事实、患者信息、方法、样本量、统计结果、引文、授权、伦理审批、注册、资助、利益冲突、商业平衡及最新官方投稿要求。",
-    "data_transfer": "BYOK 内容会发送至“设置”中选择的供应商。会员托管文本会经美国 iad1 后端发送至 Google Gemini；托管图片会经该后端发送至所选 Google Gemini 或 OpenAI 服务。发送机密或敏感资料前，请审阅所有相关隐私与数据使用条款。",
+    "data_transfer": "BYOK 内容会发送至“设置”中选择的供应商。会员托管文本会经美国 iad1 后端发送至 MGA 实际选择、并在每次结果中披露的模型；托管图片会经该后端发送至所选 MGA 或 OpenAI 服务。发送机密或敏感资料前，请审阅所有相关隐私与数据使用条款。",
     "no_fabrication": "AI 辅助绝不构成虚构数据的许可。缺失的科研事实必须保留为明确占位符，直至作者补充并核验。",
     "no_hipaa_guarantee": "本服务不证明 HIPAA、隐私、科研伦理或法律合规，也不能替代专业人员、所在机构或官方审核。",
     "confirmation": "我理解上述限制，并承诺在使用前独立审阅、核验每一项 AI 辅助输出并承担责任。",
@@ -769,7 +796,10 @@
     "record_title": "AI 辅助记录",
     "record_operations": "基于 RSNA 分类的语言润色；结构与合规审查",
     "record_verify": "必须由作者独立核验。",
-    "copy_reminder": "复制内容不含产品免责声明；使用前仍须由作者核验。",
+    "acknowledgement_title": "AI 使用致谢声明",
+    "copy_acknowledgement": "复制致谢声明",
+    "acknowledgement_guidance": "下方英文声明可作为投稿起点；作者仍须按目标期刊的最新政策调整。",
+    "copy_reminder": "复制内容包含 AI 使用致谢声明，但不含产品免责声明；使用前仍须由作者核验。",
     "creative_output_warning": "邪修模式内容由简短构想经生成式 AI 扩展，事实、数据、资格与投稿合规性均不受保障，使用前必须逐项核验。"
   }
 }

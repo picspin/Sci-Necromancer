@@ -207,6 +207,7 @@ async function resolveMGAImage(payload: any): Promise<{ base64: string; mimeType
 async function callMGAText(request: ProviderRequest) {
   const config = getMGAConfig();
   if (!config) return null;
+  const model = providerModel('MGA_TEXT_MODEL', 'glm-5.2');
   const response = await fetch(`${config.baseUrl}/chat/completions`, {
     method: 'POST',
     signal: providerTimeout(),
@@ -215,13 +216,21 @@ async function callMGAText(request: ProviderRequest) {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: providerModel('MGA_TEXT_MODEL', 'glm-5.2'),
-      messages: [{ role: 'user', content: request.prompt }],
+      model,
+      messages: [
+        {
+          role: 'system',
+          content:
+            'Return exactly one valid JSON object matching the user-requested schema. Do not wrap JSON in Markdown fences or add prose.',
+        },
+        { role: 'user', content: request.prompt },
+      ],
       stream: false,
+      response_format: { type: 'json_object' },
       ...(request.reasoning === 'high' ? { reasoning_effort: 'high' } : {}),
     }),
   });
-  return jsonOrProviderError(response);
+  return { payload: await jsonOrProviderError(response), model };
 }
 
 async function callMGAImage(request: ProviderRequest) {
@@ -269,6 +278,7 @@ export async function callMGAResearchAgent(input: {
   const config = getMGAConfig();
   if (!config) throw new MemberServiceError('managed_provider_unavailable', 503);
   const toolKeys = resolveResearchToolKeys(input.enabledCapabilityIds);
+  const model = providerModel('MGA_RESEARCH_AGENT_MODEL', 'glm-5');
   const response = await fetch(`${config.baseUrl}/chat/agent`, {
     method: 'POST',
     signal: providerTimeout(),
@@ -277,7 +287,7 @@ export async function callMGAResearchAgent(input: {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: providerModel('MGA_RESEARCH_AGENT_MODEL', 'glm-5'),
+      model,
       messages: [
         {
           role: 'system',
@@ -294,15 +304,21 @@ export async function callMGAResearchAgent(input: {
   const payload = await jsonOrProviderError(response);
   const text = extractOpenAICompatibleText(payload);
   if (!text) throw new MemberServiceError('managed_provider_empty_output', 502);
-  return { type: 'text', text };
+  return { type: 'text', text, provider: 'mga', model, modelType: 'research-agent' };
 }
 
 async function generateGeminiText(request: ProviderRequest): Promise<ManagedGenerationOutput> {
   const mgaPayload = await callMGAText(request);
   if (mgaPayload) {
-    const text = extractOpenAICompatibleText(mgaPayload);
+    const text = extractOpenAICompatibleText(mgaPayload.payload);
     if (!text) throw new MemberServiceError('managed_provider_empty_output', 502);
-    return { type: 'text', text };
+    return {
+      type: 'text',
+      text,
+      provider: 'mga',
+      model: mgaPayload.model,
+      modelType: 'large-language-model',
+    };
   }
   const model = providerModel('GEMINI_TEXT_MODEL', 'gemini-3.6-flash');
   const response = await fetch(
@@ -328,7 +344,7 @@ async function generateGeminiText(request: ProviderRequest): Promise<ManagedGene
     .join('')
     .trim();
   if (!text) throw new MemberServiceError('managed_provider_empty_output', 502);
-  return { type: 'text', text };
+  return { type: 'text', text, provider: 'google', model, modelType: 'large-language-model' };
 }
 
 async function generateNanoBananaImage(request: ProviderRequest): Promise<ManagedGenerationOutput> {

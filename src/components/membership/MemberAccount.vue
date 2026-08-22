@@ -172,6 +172,38 @@
         </div>
       </section>
 
+      <section class="space-y-3 rounded-lg bg-base-100 p-4" aria-labelledby="credit-history-title">
+        <div class="flex items-center justify-between gap-3">
+          <h3 id="credit-history-title" class="text-sm font-semibold text-text-primary">
+            {{ t('membership.credit_history') }}
+          </h3>
+          <span class="text-xs text-text-secondary">{{
+            t('membership.credit_history_recent')
+          }}</span>
+        </div>
+        <ul v-if="status?.creditHistory?.length" class="max-h-64 space-y-2 overflow-y-auto">
+          <li
+            v-for="entry in status?.creditHistory ?? []"
+            :key="entry.id"
+            class="flex items-center justify-between gap-3 rounded-md bg-base-200 px-3 py-2"
+          >
+            <div class="min-w-0">
+              <p class="truncate text-sm text-text-primary">{{ creditReasonLabel(entry) }}</p>
+              <time class="text-xs text-text-secondary" :datetime="entry.createdAt">
+                {{ formatCreditDate(entry.createdAt) }}
+              </time>
+            </div>
+            <span
+              class="shrink-0 font-semibold tabular-nums"
+              :class="entry.delta > 0 ? 'text-emerald-400' : 'text-amber-300'"
+            >
+              {{ entry.delta > 0 ? `+${entry.delta}` : entry.delta }}
+            </span>
+          </li>
+        </ul>
+        <p v-else class="text-sm text-text-secondary">{{ t('membership.credit_history_empty') }}</p>
+      </section>
+
       <details class="rounded-lg bg-base-100 p-4">
         <summary class="cursor-pointer text-sm font-medium text-text-primary">
           {{ t('membership.account_management') }}
@@ -307,6 +339,23 @@ const providerLabel = computed(() => user.value?.app_metadata?.provider || 'emai
 const isEmailIdentity = computed(() =>
   Boolean(user.value?.identities?.some((identity) => identity.provider === 'email'))
 );
+
+const creditReasonLabel = (entry: { reason: string; metadata: Record<string, unknown> }) => {
+  const taskKind = typeof entry.metadata.task_kind === 'string' ? entry.metadata.task_kind : '';
+  if (entry.reason === 'task_reservation' && taskKind) {
+    const taskKey = `membership.credit_reasons.${taskKind}`;
+    const taskLabel = t(taskKey);
+    if (taskLabel !== taskKey) return taskLabel;
+  }
+  const reason = entry.reason;
+  const key = `membership.credit_reasons.${reason}`;
+  const translated = t(key);
+  return translated === key ? reason : translated;
+};
+const formatCreditDate = (value: string) =>
+  new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(
+    new Date(value)
+  );
 
 watch(
   user,

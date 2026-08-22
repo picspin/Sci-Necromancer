@@ -1,7 +1,12 @@
 import jsPDF from 'jspdf';
 import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } from 'docx';
 import { AbstractData, Conference, AbstractType } from '../types';
-import { AI_EXPORT_DISCLAIMER } from '../lib/compliance/aiDisclosure';
+import {
+  AI_EXPORT_DISCLAIMER,
+  buildAIAcknowledgement,
+  buildMethodsDisclosureNote,
+  collectAIAssistanceRecords,
+} from '../lib/compliance/aiDisclosure';
 
 export interface ConferenceTemplate {
   name: string;
@@ -262,6 +267,37 @@ class ExportService {
       }
     }
 
+    const assistanceRecords = collectAIAssistanceRecords(data);
+    if (assistanceRecords.length) {
+      ensurePageSpace(35);
+      doc.setFont(pdfFontFamily, 'bold');
+      doc.text('AI USE ACKNOWLEDGMENT', 20, yPosition);
+      yPosition += 8;
+      doc.setFont(pdfFontFamily, 'normal');
+      doc.setFontSize(9);
+      for (const [index, record] of assistanceRecords.entries()) {
+        if (index > 0) yPosition += 4;
+        for (const line of doc.splitTextToSize(
+          buildAIAcknowledgement(record),
+          textWidth
+        ) as string[]) {
+          ensurePageSpace(5);
+          doc.text(line, 20, yPosition);
+          yPosition += 5;
+        }
+        const methodsNote = buildMethodsDisclosureNote(record);
+        if (methodsNote) {
+          yPosition += 3;
+          for (const line of doc.splitTextToSize(methodsNote, textWidth) as string[]) {
+            ensurePageSpace(5);
+            doc.text(line, 20, yPosition);
+            yPosition += 5;
+          }
+        }
+      }
+      yPosition += 8;
+    }
+
     ensurePageSpace(35);
     doc.setFont(pdfFontFamily, 'bold');
     doc.text('GENERATIVE AI NOTICE', 20, yPosition);
@@ -463,6 +499,33 @@ class ExportService {
       }
     }
 
+    const assistanceRecords = collectAIAssistanceRecords(data);
+    if (assistanceRecords.length) {
+      children.push(
+        new Paragraph({
+          children: [new TextRun({ text: 'AI USE ACKNOWLEDGMENT', bold: true, size: 18 })],
+          spacing: { before: 360, after: 100 },
+        })
+      );
+      for (const record of assistanceRecords) {
+        const methodsNote = buildMethodsDisclosureNote(record);
+        children.push(
+          new Paragraph({
+            children: [new TextRun({ text: buildAIAcknowledgement(record), size: 18 })],
+            spacing: { after: methodsNote ? 100 : 160 },
+          })
+        );
+        if (methodsNote) {
+          children.push(
+            new Paragraph({
+              children: [new TextRun({ text: methodsNote, italics: true, size: 18 })],
+              spacing: { after: 160 },
+            })
+          );
+        }
+      }
+    }
+
     children.push(
       new Paragraph({
         children: [new TextRun({ text: 'GENERATIVE AI NOTICE', bold: true, size: 18 })],
@@ -511,8 +574,19 @@ class ExportService {
       },
     };
 
+    const assistanceRecords = collectAIAssistanceRecords(data);
+    const aiAcknowledgements = assistanceRecords.map(buildAIAcknowledgement);
+    const methodsDisclosureNotes = assistanceRecords
+      .map(buildMethodsDisclosureNote)
+      .filter((note): note is string => Boolean(note));
     const exportData = {
       abstract: data,
+      aiAcknowledgement: aiAcknowledgements.length ? aiAcknowledgements.join('\n\n') : undefined,
+      aiAcknowledgements,
+      methodsDisclosureNote: methodsDisclosureNotes.length
+        ? methodsDisclosureNotes.join('\n\n')
+        : undefined,
+      methodsDisclosureNotes,
       aiDisclaimer: AI_EXPORT_DISCLAIMER,
       metadata: options.includeMetadata ? metadata : undefined,
       template: this.getTemplate(conference),
@@ -526,6 +600,13 @@ class ExportService {
     data: AbstractData,
     abstractType: AbstractType = 'Standard Abstract'
   ): Blob {
+    const assistanceRecords = collectAIAssistanceRecords(data);
+    const acknowledgementSection = assistanceRecords
+      .map((record) => {
+        const methodsNote = buildMethodsDisclosureNote(record);
+        return `${buildAIAcknowledgement(record)}${methodsNote ? `\n\n${methodsNote}` : ''}`;
+      })
+      .join('\n\n');
     const sections = [
       `# ${abstractType}`,
       data.title ? `## TITLE\n\n${data.title}` : '',
@@ -539,6 +620,7 @@ class ExportService {
       data.categories?.length
         ? `## CATEGORIES\n\n${data.categories.map((category) => `- ${category.name} (${category.type})`).join('\n')}`
         : '',
+      acknowledgementSection ? `## AI USE ACKNOWLEDGMENT\n\n${acknowledgementSection}` : '',
       `## GENERATIVE AI NOTICE\n\n${AI_EXPORT_DISCLAIMER}`,
     ].filter(Boolean);
     return new Blob([sections.join('\n\n---\n\n')], {

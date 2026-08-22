@@ -27,6 +27,8 @@ describe('RSNA prompts', () => {
     expect(prompt).toContain('science or education');
     expect(prompt).toContain('exactly one primary RSNA category');
     expect(prompt).toContain('High-Impact Clinical Trials in Radiology');
+    expect(prompt).toContain('3-5 source-supported normalized keywords');
+    expect(prompt).not.toContain('3-7 normalized keywords');
   });
 
   it('injects provisional RSNA rules and conditional reporting guidance into generation', () => {

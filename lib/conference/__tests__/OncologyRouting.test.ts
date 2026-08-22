@@ -5,12 +5,12 @@ import { conferenceRouter } from '../ConferenceRouter';
 describe('oncology conference routing', () => {
   beforeEach(() => ConferenceRegistry.reset());
 
-  it('registers ASCO and ESMO without removing existing conference modules', async () => {
+  it('registers ASCO and ESMO while keeping the unfinished ESC module unavailable', async () => {
     await ConferenceRegistry.initialize();
 
-    expect(conferenceRouter.getAvailableConferences()).toEqual(
-      expect.arrayContaining(['ISMRM', 'RSNA', 'ER', 'ESC', 'ASCO', 'ESMO'])
-    );
+    const available = conferenceRouter.getAvailableConferences();
+    expect(available).toEqual(expect.arrayContaining(['ISMRM', 'RSNA', 'ER', 'ASCO', 'ESMO']));
+    expect(available).not.toContain('ESC');
     expect(ConferenceRegistry.getConferenceInfo().map((conference) => conference.id)).toEqual([
       'ISMRM',
       'RSNA',

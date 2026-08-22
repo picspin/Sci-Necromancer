@@ -14,6 +14,7 @@ interface WalletBoundary {
     callCount?: number;
     generationCount?: number;
     deepUpdateCount?: number;
+    analysisCount?: number;
   }>;
   continueWorkflow(
     taskId: string,
@@ -24,6 +25,7 @@ interface WalletBoundary {
     callCount?: number;
     generationCount?: number;
     deepUpdateCount?: number;
+    analysisCount?: number;
   }>;
   settleTask(
     taskId: string,
@@ -46,6 +48,9 @@ export interface ManagedGenerationOutput {
   text?: string;
   base64?: string;
   mimeType?: string;
+  provider?: 'mga' | 'google' | 'openai';
+  model?: string;
+  modelType?: 'large-language-model' | 'research-agent' | 'image-generation-model';
 }
 
 function assertDeliverableOutput(output: ManagedGenerationOutput, taskKind: ManagedTaskKind): void {
@@ -89,6 +94,7 @@ export async function runManagedGeneration(
         callCount: reservation.callCount ?? 1,
         generationCount: reservation.generationCount ?? 0,
         deepUpdateCount: reservation.deepUpdateCount ?? 0,
+        analysisCount: reservation.analysisCount ?? 0,
       },
     };
   } catch (providerError) {

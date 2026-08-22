@@ -46,6 +46,11 @@ export class ESCModule extends BaseConferenceModule {
     'ESC Young Investigator Award',
   ];
 
+  /** ESC remains visible in navigation but is intentionally not released yet. */
+  isAvailable(): boolean {
+    return false;
+  }
+
   // Cached guideline content
   private guidelineContent: string | null = null;
 

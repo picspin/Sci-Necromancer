@@ -83,4 +83,47 @@ describe('MemberAccount', () => {
     membershipState.error = null;
     membershipState.user = null;
   });
+
+  it('shows an auditable list of credit additions and deductions', () => {
+    membershipState.authenticated = true;
+    membershipState.error = null;
+    membershipState.user = {
+      email: 'member@example.com',
+      user_metadata: { display_name: 'Member' },
+      app_metadata: { provider: 'email' },
+      identities: [],
+    };
+    membershipState.status = {
+      bonusBalance: 8,
+      checkedInToday: true,
+      checkinCycle: 2,
+      abstractCount: 1,
+      abstractQuota: 30,
+      creditHistory: [
+        {
+          id: 'entry-1',
+          delta: -1,
+          reason: 'generation',
+          createdAt: '2026-08-11T10:00:00Z',
+          metadata: { conference: 'RSNA' },
+        },
+        {
+          id: 'entry-2',
+          delta: 1,
+          reason: 'daily_checkin',
+          createdAt: '2026-08-11T08:00:00Z',
+          metadata: {},
+        },
+      ],
+    } as never;
+
+    render(MemberAccount, { global: { plugins: [i18n] } });
+    expect(screen.getByText('Credit history')).toBeTruthy();
+    expect(screen.getByText('-1')).toBeTruthy();
+    expect(screen.getByText('+1')).toBeTruthy();
+
+    membershipState.authenticated = false;
+    membershipState.status = null;
+    membershipState.user = null;
+  });
 });
