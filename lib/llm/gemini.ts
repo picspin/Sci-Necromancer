@@ -25,6 +25,7 @@ import {
   validateRSNADraft,
 } from '../conference/rsnaRules';
 import { assertBlindReviewAssessment } from '../review/blindReview';
+import { createAIAssistanceRecord } from '../compliance/aiDisclosure';
 
 // Initialize AI client lazily with API key from settings
 let aiClient: any | null = null;
@@ -63,6 +64,19 @@ const getImageModel = (): string => {
     console.error('Failed to read Google image model setting:', error);
   }
   return 'gemini-2.5-flash-image';
+};
+
+const getTextModel = (): string => {
+  try {
+    const saved = localStorage.getItem('app-settings');
+    if (saved) {
+      const configured = JSON.parse(saved).model;
+      if (typeof configured === 'string' && configured.trim()) return configured.trim();
+    }
+  } catch (error) {
+    console.error('Failed to read Google text model setting:', error);
+  }
+  return 'gemini-2.5-pro';
 };
 
 // Schemas for structured responses
@@ -165,9 +179,8 @@ async function callGeminiAPI<T>(
 ): Promise<T> {
   try {
     const client = getAIClient(apiKey);
-    const savedSettings = JSON.parse(localStorage.getItem('app-settings') || '{}');
     const response = await client.models.generateContent({
-      model: savedSettings.model || 'gemini-2.5-pro',
+      model: getTextModel(),
       contents: prompt,
       ...(options.highThinking ? { config: { thinkingConfig: { thinkingLevel: 'HIGH' } } } : {}),
     });
@@ -327,14 +340,12 @@ export const generateRSNAAbstract = async (
     presentationGuidance: Array.isArray(raw.presentationGuidance) ? raw.presentationGuidance : [],
     complianceWarnings: Array.isArray(raw.complianceWarnings) ? raw.complianceWarnings : [],
     rsna: input.classification,
-    aiAssistance: {
-      generatedAt: new Date().toISOString(),
+    aiAssistance: createAIAssistanceRecord({
       provider: 'google',
-      model: 'gemini-2.5-pro',
+      model: getTextModel(),
       mode: input.mode,
       operations: ['RSNA classification-aware language editing', 'structure and compliance review'],
-      authorVerificationRequired: true,
-    },
+    }),
   };
   draft = enforceRSNASourceFidelity(draft, input.inputText, input.auxiliaryLocale);
   const validation = validateRSNADraft(draft, input.auxiliaryLocale);

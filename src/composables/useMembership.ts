@@ -116,6 +116,9 @@ export async function generateManagedText(input: {
   workflowId?: string;
 }): Promise<{
   text: string;
+  provider?: 'mga' | 'google' | 'openai';
+  model?: string;
+  modelType?: 'large-language-model' | 'research-agent' | 'image-generation-model';
   workflowId: string;
   workflow: {
     analysisCount: number;
@@ -133,7 +136,14 @@ export async function generateManagedText(input: {
     if (result.output.type !== 'text' || !result.output.text) {
       throw new Error('managed_text_response_invalid');
     }
-    return { text: result.output.text, workflowId: result.workflowId, workflow: result.workflow };
+    return {
+      text: result.output.text,
+      provider: result.output.provider,
+      model: result.output.model,
+      modelType: result.output.modelType,
+      workflowId: result.workflowId,
+      workflow: result.workflow,
+    };
   } catch (generationError) {
     await refreshStatus();
     throw generationError;
@@ -144,7 +154,13 @@ export async function generateManagedResearchVerification(input: {
   prompt: string;
   idempotencyKey: string;
   enabledCapabilityIds: string[];
-}): Promise<{ text: string; workflowId: string }> {
+}): Promise<{
+  text: string;
+  provider?: 'mga' | 'google' | 'openai';
+  model?: string;
+  modelType?: 'large-language-model' | 'research-agent' | 'image-generation-model';
+  workflowId: string;
+}> {
   try {
     const result = await api.runCapability({
       ...input,
@@ -154,7 +170,13 @@ export async function generateManagedResearchVerification(input: {
     if (result.output.type !== 'text' || !result.output.text) {
       throw new Error('managed_text_response_invalid');
     }
-    return { text: result.output.text, workflowId: result.workflowId };
+    return {
+      text: result.output.text,
+      provider: result.output.provider,
+      model: result.output.model,
+      modelType: result.output.modelType,
+      workflowId: result.workflowId,
+    };
   } catch (verificationError) {
     await refreshStatus();
     throw verificationError;

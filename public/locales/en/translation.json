@@ -376,6 +376,7 @@
     "markdown_title": "Export as Markdown (.md)",
     "markdown_label": "Export as Markdown",
     "pdf_label": "Export as PDF",
+    "docx_label": "Export as DOCX",
     "json_label": "Export as JSON"
   },
   "errors": {
@@ -404,6 +405,7 @@
     "export_failed": "Failed to export abstracts.",
     "import_failed": "Failed to import abstracts.",
     "pdf_export_failed": "Failed to export PDF. Please try again.",
+    "docx_export_failed": "Failed to export DOCX. Please try again.",
     "insufficient_bonus": "Your bonus balance is insufficient. Check in, recharge, or use a personal API.",
     "member_login_required": "Sign in to use managed generation, or configure a personal API.",
     "member_service_unavailable": "Member services are temporarily unavailable; personal API mode remains available.",
@@ -784,7 +786,7 @@
     "google_terms": "Google Gemini API Terms",
     "no_guarantee": "AI output may be incomplete, outdated, misleading or incorrect. This service does not guarantee factual accuracy, originality, regulatory or conference compliance, suitability, acceptance, publication or any presentation assignment.",
     "author_duty": "The author must independently verify all facts, patient information, methods, sample sizes, statistics, citations, permissions, ethics approvals, registrations, funding, conflicts of interest, commercial balance and the latest official submission requirements.",
-    "data_transfer": "BYOK content is sent to the provider selected in Settings. Member-managed text is processed by the US (iad1) backend and Google Gemini; managed images are processed by that backend and the selected Google Gemini or OpenAI service. Review all applicable privacy and data-use terms before sending confidential or sensitive material.",
+    "data_transfer": "BYOK content is sent to the provider selected in Settings. Member-managed text is processed by the US (iad1) backend and the MGA-selected managed model disclosed with each result; managed images are processed by that backend and the selected MGA or OpenAI service. Review all applicable privacy and data-use terms before sending confidential or sensitive material.",
     "no_fabrication": "AI assistance never authorizes fabrication. Missing research facts must remain explicit placeholders until supplied and verified by the author.",
     "no_hipaa_guarantee": "The service does not certify HIPAA, privacy, research-ethics or legal compliance and does not replace professional, institutional or official review.",
     "confirmation": "I understand these limitations and accept responsibility for independently reviewing and verifying every AI-assisted output before use.",
@@ -794,7 +796,10 @@
     "record_title": "AI Assistance Record",
     "record_operations": "RSNA classification-aware language editing; structure and compliance review",
     "record_verify": "Independent author verification is required.",
-    "copy_reminder": "Copy excludes the product disclaimer; author verification is still required before use.",
+    "acknowledgement_title": "AI Use Acknowledgment",
+    "copy_acknowledgement": "Copy acknowledgment",
+    "acknowledgement_guidance": "This English statement is intended as a journal-ready starting point. Authors must adapt it to the target journal's current policy.",
+    "copy_reminder": "Copy includes the AI use acknowledgment but excludes the product disclaimer; author verification is still required before use.",
     "creative_output_warning": "Creative-mode content is generated from a short idea. Its facts, data, eligibility, and submission compliance are not guaranteed; verify every statement before use."
   }
 }

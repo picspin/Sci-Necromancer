@@ -33,6 +33,23 @@ describe('blind review public contract', () => {
           verificationStatus: 'unsupported',
         },
       ],
+      aiAssistance: {
+        disclosureVersion: 'jama-2026-v1',
+        platform: {
+          name: 'Sci-Necromancer',
+          project: 'picspin/Sci-Necromancer',
+          url: 'https://www.rad-sci.org',
+        },
+        generatedAt: '2026-07-28T00:00:00.000Z',
+        provider: 'mga',
+        model: 'glm-5',
+        modelType: 'research-agent',
+        mode: 'standard',
+        operations: ['read-only literature verification'],
+        boundaries: ['source data', 'factual claims', 'references'],
+        methodsDisclosureRequired: true,
+        authorVerificationRequired: true,
+      },
     };
     const external: ExternalVerificationResult[] = [
       {
@@ -52,6 +69,7 @@ describe('blind review public contract', () => {
     expect(report.externalVerification[0].status).toBe('unavailable');
     expect(report.overallStatus).toBe('action-required');
     expect(report.disclaimer).toBe('blind_review.disclaimer');
+    expect(report.aiAssistance).toEqual(assessment.aiAssistance);
   });
 
   it('requires action when any selected external reviewer is unavailable', () => {

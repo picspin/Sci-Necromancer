@@ -22,6 +22,16 @@
         <span>PDF</span>
       </button>
       <button
+        @click="handleExportDocx"
+        :disabled="!abstract || isExporting"
+        class="flex items-center gap-2 text-sm px-3 py-1.5 bg-base-300 hover:bg-opacity-80 text-text-secondary rounded-md transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-brand-primary"
+        :title="t('export.docx_label')"
+        :aria-label="t('export.docx_label')"
+      >
+        <SvgIcon type="download" class="h-4 w-4" />
+        <span>DOCX</span>
+      </button>
+      <button
         @click="handleExportJson"
         :disabled="!abstract || isExporting"
         class="flex items-center gap-2 text-sm px-3 py-1.5 bg-base-300 hover:bg-opacity-80 text-text-secondary rounded-md transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-brand-primary"
@@ -93,6 +103,25 @@ const handleExportPdf = async () => {
   } catch (error) {
     console.error('PDF export error:', error);
     exportError.value = t('errors.pdf_export_failed');
+    setTimeout(() => (exportError.value = null), 3000);
+  } finally {
+    isExporting.value = false;
+  }
+};
+
+const handleExportDocx = async () => {
+  if (!props.abstract) return;
+
+  isExporting.value = true;
+  exportError.value = null;
+  try {
+    const blob = await exportService.exportToDocx(props.abstract, props.conference, {
+      customTitle: props.abstractType,
+    });
+    downloadBlob(blob, `${props.conference.toLowerCase()}_abstract.docx`);
+  } catch (error) {
+    console.error('DOCX export error:', error);
+    exportError.value = t('errors.docx_export_failed');
     setTimeout(() => (exportError.value = null), 3000);
   } finally {
     isExporting.value = false;

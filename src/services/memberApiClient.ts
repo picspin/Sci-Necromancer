@@ -164,7 +164,13 @@ export function createMemberApiClient(options: MemberApiClientOptions) {
       prompt: string;
     }) =>
       request<{
-        output: { type: 'text'; text: string };
+        output: {
+          type: 'text';
+          text: string;
+          provider?: 'mga' | 'google' | 'openai';
+          model?: string;
+          modelType?: 'large-language-model' | 'research-agent' | 'image-generation-model';
+        };
         bonusBalance: number;
         workflowId: string;
       }>(
@@ -204,7 +210,15 @@ export function createMemberApiClient(options: MemberApiClientOptions) {
       size?: '1024x1024' | '1024x1536' | '1536x1024';
     }) =>
       request<{
-        output: { type: 'text' | 'image'; text?: string; base64?: string; mimeType?: string };
+        output: {
+          type: 'text' | 'image';
+          text?: string;
+          base64?: string;
+          mimeType?: string;
+          provider?: 'mga' | 'google' | 'openai';
+          model?: string;
+          modelType?: 'large-language-model' | 'research-agent' | 'image-generation-model';
+        };
         bonusBalance: number;
         workflowId: string;
         workflow: {

@@ -30,11 +30,21 @@ export interface RSNAClassification {
 }
 
 export interface AIAssistanceRecord {
+  disclosureVersion: 'jama-2026-v1';
+  platform: {
+    name: 'Sci-Necromancer';
+    project: 'picspin/Sci-Necromancer';
+    url: 'https://www.rad-sci.org';
+  };
   generatedAt: string;
-  provider: AIProvider;
+  provider: AIProvider | 'mga';
+  providerDisplayName?: string;
   model: string;
+  modelType: 'large-language-model' | 'research-agent' | 'image-generation-model';
   mode: GenerationMode;
   operations: string[];
+  boundaries: string[];
+  methodsDisclosureRequired: boolean;
   authorVerificationRequired: true;
 }
 
@@ -106,6 +116,7 @@ export interface BlindReviewModelAssessment {
   recommendation: BlindReviewRecommendation;
   summary: string;
   findings: BlindReviewFinding[];
+  aiAssistance?: AIAssistanceRecord;
 }
 
 export interface ExternalVerificationRecord {
@@ -132,6 +143,7 @@ export interface BlindReviewReport {
   reviewedAt: string;
   overallStatus: 'verified-with-limitations' | 'action-required';
   modelAssessment: BlindReviewModelAssessment;
+  aiAssistance?: AIAssistanceRecord;
   externalVerification: ExternalVerificationResult[];
   disclaimer: 'blind_review.disclaimer';
 }
@@ -178,6 +190,7 @@ export interface AbstractData {
   presentationGuidance?: string[];
   complianceWarnings?: string[];
   aiAssistance?: AIAssistanceRecord;
+  aiAssistanceRecords?: AIAssistanceRecord[];
   oncology?: OncologyClassification;
 }
 

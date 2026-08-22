@@ -36,6 +36,11 @@ import {
   registerManagedTextWorkflow,
 } from './managedTextWorkflow';
 import { parseStructuredModelOutput } from './modelResponse';
+import {
+  createAIAssistanceRecord,
+  getTrustedAIAssistance,
+  markTrustedAIAssistance,
+} from '../compliance/aiDisclosure';
 
 // Get settings from localStorage
 const getSettings = () => {
@@ -88,7 +93,32 @@ async function callOpenAIAPI(
         result.workflowId,
         result.workflow
       );
-      return parseStructuredModelOutput(result.text) ?? result.text;
+      const parsed = parseStructuredModelOutput(result.text) ?? result.text;
+      if (options.workflowStage === 'generation') {
+        const generated = typeof parsed === 'string' ? { abstract: parsed } : parsed;
+        if (generated && typeof generated === 'object' && !Array.isArray(generated)) {
+          const generatedRecord = generated as Record<string, unknown>;
+          const {
+            aiAssistance: _untrustedAssistance,
+            aiAssistanceRecords: _untrustedRecords,
+            ...safeGenerated
+          } = generatedRecord;
+          const assistance = createAIAssistanceRecord({
+            provider: result.provider ?? 'mga',
+            model: result.model ?? 'MGA managed text model',
+            modelType: result.modelType ?? 'large-language-model',
+            mode: 'standard',
+            operations: [
+              options.standaloneOperation === 'deep_update' ? 'deep revision' : 'abstract drafting',
+            ],
+          });
+          return markTrustedAIAssistance(
+            { ...safeGenerated, aiAssistance: assistance },
+            assistance
+          );
+        }
+      }
+      return parsed;
     } catch (error) {
       if (options.beginWorkflow) completeManagedTextWorkflow(billing.idempotencyKey);
       throw error;
@@ -377,6 +407,7 @@ export async function generateRSNAAbstract(
       : {}),
   });
   const result = typeof raw === 'string' ? { abstract: raw } : raw;
+  const resultAssistance = getTrustedAIAssistance(result);
   let draft: AbstractData = {
     title: result.title ?? '',
     impact: result.impact ?? '',
@@ -389,14 +420,16 @@ export async function generateRSNAAbstract(
       : [],
     complianceWarnings: Array.isArray(result.complianceWarnings) ? result.complianceWarnings : [],
     rsna: input.classification,
-    aiAssistance: {
-      generatedAt: new Date().toISOString(),
-      provider: usesManagedProvider ? 'google' : 'openai',
-      model: usesManagedProvider ? 'gemini-3.6-flash' : model,
+    aiAssistance: createAIAssistanceRecord({
+      provider: resultAssistance?.provider ?? (usesManagedProvider ? 'mga' : 'openai'),
+      providerDisplayName: resultAssistance?.providerDisplayName,
+      model: resultAssistance?.model ?? model,
+      modelType: resultAssistance?.modelType,
       mode: input.mode,
       operations: ['RSNA classification-aware language editing', 'structure and compliance review'],
-      authorVerificationRequired: true,
-    },
+      methodsDisclosureRequired: resultAssistance?.methodsDisclosureRequired,
+      generatedAt: resultAssistance?.generatedAt,
+    }),
   };
   draft = enforceRSNASourceFidelity(draft, input.inputText, input.auxiliaryLocale);
   const validation = validateRSNADraft(draft, input.auxiliaryLocale);
@@ -405,7 +438,7 @@ export async function generateRSNAAbstract(
     ...validation.errors,
     ...validation.warnings,
   ];
-  return draft;
+  return resultAssistance ? markTrustedAIAssistance(draft, draft.aiAssistance!) : draft;
 }
 
 export async function reviewAbstractBlind(

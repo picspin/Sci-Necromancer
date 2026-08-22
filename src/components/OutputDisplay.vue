@@ -7,7 +7,11 @@
       <h2 id="output-heading" class="text-lg font-bold text-text-primary">
         {{ t('output.title') }}
       </h2>
-      <ExportButtons :abstract="abstract" :conference="conference" :abstract-type="abstractType" />
+      <ExportButtons
+        :abstract="exportAbstract"
+        :conference="conference"
+        :abstract-type="abstractType"
+      />
     </div>
     <div
       class="flex-grow overflow-y-auto pr-2 -mr-2"
@@ -81,27 +85,12 @@
           </p>
         </div>
 
-        <div
-          v-if="abstract?.aiAssistance"
-          class="animate-fade-in rounded-lg bg-base-100 p-4 text-sm"
-        >
-          <h3 class="font-semibold text-text-primary">{{ t('ai_disclosure.record_title') }}</h3>
-          <p class="mt-1 text-text-secondary">
-            {{ abstract.aiAssistance.provider }} / {{ abstract.aiAssistance.model }} ·
-            {{ abstract.aiAssistance.mode }} ·
-            {{ formatTimestamp(abstract.aiAssistance.generatedAt) }}
-          </p>
-          <p class="mt-1 text-xs text-text-secondary">
-            {{ t('ai_disclosure.record_operations') }}.
-            {{ t('ai_disclosure.record_verify') }}
-          </p>
-        </div>
-
         <BlindReviewControl
           v-if="abstract && reviewConference"
           :abstract="abstract"
           :conference="reviewConference"
           :source-text="sourceText"
+          @ai-assistance="handleReviewAssistance"
         />
         <!-- Show Impact & Synopsis even before full abstract is generated -->
         <div v-if="displayImpact" class="animate-fade-in">
@@ -199,6 +188,39 @@
           </p>
         </div>
 
+        <section
+          v-if="acknowledgementEntries.length"
+          class="animate-fade-in rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-4 text-sm"
+          aria-labelledby="ai-acknowledgment-heading"
+        >
+          <div class="flex items-center justify-between gap-3">
+            <h3 id="ai-acknowledgment-heading" class="font-semibold text-emerald-100">
+              {{ t('ai_disclosure.acknowledgement_title') }}
+            </h3>
+            <button
+              type="button"
+              class="rounded-md bg-emerald-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-600"
+              @click="copyAcknowledgement"
+            >
+              {{ t('ai_disclosure.copy_acknowledgement') }}
+            </button>
+          </div>
+          <div class="mt-2 space-y-3 text-text-secondary">
+            <div v-for="entry in acknowledgementEntries" :key="entry.key">
+              <p class="whitespace-pre-line">{{ entry.acknowledgement }}</p>
+              <p
+                v-if="entry.methodsNote"
+                class="mt-2 rounded-md border border-amber-500/40 bg-amber-500/10 p-2 text-xs text-amber-100"
+              >
+                {{ entry.methodsNote }}
+              </p>
+            </div>
+          </div>
+          <p class="mt-2 text-xs text-emerald-200">
+            {{ t('ai_disclosure.acknowledgement_guidance') }}
+          </p>
+        </section>
+
         <div v-if="image" class="animate-fade-in">
           <div class="flex justify-between items-center mb-2">
             <h3 class="flex items-center gap-2 text-md font-semibold text-brand-primary">
@@ -228,9 +250,9 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
-import type { AbstractData, Conference, AbstractType, Category } from '@/types';
+import type { AIAssistanceRecord, AbstractData, Conference, AbstractType, Category } from '@/types';
 import SvgIcon from '@/components/ui/SvgIcon.vue';
 import ExportButtons from '@/components/export/ExportButtons.vue';
 import LiveRegion from '@/components/ui/LiveRegion.vue';
@@ -239,6 +261,11 @@ import LoadingSpinner from '@/components/ui/LoadingSpinner.vue';
 import ErrorMessage from '@/components/ui/ErrorMessage.vue';
 import BlindReviewControl from '@/components/review/BlindReviewControl.vue';
 import { sanitizeRSNAUserWarnings } from '@/lib/conference/rsnaRules';
+import {
+  buildAIAcknowledgement,
+  buildMethodsDisclosureNote,
+  collectAIAssistanceRecords,
+} from '@/lib/compliance/aiDisclosure';
 
 interface Props {
   abstract: AbstractData | null;
@@ -262,6 +289,9 @@ const props = withDefaults(defineProps<Props>(), {
   sourceText: '',
   creativeMode: false,
 });
+const emit = defineEmits<{
+  'update:abstract': [abstract: AbstractData];
+}>();
 const { t } = useI18n();
 const publicComplianceWarnings = computed(() =>
   props.conference === 'RSNA'
@@ -273,6 +303,43 @@ const hasOutput = computed(() => props.abstract || props.image || props.impact |
 
 const displayImpact = computed(() => props.impact || props.abstract?.impact);
 const displaySynopsis = computed(() => props.synopsis || props.abstract?.synopsis);
+const reviewAssistanceRecords = ref<AIAssistanceRecord[]>([]);
+watch(
+  () => props.abstract,
+  () => (reviewAssistanceRecords.value = []),
+  { deep: true }
+);
+const assistanceRecords = computed(() =>
+  collectAIAssistanceRecords({
+    aiAssistance: props.abstract?.aiAssistance,
+    aiAssistanceRecords: [
+      ...(props.abstract?.aiAssistanceRecords ?? []),
+      ...reviewAssistanceRecords.value,
+    ],
+  })
+);
+const exportAbstract = computed<AbstractData | null>(() =>
+  props.abstract
+    ? {
+        ...props.abstract,
+        aiAssistanceRecords: assistanceRecords.value.filter(
+          (record) => record !== props.abstract?.aiAssistance
+        ),
+      }
+    : null
+);
+const acknowledgementEntries = computed(() =>
+  assistanceRecords.value.map((record, index) => ({
+    key: `${record.provider}-${record.model}-${record.generatedAt}-${index}`,
+    acknowledgement: buildAIAcknowledgement(record),
+    methodsNote: buildMethodsDisclosureNote(record),
+  }))
+);
+const acknowledgementText = computed(() =>
+  acknowledgementEntries.value
+    .map((entry) => `${entry.acknowledgement}${entry.methodsNote ? `\n${entry.methodsNote}` : ''}`)
+    .join('\n\n')
+);
 const reviewConference = computed(() =>
   ['ISMRM', 'RSNA', 'ER', 'ESC'].includes(props.conference)
     ? (props.conference as Exclude<Conference, 'IMAGE' | 'JACC'>)
@@ -304,12 +371,34 @@ const liveRegionMessage = computed(() => {
 
 const copyToClipboard = () => {
   if (!props.abstract) return;
-  const fullText = `IMPACT:\n${props.abstract.impact}\n\nSYNOPSIS:\n${props.abstract.synopsis}\n\nABSTRACT:\n${props.abstract.abstract}\n\nKEYWORDS:\n${props.abstract.keywords.join(', ')}`;
+  const acknowledgement = acknowledgementText.value
+    ? `\n\nAI USE ACKNOWLEDGMENT:\n${acknowledgementText.value}`
+    : '';
+  const fullText = `IMPACT:\n${props.abstract.impact}\n\nSYNOPSIS:\n${props.abstract.synopsis}\n\nABSTRACT:\n${props.abstract.abstract}\n\nKEYWORDS:\n${props.abstract.keywords.join(', ')}${acknowledgement}`;
   navigator.clipboard.writeText(fullText);
   alert(t('output.copy_success'));
 };
 
-const formatTimestamp = (value: string) => new Date(value).toLocaleString();
+const copyAcknowledgement = () => {
+  if (!acknowledgementText.value) return;
+  navigator.clipboard.writeText(acknowledgementText.value);
+  alert(t('output.copy_success'));
+};
+
+const handleReviewAssistance = (record: AIAssistanceRecord | null) => {
+  if (!record || !props.abstract) return;
+  const records = collectAIAssistanceRecords({
+    aiAssistance: props.abstract.aiAssistance,
+    aiAssistanceRecords: [
+      ...(props.abstract.aiAssistanceRecords ?? []),
+      ...reviewAssistanceRecords.value,
+      record,
+    ],
+  });
+  const additionalRecords = records.filter((item) => item !== props.abstract?.aiAssistance);
+  reviewAssistanceRecords.value = additionalRecords;
+  emit('update:abstract', { ...props.abstract, aiAssistanceRecords: additionalRecords });
+};
 
 const handleDownloadImage = () => {
   if (!props.image) return;

@@ -116,6 +116,7 @@
         :source-text="inputText"
         :creative-mode="mode === 'creative'"
         :abstract-type="selectedAbstractType"
+        @update:abstract="handleAbstractUpdate"
       />
     </div>
 
@@ -290,6 +291,9 @@ const classification = ref<OncologyClassification | null>(null);
 const selectedCategories = ref<Category[]>([]);
 const selectedKeywords = ref<string[]>([]);
 const generatedAbstract = ref<AbstractData | null>(null);
+const handleAbstractUpdate = (updated: AbstractData) => {
+  generatedAbstract.value = updated;
+};
 const isLoading = ref(false);
 const loadingMessage = ref(t('output.generating'));
 const error = ref<string | null>(null);

@@ -162,6 +162,7 @@
         :source-text="inputText"
         :creative-mode="abstractMode === 'creative'"
         :abstract-type="selectedAbstractType || 'RSNA Science Abstract'"
+        @update:abstract="handleAbstractUpdate"
       />
     </div>
 
@@ -286,6 +287,9 @@ const selectedAbstractType = ref<AbstractType | null>(null);
 const selectedClassification = ref<RSNAClassification | null>(null);
 const isModalOpen = ref<boolean>(false);
 const generatedAbstract = ref<AbstractData | null>(null);
+const handleAbstractUpdate = (updated: AbstractData) => {
+  generatedAbstract.value = updated;
+};
 const workflowReentryDialog = ref<InstanceType<typeof WorkflowReentryDialog> | null>(null);
 const generateAfterReanalysis = ref(false);
 const deepUpdateCompleted = ref(false);

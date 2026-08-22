@@ -48,6 +48,9 @@ export interface ManagedGenerationOutput {
   text?: string;
   base64?: string;
   mimeType?: string;
+  provider?: 'mga' | 'google' | 'openai';
+  model?: string;
+  modelType?: 'large-language-model' | 'research-agent' | 'image-generation-model';
 }
 
 function assertDeliverableOutput(output: ManagedGenerationOutput, taskKind: ManagedTaskKind): void {

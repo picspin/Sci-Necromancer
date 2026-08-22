@@ -376,6 +376,7 @@
     "markdown_title": "导出为 Markdown（.md）",
     "markdown_label": "导出为 Markdown",
     "pdf_label": "导出为 PDF",
+    "docx_label": "导出为 DOCX",
     "json_label": "导出为 JSON"
   },
   "errors": {
@@ -404,6 +405,7 @@
     "export_failed": "导出摘要失败。",
     "import_failed": "导入摘要失败。",
     "pdf_export_failed": "导出 PDF 失败，请重试。",
+    "docx_export_failed": "导出 DOCX 失败，请重试。",
     "insufficient_bonus": "学分余额不足，请签到、充值或改用个人 API。",
     "member_login_required": "请登录后使用托管生成，或配置个人 API。",
     "member_service_unavailable": "会员服务暂不可用，个人 API 模式仍可使用。",
@@ -784,7 +786,7 @@
     "google_terms": "Google Gemini API 条款",
     "no_guarantee": "AI 输出可能不完整、过时、误导或错误。本服务不保证事实准确性、原创性、法规或会议合规性、适用性、录用、发表或任何展示形式安排。",
     "author_duty": "作者必须独立核验全部事实、患者信息、方法、样本量、统计结果、引文、授权、伦理审批、注册、资助、利益冲突、商业平衡及最新官方投稿要求。",
-    "data_transfer": "BYOK 内容会发送至“设置”中选择的供应商。会员托管文本会经美国 iad1 后端发送至 Google Gemini；托管图片会经该后端发送至所选 Google Gemini 或 OpenAI 服务。发送机密或敏感资料前，请审阅所有相关隐私与数据使用条款。",
+    "data_transfer": "BYOK 内容会发送至“设置”中选择的供应商。会员托管文本会经美国 iad1 后端发送至 MGA 实际选择、并在每次结果中披露的模型；托管图片会经该后端发送至所选 MGA 或 OpenAI 服务。发送机密或敏感资料前，请审阅所有相关隐私与数据使用条款。",
     "no_fabrication": "AI 辅助绝不构成虚构数据的许可。缺失的科研事实必须保留为明确占位符，直至作者补充并核验。",
     "no_hipaa_guarantee": "本服务不证明 HIPAA、隐私、科研伦理或法律合规，也不能替代专业人员、所在机构或官方审核。",
     "confirmation": "我理解上述限制，并承诺在使用前独立审阅、核验每一项 AI 辅助输出并承担责任。",
@@ -794,7 +796,10 @@
     "record_title": "AI 辅助记录",
     "record_operations": "基于 RSNA 分类的语言润色；结构与合规审查",
     "record_verify": "必须由作者独立核验。",
-    "copy_reminder": "复制内容不含产品免责声明；使用前仍须由作者核验。",
+    "acknowledgement_title": "AI 使用致谢声明",
+    "copy_acknowledgement": "复制致谢声明",
+    "acknowledgement_guidance": "下方英文声明可作为投稿起点；作者仍须按目标期刊的最新政策调整。",
+    "copy_reminder": "复制内容包含 AI 使用致谢声明，但不含产品免责声明；使用前仍须由作者核验。",
     "creative_output_warning": "邪修模式内容由简短构想经生成式 AI 扩展，事实、数据、资格与投稿合规性均不受保障，使用前必须逐项核验。"
   }
 }

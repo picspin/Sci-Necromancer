@@ -148,6 +148,7 @@
         conference="ER"
         :source-text="inputText"
         :creative-mode="abstractMode === 'creative'"
+        @update:abstract="handleAbstractUpdate"
         :abstract-type="selectedAbstractType || 'ECR Research Presentation'"
       />
     </div>
@@ -282,6 +283,9 @@ const selectedAbstractType = ref<AbstractType | null>(null);
 const isModalOpen = ref<boolean>(false);
 const modalStep = ref<'analysis' | 'type'>('analysis');
 const generatedAbstract = ref<AbstractData | null>(null);
+const handleAbstractUpdate = (updated: AbstractData) => {
+  generatedAbstract.value = updated;
+};
 const workflowReentryDialog = ref<InstanceType<typeof WorkflowReentryDialog> | null>(null);
 const generateAfterReanalysis = ref(false);
 const deepUpdateCompleted = ref(false);
