@@ -23,6 +23,7 @@ import {
 import { assertBlindReviewAssessment } from '../review/blindReview';
 import { parseStructuredModelOutput } from './modelResponse';
 import { anthropicApiUrl } from './providerUrl';
+import { getLockedTextModel } from './textModelWorkflow';
 
 function settings() {
   try {
@@ -38,12 +39,17 @@ function parseJson(text: string): any {
   return parsed;
 }
 
-async function callAnthropic(prompt: string, apiKey?: string, highThinking = false): Promise<any> {
+async function callAnthropic(
+  prompt: string,
+  apiKey?: string,
+  highThinking = false,
+  modelOverride?: string
+): Promise<any> {
   const configured = settings();
   const key = apiKey || configured.anthropicApiKey;
   if (!key) throw new Error('Anthropic API key is required');
   const body: Record<string, unknown> = {
-    model: configured.anthropicTextModel || 'claude-sonnet-4-5',
+    model: modelOverride || configured.anthropicTextModel || 'claude-sonnet-4-5',
     max_tokens: highThinking ? 12000 : 6000,
     system:
       'You are an expert academic medical submission editor. Follow the conference rules and return only valid JSON.',
@@ -88,7 +94,8 @@ async function callAnthropic(prompt: string, apiKey?: string, highThinking = fal
 
 export async function analyzeISMRMBundle(
   text: string,
-  apiKey?: string
+  apiKey?: string,
+  workflowContext = text
 ): Promise<ISMRMAnalysisBundle> {
   const [analysis, impact, type] = await Promise.all([
     prompts.getAnalysisPrompt(text),
@@ -97,7 +104,9 @@ export async function analyzeISMRMBundle(
   ]);
   const result = await callAnthropic(
     `${analysis}\n\n${impact}\n\n${type}\n\nReturn one JSON object with categories, keywords, impact, synopsis, and typeSuggestions.`,
-    apiKey
+    apiKey,
+    false,
+    getLockedTextModel(workflowContext)?.model
   );
   return {
     categories: Array.isArray(result.categories) ? result.categories : [],
@@ -111,9 +120,14 @@ export async function analyzeISMRMBundle(
 export async function analyzeContent(
   text: string,
   apiKey?: string,
-  _workflowContext?: string
+  workflowContext = text
 ): Promise<AnalysisResult> {
-  return callAnthropic(await prompts.getAnalysisPrompt(text), apiKey);
+  return callAnthropic(
+    await prompts.getAnalysisPrompt(text),
+    apiKey,
+    false,
+    getLockedTextModel(workflowContext)?.model
+  );
 }
 
 export async function suggestAbstractType(
@@ -148,12 +162,13 @@ export async function generateFinalAbstract(
   synopsis: string,
   apiKey?: string,
   operation: 'generation' | 'deep_update' = 'generation',
-  _workflowContext?: string
+  workflowContext = text
 ): Promise<AbstractData> {
   return callAnthropic(
     await prompts.getFinalAbstractPrompt(text, type, categories, keywords, impact, synopsis),
     apiKey,
-    operation === 'deep_update'
+    operation === 'deep_update',
+    getLockedTextModel(workflowContext)?.model
   );
 }
 
@@ -167,7 +182,12 @@ export async function analyzeRSNAContent(
   auxiliaryLocale: 'en' | 'zh' = 'en'
 ) {
   return normalizeRSNAAnalysis(
-    await callAnthropic(getRSNAAnalysisPrompt(text, auxiliaryLocale), apiKey),
+    await callAnthropic(
+      getRSNAAnalysisPrompt(text, auxiliaryLocale),
+      apiKey,
+      false,
+      getLockedTextModel(`RSNA:${text}`)?.model
+    ),
     text,
     auxiliaryLocale
   );
@@ -177,11 +197,16 @@ export async function generateRSNAAbstract(
   input: RSNAPromptInput,
   apiKey?: string,
   operation: 'generation' | 'deep_update' = 'generation',
-  _workflowContext?: string
+  workflowContext = input.inputText
 ): Promise<AbstractData> {
   const prompt =
     input.mode === 'creative' ? getRSNACreativePrompt(input) : getRSNAGenerationPrompt(input);
-  const raw = await callAnthropic(prompt, apiKey, operation === 'deep_update');
+  const raw = await callAnthropic(
+    prompt,
+    apiKey,
+    operation === 'deep_update',
+    getLockedTextModel(`RSNA:${workflowContext}`)?.model
+  );
   let draft: AbstractData = {
     ...raw,
     impact: raw.impact || '',

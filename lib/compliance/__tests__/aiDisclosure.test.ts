@@ -3,7 +3,9 @@ import {
   AI_DISCLOSURE_VERSION,
   acceptAIDisclosure,
   clearAIDisclosureAcceptance,
+  createAIAssistanceRecord,
   hasAcceptedAIDisclosure,
+  mergeAIAssistanceRecords,
 } from '../aiDisclosure';
 
 describe('AI disclosure acceptance', () => {
@@ -38,5 +40,28 @@ describe('AI disclosure acceptance', () => {
     clearAIDisclosureAcceptance();
 
     expect(hasAcceptedAIDisclosure()).toBe(false);
+  });
+
+  it('merges earlier and current operation records without losing the current record', () => {
+    const analysis = createAIAssistanceRecord({
+      provider: 'mga',
+      model: 'glm-5.2',
+      mode: 'standard',
+      operations: ['content analysis'],
+    });
+    const deepUpdate = createAIAssistanceRecord({
+      provider: 'mga',
+      model: 'gpt-5.6-luna',
+      mode: 'standard',
+      operations: ['deep revision'],
+    });
+
+    const merged = mergeAIAssistanceRecords(
+      { aiAssistance: analysis },
+      { abstract: 'Updated', impact: '', synopsis: '', keywords: [], aiAssistance: deepUpdate }
+    );
+
+    expect(merged.aiAssistance).toBe(deepUpdate);
+    expect(merged.aiAssistanceRecords).toEqual(expect.arrayContaining([analysis, deepUpdate]));
   });
 });

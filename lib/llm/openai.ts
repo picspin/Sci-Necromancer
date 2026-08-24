@@ -35,6 +35,7 @@ import {
   managedConferenceContext,
   registerManagedTextWorkflow,
 } from './managedTextWorkflow';
+import { getLockedTextModel } from './textModelWorkflow';
 import { parseStructuredModelOutput } from './modelResponse';
 import {
   createAIAssistanceRecord,
@@ -83,9 +84,15 @@ async function callOpenAIAPI(
       options.standaloneOperation
     );
     try {
+      const lockedModel = getLockedTextModel(workflowContext);
+      const selectedManagedModel =
+        lockedModel?.source === 'managed'
+          ? lockedModel.model
+          : getSettings().memberManagedTextModel || 'glm-5.2';
       const result = await generateManagedText({
         prompt,
         ...billing,
+        model: selectedManagedModel === 'gpt-5.6-luna' ? 'gpt-5.6-luna' : 'glm-5.2',
       });
       registerManagedTextWorkflow(
         workflowContext,
@@ -94,10 +101,13 @@ async function callOpenAIAPI(
         result.workflow
       );
       const parsed = parseStructuredModelOutput(result.text) ?? result.text;
-      if (options.workflowStage === 'generation') {
-        const generated = typeof parsed === 'string' ? { abstract: parsed } : parsed;
-        if (generated && typeof generated === 'object' && !Array.isArray(generated)) {
-          const generatedRecord = generated as Record<string, unknown>;
+      if (options.workflowStage === 'generation' || options.workflowStage === 'analysis') {
+        const structured =
+          options.workflowStage === 'generation' && typeof parsed === 'string'
+            ? { abstract: parsed }
+            : parsed;
+        if (structured && typeof structured === 'object' && !Array.isArray(structured)) {
+          const generatedRecord = structured as Record<string, unknown>;
           const {
             aiAssistance: _untrustedAssistance,
             aiAssistanceRecords: _untrustedRecords,
@@ -105,15 +115,21 @@ async function callOpenAIAPI(
           } = generatedRecord;
           const assistance = createAIAssistanceRecord({
             provider: result.provider ?? 'mga',
-            model: result.model ?? 'MGA managed text model',
+            model: result.model ?? selectedManagedModel,
             modelType: result.modelType ?? 'large-language-model',
             mode: 'standard',
             operations: [
-              options.standaloneOperation === 'deep_update' ? 'deep revision' : 'abstract drafting',
+              options.workflowStage === 'analysis'
+                ? 'content analysis'
+                : options.standaloneOperation === 'deep_update'
+                  ? 'deep revision'
+                  : 'abstract drafting',
             ],
           });
           return markTrustedAIAssistance(
-            { ...safeGenerated, aiAssistance: assistance },
+            options.workflowStage === 'generation'
+              ? { ...safeGenerated, aiAssistance: assistance }
+              : { ...safeGenerated },
             assistance
           );
         }
@@ -129,6 +145,9 @@ async function callOpenAIAPI(
 
   if (!apiKey) throw new Error('OpenAI API key is required');
   const url = `${baseUrl.replace(/\/$/, '')}/chat/completions`;
+  const lockedModel = options.workflowContext ? getLockedTextModel(options.workflowContext) : null;
+  const effectiveModel =
+    lockedModel?.source === 'byok' && lockedModel.provider === 'openai' ? lockedModel.model : model;
 
   const response = await fetch(url, {
     method: 'POST',
@@ -137,7 +156,7 @@ async function callOpenAIAPI(
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: model,
+      model: effectiveModel,
       messages: [
         {
           role: 'system',
@@ -191,13 +210,15 @@ export async function analyzeISMRMBundle(
     settings.openAITextModel || 'gpt-4o',
     { beginWorkflow: true, workflowStage: 'analysis', workflowContext }
   );
-  return {
+  const bundle = {
     categories: Array.isArray(result?.categories) ? result.categories : [],
     keywords: Array.isArray(result?.keywords) ? result.keywords : [],
     impact: typeof result?.impact === 'string' ? result.impact : '',
     synopsis: typeof result?.synopsis === 'string' ? result.synopsis : '',
     typeSuggestions: Array.isArray(result?.typeSuggestions) ? result.typeSuggestions : [],
   };
+  const assistance = getTrustedAIAssistance(result);
+  return assistance ? markTrustedAIAssistance(bundle, assistance) : bundle;
 }
 
 export async function analyzeContent(
@@ -381,7 +402,9 @@ export async function analyzeRSNAContent(
     model,
     { beginWorkflow: true, workflowStage: 'analysis', workflowContext: `RSNA:${text}` }
   );
-  return normalizeRSNAAnalysis(raw, text, auxiliaryLocale);
+  const analysis = normalizeRSNAAnalysis(raw, text, auxiliaryLocale);
+  const assistance = getTrustedAIAssistance(raw);
+  return assistance ? markTrustedAIAssistance(analysis, assistance) : analysis;
 }
 
 export async function generateRSNAAbstract(
@@ -485,12 +508,102 @@ export async function generateImage(
   }
 
   const configuredImageModel = settings.openAIImageModel || 'gpt-image-1';
+  if (/gemini-.*image/i.test(configuredImageModel)) {
+    return generateImageViaChatCompletions(imageState, creativeContext, finalApiKey, settings);
+  }
   if (/gpt-image|dall-e/i.test(configuredImageModel)) {
     return generateImageViaOpenAI(imageState, creativeContext, finalApiKey, settings);
   }
 
   // Otherwise use SiliconFlow direct API
   return await generateImageViaSiliconFlow(imageState, creativeContext, finalApiKey, settings);
+}
+
+function extractDataUrlBase64(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  return value.match(/^data:image\/(?:png|jpeg|webp);base64,([A-Za-z0-9+/=]+)$/)?.[1] || null;
+}
+
+function collectMessageImageCandidates(payload: any): unknown[] {
+  const message = payload?.choices?.[0]?.message;
+  const candidates: unknown[] = [];
+  for (const image of message?.images || []) {
+    candidates.push(image?.image_url?.url, image?.image_url, image?.url, image?.data);
+  }
+  for (const part of Array.isArray(message?.content) ? message.content : []) {
+    candidates.push(part?.image_url?.url, part?.image_url, part?.url, part?.data);
+  }
+  if (typeof message?.content === 'string') {
+    candidates.push(
+      message.content.match(/data:image\/(?:png|jpeg|webp);base64,[A-Za-z0-9+/=]+/)?.[0]
+    );
+  }
+  return candidates;
+}
+
+function extractImageDataUrl(payload: any): string | null {
+  const candidates = collectMessageImageCandidates(payload);
+  return (
+    candidates.find(
+      (candidate): candidate is string =>
+        typeof candidate === 'string' &&
+        /^data:image\/(?:png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(candidate)
+    ) || null
+  );
+}
+
+async function imageResponseToBase64(payload: any): Promise<string> {
+  const candidates: unknown[] = [
+    payload?.data?.[0]?.b64_json,
+    payload?.data?.[0]?.url,
+    ...collectMessageImageCandidates(payload),
+    payload?.images?.[0]?.url,
+    payload?.images?.[0]?.data,
+  ];
+
+  for (const candidate of candidates) {
+    const embedded = extractDataUrlBase64(candidate);
+    if (embedded) return embedded;
+    if (typeof candidate === 'string' && /^[A-Za-z0-9+/=]+$/.test(candidate)) return candidate;
+    if (typeof candidate !== 'string' || !/^https:\/\//.test(candidate)) continue;
+    const downloaded = await fetch(candidate);
+    if (!downloaded.ok) throw new Error(`Image download failed: ${downloaded.status}`);
+    return arrayBufferToBase64(await downloaded.arrayBuffer());
+  }
+  throw new Error('No decodable image in API response');
+}
+
+async function generateImageViaChatCompletions(
+  imageState: ImageState,
+  creativeContext: string,
+  apiKey: string,
+  settings: any
+): Promise<string> {
+  const baseUrl = (settings.openAIBaseUrl || 'https://api.openai.com/v1').replace(/\/$/, '');
+  const model = settings.openAIImageModel;
+  const prompt = `${creativeContext ? `${creativeContext}\n\n` : ''}${imageState.specs}`.trim();
+  const content: Array<Record<string, unknown>> = [{ type: 'text', text: prompt }];
+  const images = imageState.uploadedImages?.length
+    ? imageState.uploadedImages
+    : imageState.base64 && imageState.file
+      ? [{ base64: imageState.base64, file: imageState.file }]
+      : [];
+  for (const image of images) {
+    content.push({
+      type: 'image_url',
+      image_url: { url: `data:${image.file.type};base64,${image.base64}` },
+    });
+  }
+  const response = await fetch(`${baseUrl}/chat/completions`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ model, messages: [{ role: 'user', content }], stream: false }),
+  });
+  if (!response.ok) {
+    throw new Error(`Image chat API failed: ${response.status} ${await response.text()}`);
+  }
+  const payload = await response.json();
+  return extractImageDataUrl(payload) || imageResponseToBase64(payload);
 }
 
 async function generateImageViaOpenAI(
@@ -631,20 +744,7 @@ async function generateImageViaSiliconFlow(
 
   const data = await response.json();
 
-  // Extract image URL from response
-  const imageUrl = data.images?.[0]?.url;
-  if (!imageUrl) {
-    throw new Error('No image URL in SiliconFlow response');
-  }
-
-  // Download and convert to base64
-  const imgResponse = await fetch(imageUrl);
-  if (!imgResponse || typeof (imgResponse as any).arrayBuffer !== 'function') {
-    // Fallback for test environments where fetch is partially mocked
-    return imageUrl;
-  }
-  const arrayBuffer = await (imgResponse as any).arrayBuffer();
-  return arrayBufferToBase64(arrayBuffer);
+  return imageResponseToBase64(data);
 }
 
 /**

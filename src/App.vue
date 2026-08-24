@@ -56,6 +56,11 @@
       </div>
     </header>
 
+    <GlobalModelSelector
+      @open-member="showMemberPanel = true"
+      @open-model-settings="openPersonalApiSettings"
+    />
+
     <AIDisclosure />
 
     <!-- Main Content -->
@@ -119,7 +124,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { getMemeTranslation } from '@/lib/i18n';
 import ConferencePanel from '@/components/panels/ConferencePanel.vue';
@@ -132,9 +137,11 @@ import LanguageSelector from '@/components/LanguageSelector.vue';
 import AIDisclosure from '@/components/ui/AIDisclosure.vue';
 import GitHubRepoLink from '@/components/ui/GitHubRepoLink.vue';
 import MemberPanel from '@/components/membership/MemberPanel.vue';
+import GlobalModelSelector from '@/components/ai/GlobalModelSelector.vue';
 import { useMembership } from '@/composables/useMembership';
 import { createHelpAssistantClient } from '@/src/services/helpAssistantClient';
 import { resolveGuidedNavigation, type HelpPageContext } from '@/lib/help/helpCatalog';
+import { OPEN_MEMBER_PANEL_EVENT } from '@/src/services/memberCta';
 
 const { t, locale } = useI18n();
 const showAbstractManager = ref(false);
@@ -195,11 +202,24 @@ const helpPageContext = computed<HelpPageContext>(() => {
   };
 });
 
-onMounted(() => void initialize());
+const openMemberFromCta = () => {
+  showMemberPanel.value = true;
+};
+
+onMounted(() => {
+  window.addEventListener(OPEN_MEMBER_PANEL_EVENT, openMemberFromCta);
+  void initialize();
+});
+onBeforeUnmount(() => window.removeEventListener(OPEN_MEMBER_PANEL_EVENT, openMemberFromCta));
 
 function openMemberAccount() {
   showModelManager.value = false;
   showMemberPanel.value = true;
+}
+
+function openPersonalApiSettings() {
+  modelManagerInitialPanel.value = 'personal-api';
+  showModelManager.value = true;
 }
 
 function askDocumentationAssistant(input: {

@@ -7,6 +7,7 @@ const CODE_TO_KEY: Record<string, string> = {
   'blind_review.invalid_model_report': 'blind_review.invalid_model_report',
   'blind_review.external_request_failed': 'blind_review.external_request_failed',
   insufficient_bonus: 'errors.insufficient_bonus',
+  member_insufficient_credits: 'errors.insufficient_bonus',
   unauthenticated: 'errors.member_login_required',
   member_generation_locked: 'errors.member_login_required',
   member_service_unavailable: 'errors.member_service_unavailable',

@@ -103,7 +103,34 @@ describe('managed MGA capability routing', () => {
     expect(JSON.parse(String(request.body)).messages[0]).toMatchObject({ role: 'system' });
   });
 
-  it('routes managed Nano Banana generation to healthy Imagen 4 via img_generator', async () => {
+  it('routes the premium member text option to GPT-5.6 Luna', async () => {
+    enableMGA();
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ choices: [{ message: { content: 'luna result' } }] }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(
+      callManagedProvider({
+        provider: 'gemini-3.6-flash',
+        model: 'gpt-5.6-luna',
+        prompt: 'Polish this abstract',
+      })
+    ).resolves.toMatchObject({
+      type: 'text',
+      text: 'luna result',
+      provider: 'mga',
+      model: 'gpt-5.6-luna',
+    });
+
+    const body = JSON.parse(String((fetchMock.mock.calls[0][1] as RequestInit).body));
+    expect(body.model).toBe('gpt-5.6-luna');
+  });
+
+  it('routes managed Nano Banana Flash through the MGA v2 chat-completion image contract', async () => {
     enableMGA();
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(
@@ -124,30 +151,221 @@ describe('managed MGA capability routing', () => {
 
     await expect(
       callManagedProvider({ provider: 'nano-banana-pro', prompt: 'Generate a flowchart' })
-    ).resolves.toEqual({ type: 'image', base64: 'aW1hZ2U=', mimeType: 'image/png' });
+    ).resolves.toEqual({
+      type: 'image',
+      base64: 'aW1hZ2U=',
+      mimeType: 'image/png',
+      provider: 'mga',
+      model: 'gemini-3.1-flash-image',
+      requestedModel: 'gemini-3.1-flash-image',
+      fallbackPath: ['gemini-3.1-flash-image'],
+      modelType: 'image-generation-model',
+    });
 
-    expect(fetchMock.mock.calls[0][0]).toBe('https://mga.example.com/api/v2/chat/agent');
+    expect(fetchMock.mock.calls[0][0]).toBe('https://mga.example.com/api/v2/chat/completions');
     const body = JSON.parse(String((fetchMock.mock.calls[0][1] as RequestInit).body));
     expect(body).toMatchObject({
-      model: 'glm-5.2',
+      model: 'gemini-3.1-flash-image',
       stream: false,
-      tool_keys: ['img_generator'],
-      hidden: true,
     });
-    expect(body.messages[0].content).toContain('imagen-4');
+    expect(body.messages[0]).toMatchObject({ role: 'user' });
   });
 
-  it('rejects Nano Banana editing and fails closed without MGA', async () => {
-    const fetchMock = vi.fn();
+  it('uses Gemini 3 Pro Image for member editing with the reference image', async () => {
+    enableMGA();
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          choices: [
+            {
+              message: {
+                content: [
+                  { type: 'image_url', image_url: { url: 'data:image/webp;base64,ZWRpdA==' } },
+                ],
+              },
+            },
+          ],
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      )
+    );
     vi.stubGlobal('fetch', fetchMock);
 
     await expect(
       callManagedProvider({
         provider: 'nano-banana-pro',
+        model: 'gemini-3-pro-image',
         prompt: 'Edit this image',
         images: [{ data: 'aW1hZ2U=', mimeType: 'image/png' }],
       })
-    ).rejects.toMatchObject({ code: 'invalid_generation_request', status: 400 });
+    ).resolves.toMatchObject({
+      type: 'image',
+      base64: 'ZWRpdA==',
+      mimeType: 'image/webp',
+      model: 'gemini-3-pro-image',
+    });
+
+    const body = JSON.parse(String((fetchMock.mock.calls[0][1] as RequestInit).body));
+    expect(body.messages[0].content).toContainEqual({
+      type: 'image_url',
+      image_url: { url: 'data:image/png;base64,aW1hZ2U=' },
+    });
+  });
+
+  it('falls back to the sibling Gemini model for editing and reports the actual model path', async () => {
+    enableMGA();
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({ detail: 'There are no healthy deployments for this model' }),
+          {
+            status: 400,
+            headers: { 'Content-Type': 'application/json' },
+          }
+        )
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            choices: [
+              {
+                message: {
+                  images: [{ image_url: { url: 'data:image/webp;base64,ZWRpdA==' } }],
+                },
+              },
+            ],
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } }
+        )
+      );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(
+      callManagedProvider({
+        provider: 'nano-banana-pro',
+        model: 'gemini-3-pro-image',
+        prompt: 'Edit this image',
+        images: [{ data: 'aW1hZ2U=', mimeType: 'image/png' }],
+      })
+    ).resolves.toMatchObject({
+      type: 'image',
+      base64: 'ZWRpdA==',
+      mimeType: 'image/webp',
+      model: 'gemini-3.1-flash-image',
+      requestedModel: 'gemini-3-pro-image',
+      fallbackPath: ['gemini-3-pro-image', 'gemini-3.1-flash-image'],
+    });
+
+    const secondBody = JSON.parse(String((fetchMock.mock.calls[1][1] as RequestInit).body));
+    expect(secondBody.model).toBe('gemini-3.1-flash-image');
+    expect(secondBody.messages[0].content).toContainEqual({
+      type: 'image_url',
+      image_url: { url: 'data:image/png;base64,aW1hZ2U=' },
+    });
+  });
+
+  it('treats a transient Gemini transport failure as fallback-eligible', async () => {
+    enableMGA();
+    const fetchMock = vi
+      .fn()
+      .mockRejectedValueOnce(new DOMException('Timed out', 'TimeoutError'))
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            choices: [
+              {
+                message: {
+                  images: [{ image_url: { url: 'data:image/png;base64,aW1hZ2U=' } }],
+                },
+              },
+            ],
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } }
+        )
+      );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(
+      callManagedProvider({ provider: 'nano-banana-pro', prompt: 'Generate a figure' })
+    ).resolves.toMatchObject({
+      model: 'gemini-3-pro-image',
+      fallbackPath: ['gemini-3.1-flash-image', 'gemini-3-pro-image'],
+    });
+  });
+
+  it('does not fallback when Gemini rejects the request for safety reasons', async () => {
+    enableMGA();
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ detail: 'Request blocked by safety policy' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(
+      callManagedProvider({ provider: 'nano-banana-pro', prompt: 'Unsafe request' })
+    ).rejects.toMatchObject({ code: 'managed_provider_failed' });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('falls back to Imagen 4 only when direct Nano Banana generation is unavailable', async () => {
+    enableMGA();
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({ detail: 'There are no healthy deployments for this model' }),
+          {
+            status: 400,
+            headers: { 'Content-Type': 'application/json' },
+          }
+        )
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({ detail: 'There are no healthy deployments for this model' }),
+          {
+            status: 400,
+            headers: { 'Content-Type': 'application/json' },
+          }
+        )
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            choices: [
+              {
+                message: {
+                  content: '',
+                  images: [{ image_url: { url: 'data:image/png;base64,aW1hZ2U=' } }],
+                },
+              },
+            ],
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } }
+        )
+      );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(
+      callManagedProvider({ provider: 'nano-banana-pro', prompt: 'Generate a figure' })
+    ).resolves.toMatchObject({
+      type: 'image',
+      base64: 'aW1hZ2U=',
+      model: 'imagen-4',
+      requestedModel: 'gemini-3.1-flash-image',
+      fallbackPath: ['gemini-3.1-flash-image', 'gemini-3-pro-image', 'imagen-4'],
+    });
+
+    expect(fetchMock.mock.calls[1][0]).toBe('https://mga.example.com/api/v2/chat/completions');
+    expect(fetchMock.mock.calls[2][0]).toBe('https://mga.example.com/api/v2/chat/agent');
+  });
+
+  it('fails closed without MGA', async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
 
     vi.stubEnv('GEMINI_API_KEY', 'google-test-key');
     await expect(
@@ -182,7 +400,13 @@ describe('managed MGA capability routing', () => {
         prompt: 'Edit a clinical figure',
         images: [{ data: 'aW1hZ2U=', mimeType: 'image/png' }],
       })
-    ).resolves.toEqual({ type: 'image', base64: 'aW1hZ2U=', mimeType: 'image/png' });
+    ).resolves.toMatchObject({
+      type: 'image',
+      base64: 'aW1hZ2U=',
+      mimeType: 'image/png',
+      provider: 'mga',
+      model: 'gpt-image-1',
+    });
 
     const body = JSON.parse(String((fetchMock.mock.calls[0][1] as RequestInit).body));
     expect(body.messages[0].content).toContain('gpt-image-1');
@@ -225,7 +449,13 @@ describe('managed MGA capability routing', () => {
 
     await expect(
       callManagedProvider({ provider: 'nano-banana-pro', prompt: 'Generate an image' })
-    ).resolves.toEqual({ type: 'image', base64: 'AQID', mimeType: 'image/png' });
+    ).resolves.toMatchObject({
+      type: 'image',
+      base64: 'AQID',
+      mimeType: 'image/png',
+      provider: 'mga',
+      model: 'gemini-3.1-flash-image',
+    });
 
     expect(fetchMock.mock.calls[1][0]).toEqual(new URL(signedUrl));
     expect(fetchMock.mock.calls[1][1]).not.toHaveProperty('headers');

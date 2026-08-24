@@ -147,6 +147,7 @@
             :model-value="state.imageProvider"
             :label="t('image_generation.image_provider')"
             :options="imageProviderOptions"
+            :disabled="state.isLoading"
             @update:model-value="setImageProvider($event as ImageGenerationProvider)"
           />
           <button
@@ -169,6 +170,36 @@
               />
             </svg>
             {{ t('image_generation.generate_figure') }}
+          </button>
+        </div>
+
+        <div
+          v-if="state.byokFailureProvider"
+          class="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-text-primary"
+          role="alert"
+        >
+          <p>{{ t('image_generation.byok_failed_no_charge') }}</p>
+          <button
+            v-if="canRetryWithMember"
+            type="button"
+            class="mt-2 rounded-md bg-brand-primary px-3 py-2 font-semibold text-white hover:bg-brand-secondary"
+            @click="retryByokFailureWithMember"
+          >
+            {{ t('image_generation.retry_with_member') }}
+          </button>
+        </div>
+
+        <div
+          v-if="!nanoBananaAvailable && !gptImageAvailable"
+          class="rounded-lg border border-brand-primary/30 bg-brand-primary/10 p-3 text-sm text-text-primary"
+        >
+          <p>{{ t('image_generation.member_access_help') }}</p>
+          <button
+            type="button"
+            class="mt-2 rounded-md border border-brand-primary px-3 py-2 font-semibold text-brand-primary"
+            @click="openMemberPanel"
+          >
+            {{ t('image_generation.member_access_cta') }}
           </button>
         </div>
 
@@ -204,6 +235,7 @@
           :loading-message="state.loadingMessage"
           :error="state.error"
           :zoom-level="state.zoomLevel"
+          :provenance="state.provenance"
           @download="downloadImage"
           @zoom-in="zoomIn"
           @zoom-out="zoomOut"
@@ -226,6 +258,7 @@ import AbstractSelector from './AbstractSelector.vue';
 import TemplateButtons from './TemplateButtons.vue';
 import StackedImagePreview from './StackedImagePreview.vue';
 import FloatingSelect, { type FloatingSelectOption } from '@/components/ui/FloatingSelect.vue';
+import { openMemberPanel } from '@/src/services/memberCta';
 
 const { t } = useI18n();
 
@@ -262,12 +295,19 @@ const {
   selectJournalStyle,
   selectSchematicLayout,
   generateImage,
+  retryByokFailureWithMember,
   zoomIn,
   zoomOut,
   resetZoom,
   downloadImage,
   resetAll,
 } = useImageGeneration();
+
+const canRetryWithMember = computed(() =>
+  state.value.byokFailureProvider === 'google-byok'
+    ? nanoBananaAvailable.value
+    : gptImageAvailable.value
+);
 
 // Get suggestions for the current input
 const currentSuggestions = computed((): CompletionSuggestion[] => {
@@ -293,27 +333,22 @@ const imageProviderOptions = computed<FloatingSelectOption[]>(() => [
       (state.value.mode === 'standard' && !openAIByokSupportsEditing.value),
   },
   {
-    value: 'nano-banana-pro',
+    value: 'mga-gemini-3.1-flash-image',
     label:
-      '🍌 Nano Banana · Imagen 4 · ' +
+      '🍌 Gemini 3.1 Flash Image · ' +
       t('image_generation.member_provider') +
       ` · ${t('image_generation.member_image_cost')}` +
-      (state.value.mode === 'standard'
-        ? ` · ${t('image_generation.generation_only')}`
-        : nanoBananaAvailable.value
-          ? ''
-          : ' 🔒'),
-    disabled: !nanoBananaAvailable.value || state.value.mode === 'standard',
+      (nanoBananaAvailable.value ? '' : ' 🔒'),
+    disabled: !nanoBananaAvailable.value,
   },
   {
-    value: 'mga-gemini-3-pro-image-placeholder',
-    label: `🍌 Gemini 3 Pro Image · ${t('image_generation.deployment_pending')}`,
-    disabled: true,
-  },
-  {
-    value: 'mga-gemini-3-1-flash-image-placeholder',
-    label: `🍌 Gemini 3.1 Flash Image · ${t('image_generation.deployment_pending')}`,
-    disabled: true,
+    value: 'mga-gemini-3-pro-image',
+    label:
+      '🍌 Gemini 3 Pro Image · ' +
+      t('image_generation.member_provider') +
+      ` · ${t('image_generation.member_image_cost')}` +
+      (nanoBananaAvailable.value ? '' : ' 🔒'),
+    disabled: !nanoBananaAvailable.value,
   },
   {
     value: 'gpt-image-2',
