@@ -56,17 +56,15 @@
       </div>
     </header>
 
-    <GlobalModelSelector
-      @open-member="showMemberPanel = true"
-      @open-model-settings="openPersonalApiSettings"
-    />
-
     <AIDisclosure />
 
     <!-- Main Content -->
     <main class="max-w-7xl mx-auto px-6 py-8">
       <!-- Conference Panel with integrated navigation -->
-      <ConferencePanel />
+      <ConferencePanel
+        @open-member="showMemberPanel = true"
+        @open-model-settings="openPersonalApiSettings"
+      />
     </main>
 
     <!-- Abstract Manager Modal -->
@@ -137,7 +135,6 @@ import LanguageSelector from '@/components/LanguageSelector.vue';
 import AIDisclosure from '@/components/ui/AIDisclosure.vue';
 import GitHubRepoLink from '@/components/ui/GitHubRepoLink.vue';
 import MemberPanel from '@/components/membership/MemberPanel.vue';
-import GlobalModelSelector from '@/components/ai/GlobalModelSelector.vue';
 import { useMembership } from '@/composables/useMembership';
 import { createHelpAssistantClient } from '@/src/services/helpAssistantClient';
 import { resolveGuidedNavigation, type HelpPageContext } from '@/lib/help/helpCatalog';

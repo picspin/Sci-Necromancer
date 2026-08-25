@@ -107,6 +107,21 @@ describe('blind review public contract', () => {
     expect(prompt).toContain('Simplified Chinese');
   });
 
+  it('labels source-only review as a manuscript and includes supplied conference rules', () => {
+    const prompt = buildBlindReviewPrompt({
+      conference: 'ER',
+      sourceText: 'Complete manuscript',
+      generatedText: 'Complete manuscript',
+      target: 'manuscript',
+      conferenceRules: 'ECR current platform rule set: maximum 280 words.',
+      locale: 'en',
+    });
+
+    expect(prompt).toContain('MANUSCRIPT TO REVIEW');
+    expect(prompt).toContain('ECR current platform rule set: maximum 280 words.');
+    expect(prompt).not.toContain('GENERATED ABSTRACT');
+  });
+
   it('extracts DOI, PMID, and author-year citation candidates without inventing references', () => {
     const candidates = extractCitationCandidates(
       'Prior work (Smith et al., 2024) supports this. PMID: 12345678. https://doi.org/10.1000/xyz123.'

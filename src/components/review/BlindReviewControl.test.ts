@@ -1,7 +1,8 @@
 import { computed } from 'vue';
 import { createI18n } from 'vue-i18n';
 import { fireEvent, render, screen } from '@testing-library/vue';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { cleanup } from '@testing-library/vue';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import BlindReviewControl from './BlindReviewControl.vue';
 
 const { runBlindReview } = vi.hoisted(() => ({ runBlindReview: vi.fn() }));
@@ -26,6 +27,7 @@ const i18n = createI18n({
       blind_review: {
         title: '独立盲审',
         description: '对生成内容进行独立核验。',
+        source_required: '请先上传或粘贴完整论文。',
         external_data_notice: '外部审核会发送有限的引文检索数据。',
         button: '盲审',
         running: '盲审中…',
@@ -58,6 +60,7 @@ const i18n = createI18n({
 });
 
 describe('BlindReviewControl', () => {
+  afterEach(cleanup);
   beforeEach(() => {
     runBlindReview.mockReset();
     runBlindReview.mockResolvedValue({
@@ -144,6 +147,27 @@ describe('BlindReviewControl', () => {
       abstract: { impact: '影响', synopsis: '概要', abstract: '新摘要', keywords: [] },
     });
     expect(screen.queryByText('独立盲审报告')).toBeNull();
+  });
+
+  it('reviews the complete source manuscript directly when no generated abstract exists', async () => {
+    render(BlindReviewControl, {
+      props: {
+        conference: 'ASCO',
+        sourceText: '完整论文正文，包括方法、结果和参考文献。',
+      },
+      global: { plugins: [i18n] },
+    });
+
+    await fireEvent.click(screen.getByRole('button', { name: '盲审' }));
+
+    expect(runBlindReview).toHaveBeenCalledWith(
+      expect.objectContaining({
+        conference: 'ASCO',
+        sourceText: '完整论文正文，包括方法、结果和参考文献。',
+        abstract: undefined,
+        target: 'manuscript',
+      })
+    );
   });
 
   it('discards an in-flight report after the reviewed content changes', async () => {

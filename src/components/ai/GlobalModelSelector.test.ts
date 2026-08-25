@@ -56,6 +56,8 @@ describe('GlobalModelSelector', () => {
   it('offers BYOK and both member text models at the same decision point', async () => {
     render(GlobalModelSelector, { global: { plugins: [i18n] } });
 
+    expect(screen.getByTestId('glass-model-selector')).toBeTruthy();
+    expect(screen.getByTestId('model-selector-magic-icon')).toBeTruthy();
     expect(screen.getByRole('option', { name: 'Personal API · custom-text-model' })).toBeTruthy();
     expect(screen.getByRole('option', { name: 'Member · GLM-5.2' })).toBeTruthy();
     expect(screen.getByRole('option', { name: 'Member · GPT-5.6 Luna' })).toBeTruthy();

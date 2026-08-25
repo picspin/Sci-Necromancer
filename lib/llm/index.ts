@@ -307,7 +307,10 @@ export const analyzeISMRMBundle = async (text: string): Promise<ISMRMAnalysisBun
 const getAuxiliaryLocale = (): 'en' | 'zh' =>
   localStorage.getItem('i18nextLng')?.toLowerCase().startsWith('zh') ? 'zh' : 'en';
 
-export async function reviewAbstractBlind(prompt: string): Promise<BlindReviewModelAssessment> {
+export async function reviewAbstractBlind(
+  prompt: string,
+  reviewTarget: 'abstract' | 'manuscript' = 'abstract'
+): Promise<BlindReviewModelAssessment> {
   requireAIDisclosureAcceptance();
   const apiKey = getApiKey();
   if (apiKey) {
@@ -319,15 +322,18 @@ export async function reviewAbstractBlind(prompt: string): Promise<BlindReviewMo
         aiAssistance: createAIAssistanceRecord({
           ...identity,
           mode: 'standard',
-          operations: ['independent abstract review'],
+          operations: [`independent ${reviewTarget} review`],
         }),
       };
     });
   }
-  return runManagedBlindReview(prompt);
+  return runManagedBlindReview(prompt, reviewTarget);
 }
 
-async function runManagedBlindReview(prompt: string): Promise<BlindReviewModelAssessment> {
+async function runManagedBlindReview(
+  prompt: string,
+  reviewTarget: 'abstract' | 'manuscript'
+): Promise<BlindReviewModelAssessment> {
   const idempotencyKey =
     globalThis.crypto?.randomUUID?.() ?? `blind-review-${Date.now()}-${Math.random()}`;
   const capabilities = getSettings().capabilities;
@@ -365,8 +371,8 @@ async function runManagedBlindReview(prompt: string): Promise<BlindReviewModelAs
           result.modelType ?? (useResearchAgent ? 'research-agent' : 'large-language-model'),
         mode: 'standard',
         operations: useResearchAgent
-          ? ['independent abstract review', 'read-only literature verification']
-          : ['independent abstract review'],
+          ? [`independent ${reviewTarget} review`, 'read-only literature verification']
+          : [`independent ${reviewTarget} review`],
         methodsDisclosureRequired: useResearchAgent,
       }),
     };

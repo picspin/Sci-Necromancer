@@ -8,18 +8,23 @@ import type {
   ExternalReviewer,
 } from '@/types';
 import { buildBlindReviewPrompt, mergeBlindReviewReport } from '@/lib/review/blindReview';
+import { getConferenceBlindReviewRules } from '@/lib/review/conferenceBlindReviewRules';
 import { reviewAbstractBlind } from '@/lib/llm';
 
 export interface BlindReviewRequest {
-  conference: Exclude<Conference, 'IMAGE' | 'JACC'>;
+  conference: Exclude<Conference, 'IMAGE' | 'JACC' | 'ESC'>;
   sourceText: string;
-  abstract: AbstractData;
+  abstract?: AbstractData;
+  target?: 'generated-abstract' | 'manuscript';
   locale: 'en' | 'zh';
   settings: BlindReviewSettings;
 }
 
 interface BlindReviewDependencies {
-  modelReview: (prompt: string) => Promise<BlindReviewModelAssessment>;
+  modelReview: (
+    prompt: string,
+    target: 'generated-abstract' | 'manuscript'
+  ) => Promise<BlindReviewModelAssessment>;
   externalReview: (
     payload: Pick<BlindReviewRequest, 'conference'> & {
       generatedText: string;
@@ -44,7 +49,8 @@ function serializeAbstract(abstract: AbstractData): string {
 }
 
 const defaultDependencies: BlindReviewDependencies = {
-  modelReview: reviewAbstractBlind,
+  modelReview: (prompt, target) =>
+    reviewAbstractBlind(prompt, target === 'manuscript' ? 'manuscript' : 'abstract'),
   externalReview: async (payload) => {
     const response = await fetch('/api/blind-review', {
       method: 'POST',
@@ -63,12 +69,16 @@ export async function runBlindReview(
   dependencies: BlindReviewDependencies = defaultDependencies
 ): Promise<BlindReviewReport> {
   if (!request.settings.enabled) throw new Error('blind_review.disabled');
-  const generatedText = serializeAbstract(request.abstract);
+  const target = request.target ?? (request.abstract ? 'generated-abstract' : 'manuscript');
+  const generatedText =
+    target === 'manuscript' ? request.sourceText.trim() : serializeAbstract(request.abstract!);
   if (!generatedText) throw new Error('blind_review.no_content');
   const prompt = buildBlindReviewPrompt({
     conference: request.conference,
     sourceText: request.sourceText,
     generatedText,
+    target,
+    conferenceRules: getConferenceBlindReviewRules(request.conference),
     locale: request.locale,
   });
 
@@ -76,13 +86,13 @@ export async function runBlindReview(
     (reviewer) => request.settings.reviewers[reviewer]
   );
   const [modelAssessment, externalVerification] = await Promise.all([
-    dependencies.modelReview(prompt),
+    dependencies.modelReview(prompt, target),
     (selectedReviewers.length
       ? dependencies.externalReview({
           conference: request.conference,
           generatedText,
-          title: request.abstract.title,
-          keywords: request.abstract.keywords,
+          title: request.abstract?.title,
+          keywords: request.abstract?.keywords ?? [],
           reviewers: request.settings.reviewers,
         })
       : Promise.resolve([])
