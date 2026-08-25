@@ -22,9 +22,20 @@ const providerTimeout = (timeoutMs = PROVIDER_TIMEOUT_MS) => AbortSignal.timeout
 const PROVIDER_RESPONSE_LIMIT = 6_000_000;
 const MGA_TEXT_MODELS = new Set(['glm-5.2', 'gpt-5.6-luna']);
 const MGA_IMAGE_MODELS = new Set(['gemini-3.1-flash-image', 'gemini-3-pro-image']);
+const GOOGLE_IMAGE_FALLBACK_MODELS = ['gemini-3.1-flash-image', 'gemini-3-pro-image'] as const;
 
-function providerSecret(name: 'GEMINI_API_KEY' | 'OPENAI_API_KEY'): string {
+function providerSecret(name: 'OPENAI_API_KEY'): string {
   const value = process.env[name]?.trim();
+  if (!value) throw new MemberServiceError('managed_provider_unavailable', 503);
+  return value;
+}
+
+function googleApiKey(): string | null {
+  return process.env.GOOGLE_API_KEY?.trim() || process.env.GEMINI_API_KEY?.trim() || null;
+}
+
+function requiredGoogleApiKey(): string {
+  const value = googleApiKey();
   if (!value) throw new MemberServiceError('managed_provider_unavailable', 503);
   return value;
 }
@@ -153,6 +164,36 @@ function extractOpenAICompatibleImage(payload: any): { base64: string; mimeType:
   return null;
 }
 
+function extractGoogleImage(payload: any): { base64: string; mimeType: string } | null {
+  for (const candidate of payload?.candidates || []) {
+    for (const part of candidate?.content?.parts || []) {
+      const inlineData = part?.inlineData || part?.inline_data;
+      if (
+        ['image/png', 'image/jpeg', 'image/webp'].includes(inlineData?.mimeType) &&
+        typeof inlineData?.data === 'string' &&
+        inlineData.data.length > 0 &&
+        inlineData.data.length <= 3_500_000 &&
+        /^[A-Za-z0-9+/=]+$/.test(inlineData.data)
+      ) {
+        return { base64: inlineData.data, mimeType: inlineData.mimeType };
+      }
+    }
+  }
+  return null;
+}
+
+function imagePayloadIsSafetyBlocked(payload: any): boolean {
+  const reasons = [
+    payload?.promptFeedback?.blockReason,
+    payload?.candidates?.[0]?.finishReason,
+    payload?.choices?.[0]?.finish_reason,
+    payload?.choices?.[0]?.message?.refusal,
+  ]
+    .filter((value): value is string => typeof value === 'string')
+    .join(' ');
+  return /safety|content[_ -]?filter|blocked|prohibited/i.test(reasons);
+}
+
 function extractMGAImageUrl(payload: any): string | null {
   if (!Array.isArray(payload?.metadata)) return null;
   for (const metadata of payload.metadata) {
@@ -205,6 +246,25 @@ async function resolveMGAImage(payload: any): Promise<{ base64: string; mimeType
     throw new MemberServiceError('managed_image_too_large', 502);
   }
   return { base64: bytes.toString('base64'), mimeType };
+}
+
+async function resolveFallbackEligibleMGAImage(
+  payload: any
+): Promise<{ base64: string; mimeType: string } | null> {
+  if (imagePayloadIsSafetyBlocked(payload)) {
+    throw new MemberServiceError('managed_provider_failed', 502);
+  }
+  try {
+    return await resolveMGAImage(payload);
+  } catch (error) {
+    if (
+      error instanceof MemberServiceError &&
+      ['managed_provider_failed', 'managed_image_too_large'].includes(error.code)
+    ) {
+      return null;
+    }
+    throw error;
+  }
 }
 
 async function callMGAText(request: ProviderRequest) {
@@ -299,6 +359,62 @@ async function callMGADirectImage(request: ProviderRequest) {
   return { payload: await jsonOrProviderError(response), model, unavailable: false as const };
 }
 
+function googleImageParts(request: ProviderRequest): Array<Record<string, unknown>> {
+  const parts: Array<Record<string, unknown>> = [{ text: request.prompt }];
+  for (const image of request.images || []) {
+    parts.push({ inlineData: { mimeType: image.mimeType, data: image.data } });
+  }
+  return parts;
+}
+
+function googleImageAspectRatio(size: ProviderRequest['size']): '1:1' | '2:3' | '3:2' {
+  if (size === '1024x1536') return '2:3';
+  if (size === '1536x1024') return '3:2';
+  return '1:1';
+}
+
+async function callGoogleDirectImage(
+  request: ProviderRequest,
+  model: (typeof GOOGLE_IMAGE_FALLBACK_MODELS)[number]
+) {
+  const apiKey = googleApiKey();
+  if (!apiKey) return null;
+  let response: Response;
+  try {
+    response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
+      {
+        method: 'POST',
+        signal: providerTimeout(),
+        headers: {
+          'Content-Type': 'application/json',
+          'x-goog-api-key': apiKey,
+        },
+        body: JSON.stringify({
+          contents: [{ role: 'user', parts: googleImageParts(request) }],
+          generationConfig: {
+            responseModalities: ['IMAGE'],
+            imageConfig: { aspectRatio: googleImageAspectRatio(request.size) },
+          },
+        }),
+      }
+    );
+  } catch (error) {
+    if (
+      error instanceof TypeError ||
+      (error instanceof DOMException && ['AbortError', 'TimeoutError'].includes(error.name))
+    ) {
+      return { payload: null, model, unavailable: true as const };
+    }
+    throw error;
+  }
+  if ([429, 500, 502, 503, 504].includes(response.status)) {
+    await response.body?.cancel();
+    return { payload: null, model, unavailable: true as const };
+  }
+  return { payload: await jsonOrProviderError(response), model, unavailable: false as const };
+}
+
 async function callMGAImageAgentFallback(request: ProviderRequest) {
   const config = getMGAConfig();
   if (!config) return null;
@@ -387,7 +503,7 @@ async function generateGeminiText(request: ProviderRequest): Promise<ManagedGene
       signal: providerTimeout(),
       headers: {
         'Content-Type': 'application/json',
-        'x-goog-api-key': providerSecret('GEMINI_API_KEY'),
+        'x-goog-api-key': requiredGoogleApiKey(),
       },
       body: JSON.stringify({
         contents: [{ role: 'user', parts: [{ text: request.prompt }] }],
@@ -408,51 +524,95 @@ async function generateGeminiText(request: ProviderRequest): Promise<ManagedGene
 
 async function generateNanoBananaImage(request: ProviderRequest): Promise<ManagedGenerationOutput> {
   const direct = await callMGADirectImage(request);
-  if (!direct) throw new MemberServiceError('managed_provider_unavailable', 503);
-  const requestedModel = direct.model;
-  if (!direct.unavailable) {
-    const image = await resolveMGAImage(direct.payload);
-    if (!image) throw new MemberServiceError('managed_provider_empty_output', 502);
-    return {
-      type: 'image',
-      ...image,
-      provider: 'mga',
-      model: direct.model,
-      requestedModel,
-      fallbackPath: [direct.model],
-      modelType: 'image-generation-model',
-    };
+  const requestedModel = request.model || 'gemini-3.1-flash-image';
+  const fallbackPath: string[] = [];
+  if (direct) {
+    fallbackPath.push(direct.model);
+    if (!direct.unavailable) {
+      const image = await resolveFallbackEligibleMGAImage(direct.payload);
+      if (image) {
+        return {
+          type: 'image',
+          ...image,
+          provider: 'mga',
+          model: direct.model,
+          requestedModel,
+          fallbackPath,
+          modelType: 'image-generation-model',
+        };
+      }
+    }
   }
   const siblingModel =
     requestedModel === 'gemini-3-pro-image' ? 'gemini-3.1-flash-image' : 'gemini-3-pro-image';
-  const sibling = await callMGADirectImage({ ...request, model: siblingModel });
-  if (sibling && !sibling.unavailable) {
-    const image = await resolveMGAImage(sibling.payload);
-    if (!image) throw new MemberServiceError('managed_provider_empty_output', 502);
-    return {
-      type: 'image',
-      ...image,
-      provider: 'mga',
-      model: sibling.model,
-      requestedModel,
-      fallbackPath: [requestedModel, sibling.model],
-      modelType: 'image-generation-model',
-    };
+  if (direct) {
+    const sibling = await callMGADirectImage({ ...request, model: siblingModel });
+    if (sibling) {
+      fallbackPath.push(sibling.model);
+      if (!sibling.unavailable) {
+        const image = await resolveFallbackEligibleMGAImage(sibling.payload);
+        if (image) {
+          return {
+            type: 'image',
+            ...image,
+            provider: 'mga',
+            model: sibling.model,
+            requestedModel,
+            fallbackPath,
+            modelType: 'image-generation-model',
+          };
+        }
+      }
+    }
   }
-  if (request.images?.length) throw new MemberServiceError('managed_provider_failed', 502);
-  const fallback = await callMGAImageAgentFallback(request);
-  if (!fallback) throw new MemberServiceError('managed_provider_unavailable', 503);
-  const image = await resolveMGAImage(fallback.payload);
-  if (!image) throw new MemberServiceError('managed_provider_empty_output', 502);
-  return {
-    type: 'image',
-    ...image,
-    provider: 'mga',
-    model: fallback.model,
-    requestedModel,
-    fallbackPath: [requestedModel, siblingModel, fallback.model],
-    modelType: 'image-generation-model',
-  };
+
+  for (const googleModel of GOOGLE_IMAGE_FALLBACK_MODELS) {
+    const google = await callGoogleDirectImage(request, googleModel);
+    if (!google) break;
+    fallbackPath.push(`google/${google.model}`);
+    if (google.unavailable) continue;
+    const image = extractGoogleImage(google.payload);
+    if (image) {
+      return {
+        type: 'image',
+        ...image,
+        provider: 'google',
+        model: google.model,
+        requestedModel,
+        fallbackPath,
+        modelType: 'image-generation-model',
+      };
+    }
+    if (imagePayloadIsSafetyBlocked(google.payload)) {
+      throw new MemberServiceError('managed_provider_failed', 502);
+    }
+  }
+
+  if (direct && !request.images?.length) {
+    const fallback = await callMGAImageAgentFallback(request);
+    if (fallback) {
+      fallbackPath.push(fallback.model);
+      const image = await resolveMGAImage(fallback.payload);
+      if (image) {
+        return {
+          type: 'image',
+          ...image,
+          provider: 'mga',
+          model: fallback.model,
+          requestedModel,
+          fallbackPath,
+          modelType: 'image-generation-model',
+        };
+      }
+      if (imagePayloadIsSafetyBlocked(fallback.payload)) {
+        throw new MemberServiceError('managed_provider_failed', 502);
+      }
+    }
+  }
+  throw new MemberServiceError(
+    fallbackPath.length ? 'managed_provider_empty_output' : 'managed_provider_unavailable',
+    fallbackPath.length ? 502 : 503
+  );
 }
 
 async function generateOpenAIImage(request: ProviderRequest): Promise<ManagedGenerationOutput> {

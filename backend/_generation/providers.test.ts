@@ -10,6 +10,8 @@ afterEach(() => {
 function enableMGA() {
   vi.stubEnv('MGA_BASE_URL', 'https://mga.example.com/api/v2');
   vi.stubEnv('MGA_API_KEY', 'mga-test-key');
+  vi.stubEnv('GOOGLE_API_KEY', '');
+  vi.stubEnv('GEMINI_API_KEY', '');
 }
 
 describe('managed MGA capability routing', () => {
@@ -294,6 +296,209 @@ describe('managed MGA capability routing', () => {
     });
   });
 
+  it('treats an MGA 200 response without image data as fallback-eligible', async () => {
+    enableMGA();
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ choices: [{ message: { content: 'Image queued.' } }] }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            choices: [
+              {
+                message: {
+                  images: [{ image_url: { url: 'data:image/png;base64,aW1hZ2U=' } }],
+                },
+              },
+            ],
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } }
+        )
+      );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(
+      callManagedProvider({ provider: 'nano-banana-pro', prompt: 'Generate a figure' })
+    ).resolves.toMatchObject({
+      provider: 'mga',
+      model: 'gemini-3-pro-image',
+      fallbackPath: ['gemini-3.1-flash-image', 'gemini-3-pro-image'],
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('falls back when an MGA signed image cannot be downloaded', async () => {
+    enableMGA();
+    const signedUrl =
+      'https://mygenassist-prod-generated-documents.s3.eu-central-1.amazonaws.com/generated.png?signature=test';
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            choices: [{ message: { content: 'Image generated.' } }],
+            metadata: [
+              {
+                action: {
+                  status: 'end',
+                  tool_key: 'img_generator',
+                  data: { output: `![generated](${signedUrl})` },
+                },
+              },
+            ],
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } }
+        )
+      )
+      .mockResolvedValueOnce(new Response(null, { status: 503 }))
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            choices: [
+              {
+                message: {
+                  images: [{ image_url: { url: 'data:image/png;base64,aW1hZ2U=' } }],
+                },
+              },
+            ],
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } }
+        )
+      );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(
+      callManagedProvider({ provider: 'nano-banana-pro', prompt: 'Generate a figure' })
+    ).resolves.toMatchObject({
+      provider: 'mga',
+      model: 'gemini-3-pro-image',
+      fallbackPath: ['gemini-3.1-flash-image', 'gemini-3-pro-image'],
+    });
+    expect(fetchMock.mock.calls[1][0]).toEqual(new URL(signedUrl));
+  });
+
+  it('falls back from empty MGA image responses to Google Flash and preserves edit input', async () => {
+    enableMGA();
+    vi.stubEnv('GOOGLE_API_KEY', 'google-test-key');
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ choices: [{ message: { content: '' } }] }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ choices: [{ message: { content: '' } }] }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            candidates: [
+              {
+                content: {
+                  parts: [{ inlineData: { mimeType: 'image/webp', data: 'ZWRpdA==' } }],
+                },
+              },
+            ],
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } }
+        )
+      );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(
+      callManagedProvider({
+        provider: 'nano-banana-pro',
+        model: 'gemini-3-pro-image',
+        prompt: 'Edit this image',
+        images: [{ data: 'aW1hZ2U=', mimeType: 'image/png' }],
+        size: '1536x1024',
+      })
+    ).resolves.toEqual({
+      type: 'image',
+      base64: 'ZWRpdA==',
+      mimeType: 'image/webp',
+      provider: 'google',
+      model: 'gemini-3.1-flash-image',
+      requestedModel: 'gemini-3-pro-image',
+      fallbackPath: [
+        'gemini-3-pro-image',
+        'gemini-3.1-flash-image',
+        'google/gemini-3.1-flash-image',
+      ],
+      modelType: 'image-generation-model',
+    });
+
+    expect(fetchMock.mock.calls[2][0]).toBe(
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-image:generateContent'
+    );
+    const googleRequest = fetchMock.mock.calls[2][1] as RequestInit;
+    expect(googleRequest.headers).toEqual(
+      expect.objectContaining({ 'x-goog-api-key': 'google-test-key' })
+    );
+    const googleBody = JSON.parse(String(googleRequest.body));
+    expect(googleBody.contents[0].parts).toContainEqual({
+      inlineData: { mimeType: 'image/png', data: 'aW1hZ2U=' },
+    });
+    expect(googleBody.generationConfig).toEqual({
+      responseModalities: ['IMAGE'],
+      imageConfig: { aspectRatio: '3:2' },
+    });
+  });
+
+  it('uses Google Pro when the Google Flash fallback is transiently unavailable', async () => {
+    enableMGA();
+    vi.stubEnv('GOOGLE_API_KEY', 'google-test-key');
+    const unavailable = () =>
+      new Response(JSON.stringify({ error: { message: 'temporarily unavailable' } }), {
+        status: 503,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(unavailable())
+      .mockResolvedValueOnce(unavailable())
+      .mockResolvedValueOnce(unavailable())
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            candidates: [
+              {
+                content: {
+                  parts: [{ inlineData: { mimeType: 'image/png', data: 'cHJv' } }],
+                },
+              },
+            ],
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } }
+        )
+      );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(
+      callManagedProvider({ provider: 'nano-banana-pro', prompt: 'Generate a figure' })
+    ).resolves.toMatchObject({
+      provider: 'google',
+      model: 'gemini-3-pro-image',
+      fallbackPath: [
+        'gemini-3.1-flash-image',
+        'gemini-3-pro-image',
+        'google/gemini-3.1-flash-image',
+        'google/gemini-3-pro-image',
+      ],
+    });
+    expect(fetchMock.mock.calls[3][0]).toContain('/gemini-3-pro-image:generateContent');
+  });
+
   it('does not fallback when Gemini rejects the request for safety reasons', async () => {
     enableMGA();
     const fetchMock = vi.fn().mockResolvedValue(
@@ -363,15 +568,34 @@ describe('managed MGA capability routing', () => {
     expect(fetchMock.mock.calls[2][0]).toBe('https://mga.example.com/api/v2/chat/agent');
   });
 
-  it('fails closed without MGA', async () => {
-    const fetchMock = vi.fn();
+  it('uses Google directly when MGA is not configured', async () => {
+    vi.stubEnv('MGA_BASE_URL', '');
+    vi.stubEnv('MGA_API_KEY', '');
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          candidates: [
+            {
+              content: {
+                parts: [{ inlineData: { mimeType: 'image/png', data: 'aW1hZ2U=' } }],
+              },
+            },
+          ],
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      )
+    );
     vi.stubGlobal('fetch', fetchMock);
 
-    vi.stubEnv('GEMINI_API_KEY', 'google-test-key');
+    vi.stubEnv('GOOGLE_API_KEY', 'google-test-key');
     await expect(
       callManagedProvider({ provider: 'nano-banana-pro', prompt: 'Generate a figure' })
-    ).rejects.toMatchObject({ code: 'managed_provider_unavailable', status: 503 });
-    expect(fetchMock).not.toHaveBeenCalled();
+    ).resolves.toMatchObject({
+      provider: 'google',
+      model: 'gemini-3.1-flash-image',
+      fallbackPath: ['google/gemini-3.1-flash-image'],
+    });
+    expect(fetchMock).toHaveBeenCalledOnce();
   });
 
   it('routes GPT Image editing to GPT-Image-1 with the reference image input', async () => {

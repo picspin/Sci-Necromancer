@@ -6,6 +6,10 @@ function configured(name: string): boolean {
   return Boolean(process.env[name]?.trim());
 }
 
+function googleApiKey(): string | null {
+  return process.env.GOOGLE_API_KEY?.trim() || process.env.GEMINI_API_KEY?.trim() || null;
+}
+
 function trustedProbe(request: VercelRequest): boolean {
   const expected = process.env.HEALTHCHECK_TOKEN;
   const supplied = request.headers['x-health-token'];
@@ -30,12 +34,13 @@ async function probeProviders() {
     }).catch(() => null);
     result.mga = Boolean(response?.ok);
   }
-  if (configured('GEMINI_API_KEY')) {
+  const googleKey = googleApiKey();
+  if (googleKey) {
     const response = await fetch(
       'https://generativelanguage.googleapis.com/v1beta/models?pageSize=1',
       {
         signal: AbortSignal.timeout(8_000),
-        headers: { 'x-goog-api-key': process.env.GEMINI_API_KEY! },
+        headers: { 'x-goog-api-key': googleKey },
       }
     ).catch(() => null);
     result.gemini = Boolean(response?.ok);
@@ -56,7 +61,7 @@ export default async function handler(request: VercelRequest, response: VercelRe
   const services = {
     membership: configured('SUPABASE_URL') && configured('SUPABASE_SERVICE_ROLE_KEY'),
     mga: configured('MGA_BASE_URL') && configured('MGA_API_KEY'),
-    gemini: configured('GEMINI_API_KEY'),
+    gemini: Boolean(googleApiKey()),
     openai: configured('OPENAI_API_KEY'),
     stripe:
       configured('STRIPE_SECRET_KEY') &&
