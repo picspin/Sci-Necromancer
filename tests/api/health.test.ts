@@ -29,7 +29,8 @@ describe('GET /api/health?probe=providers', () => {
     vi.stubEnv('HEALTHCHECK_TOKEN', 'health-secret');
     vi.stubEnv('MGA_BASE_URL', 'https://mga.example.com/api/v2');
     vi.stubEnv('MGA_API_KEY', 'mga-secret');
-    vi.stubEnv('GEMINI_API_KEY', 'gemini-secret');
+    vi.stubEnv('GOOGLE_API_KEY', 'google-secret');
+    vi.stubEnv('GEMINI_API_KEY', '');
     vi.stubEnv('OPENAI_API_KEY', 'openai-secret');
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(JSON.stringify({ object: 'list', data: [] }), {
@@ -58,7 +59,7 @@ describe('GET /api/health?probe=providers', () => {
     );
     expect(fetchMock).toHaveBeenCalledWith(
       'https://generativelanguage.googleapis.com/v1beta/models?pageSize=1',
-      expect.objectContaining({ headers: { 'x-goog-api-key': 'gemini-secret' } })
+      expect.objectContaining({ headers: { 'x-goog-api-key': 'google-secret' } })
     );
     expect(fetchMock).toHaveBeenCalledWith(
       'https://api.openai.com/v1/models',

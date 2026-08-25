@@ -1,5 +1,11 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { runManagedGeneration } from './managedGeneration';
+import { callManagedProvider } from './providers';
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+  vi.unstubAllGlobals();
+});
 
 describe('managed generation transaction', () => {
   it('reserves and completes one bonus task around a successful provider call', async () => {
@@ -28,6 +34,68 @@ describe('managed generation transaction', () => {
     expect(wallet.reserveTask).toHaveBeenCalledOnce();
     expect(provider).toHaveBeenCalledOnce();
     expect(wallet.settleTask).toHaveBeenCalledWith('task-1', true, true);
+  });
+
+  it('charges one task when MGA falls back internally to Google image generation', async () => {
+    vi.stubEnv('MGA_BASE_URL', 'https://mga.example.com/api/v2');
+    vi.stubEnv('MGA_API_KEY', 'mga-test-key');
+    vi.stubEnv('GOOGLE_API_KEY', 'google-test-key');
+    vi.stubEnv('GEMINI_API_KEY', '');
+    vi.stubGlobal(
+      'fetch',
+      vi
+        .fn()
+        .mockResolvedValueOnce(
+          new Response(JSON.stringify({ choices: [{ message: { content: '' } }] }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          })
+        )
+        .mockResolvedValueOnce(
+          new Response(JSON.stringify({ choices: [{ message: { content: '' } }] }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          })
+        )
+        .mockResolvedValueOnce(
+          new Response(
+            JSON.stringify({
+              candidates: [
+                {
+                  content: {
+                    parts: [{ inlineData: { mimeType: 'image/png', data: 'aW1hZ2U=' } }],
+                  },
+                },
+              ],
+            }),
+            { status: 200, headers: { 'Content-Type': 'application/json' } }
+          )
+        )
+    );
+    const wallet = {
+      reserveTask: vi
+        .fn()
+        .mockResolvedValue({ taskId: 'task-fallback', status: 'reserved', bonusBalance: 4 }),
+      continueWorkflow: vi.fn(),
+      settleTask: vi.fn().mockResolvedValue({ status: 'completed', bonusBalance: 4 }),
+    };
+
+    await expect(
+      runManagedGeneration(
+        {
+          idempotencyKey: 'request-fallback',
+          taskKind: 'image_generation',
+          provider: 'nano-banana-pro',
+          completeWorkflow: true,
+        },
+        wallet,
+        () => callManagedProvider({ provider: 'nano-banana-pro', prompt: 'Generate a figure' })
+      )
+    ).resolves.toMatchObject({ output: { provider: 'google', model: 'gemini-3.1-flash-image' } });
+
+    expect(wallet.reserveTask).toHaveBeenCalledOnce();
+    expect(wallet.settleTask).toHaveBeenCalledOnce();
+    expect(wallet.settleTask).toHaveBeenCalledWith('task-fallback', true, true);
   });
 
   it('keeps a bundled analysis workflow reserved until its generation call', async () => {
