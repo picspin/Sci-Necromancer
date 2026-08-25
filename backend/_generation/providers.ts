@@ -9,6 +9,7 @@ export interface ProviderImageInput {
 
 export interface ProviderRequest {
   provider: ManagedProvider;
+  model?: 'glm-5.2' | 'gpt-5.6-luna' | 'gemini-3.1-flash-image' | 'gemini-3-pro-image';
   prompt: string;
   images?: ProviderImageInput[];
   size?: '1024x1024' | '1024x1536' | '1536x1024';
@@ -19,6 +20,8 @@ const PROVIDER_TIMEOUT_MS = 105_000;
 const providerTimeout = (timeoutMs = PROVIDER_TIMEOUT_MS) => AbortSignal.timeout(timeoutMs);
 
 const PROVIDER_RESPONSE_LIMIT = 6_000_000;
+const MGA_TEXT_MODELS = new Set(['glm-5.2', 'gpt-5.6-luna']);
+const MGA_IMAGE_MODELS = new Set(['gemini-3.1-flash-image', 'gemini-3-pro-image']);
 
 function providerSecret(name: 'GEMINI_API_KEY' | 'OPENAI_API_KEY'): string {
   const value = process.env[name]?.trim();
@@ -207,7 +210,11 @@ async function resolveMGAImage(payload: any): Promise<{ base64: string; mimeType
 async function callMGAText(request: ProviderRequest) {
   const config = getMGAConfig();
   if (!config) return null;
-  const model = providerModel('MGA_TEXT_MODEL', 'glm-5.2');
+  const requestedModel = request.model || providerModel('MGA_TEXT_MODEL', 'glm-5.2');
+  if (!MGA_TEXT_MODELS.has(requestedModel)) {
+    throw new MemberServiceError('invalid_generation_request', 400);
+  }
+  const model = requestedModel;
   const response = await fetch(`${config.baseUrl}/chat/completions`, {
     method: 'POST',
     signal: providerTimeout(),
@@ -233,13 +240,7 @@ async function callMGAText(request: ProviderRequest) {
   return { payload: await jsonOrProviderError(response), model };
 }
 
-async function callMGAImage(request: ProviderRequest) {
-  const config = getMGAConfig();
-  if (!config) return null;
-  const imageModel =
-    request.provider === 'nano-banana-pro'
-      ? providerModel('MGA_IMAGEN_MODEL', 'imagen-4')
-      : providerModel('MGA_GPT_IMAGE_MODEL', 'gpt-image-1');
+function mgaImageContent(request: ProviderRequest): Array<Record<string, unknown>> {
   const content: Array<Record<string, unknown>> = [{ type: 'text', text: request.prompt }];
   for (const image of request.images || []) {
     content.push({
@@ -247,6 +248,64 @@ async function callMGAImage(request: ProviderRequest) {
       image_url: { url: `data:${image.mimeType};base64,${image.data}` },
     });
   }
+  return content;
+}
+
+async function callMGADirectImage(request: ProviderRequest) {
+  const config = getMGAConfig();
+  if (!config) return null;
+  const model = request.model || 'gemini-3.1-flash-image';
+  if (!MGA_IMAGE_MODELS.has(model)) {
+    throw new MemberServiceError('invalid_generation_request', 400);
+  }
+  let response: Response;
+  try {
+    response = await fetch(`${config.baseUrl}/chat/completions`, {
+      method: 'POST',
+      signal: providerTimeout(),
+      headers: {
+        Authorization: `Bearer ${config.apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model,
+        messages: [{ role: 'user', content: mgaImageContent(request) }],
+        stream: false,
+      }),
+    });
+  } catch (error) {
+    if (
+      error instanceof TypeError ||
+      (error instanceof DOMException && ['AbortError', 'TimeoutError'].includes(error.name))
+    ) {
+      return { payload: null, model, unavailable: true as const };
+    }
+    throw error;
+  }
+  if (response.status === 400) {
+    const detail = await response.text();
+    if (detail.length > PROVIDER_RESPONSE_LIMIT) {
+      throw new MemberServiceError('managed_provider_failed', 502);
+    }
+    if (/no healthy deployments/i.test(detail)) {
+      return { payload: null, model, unavailable: true as const };
+    }
+    throw new MemberServiceError('managed_provider_failed', 502);
+  }
+  if ([404, 429, 500, 502, 503, 504].includes(response.status)) {
+    await response.body?.cancel();
+    return { payload: null, model, unavailable: true as const };
+  }
+  return { payload: await jsonOrProviderError(response), model, unavailable: false as const };
+}
+
+async function callMGAImageAgentFallback(request: ProviderRequest) {
+  const config = getMGAConfig();
+  if (!config) return null;
+  const imageModel =
+    request.provider === 'nano-banana-pro'
+      ? providerModel('MGA_IMAGEN_MODEL', 'imagen-4')
+      : providerModel('MGA_GPT_IMAGE_MODEL', 'gpt-image-1');
   const response = await fetch(`${config.baseUrl}/chat/agent`, {
     method: 'POST',
     signal: providerTimeout(),
@@ -261,14 +320,14 @@ async function callMGAImage(request: ProviderRequest) {
           role: 'system',
           content: `Use the img_generator tool exactly once with ${imageModel}. Return one final image.`,
         },
-        { role: 'user', content },
+        { role: 'user', content: mgaImageContent(request) },
       ],
       stream: false,
       tool_keys: ['img_generator'],
       hidden: true,
     }),
   });
-  return jsonOrProviderError(response);
+  return { payload: await jsonOrProviderError(response), model: imageModel };
 }
 
 export async function callMGAResearchAgent(input: {
@@ -348,22 +407,66 @@ async function generateGeminiText(request: ProviderRequest): Promise<ManagedGene
 }
 
 async function generateNanoBananaImage(request: ProviderRequest): Promise<ManagedGenerationOutput> {
-  if (request.images?.length) {
-    throw new MemberServiceError('invalid_generation_request', 400);
+  const direct = await callMGADirectImage(request);
+  if (!direct) throw new MemberServiceError('managed_provider_unavailable', 503);
+  const requestedModel = direct.model;
+  if (!direct.unavailable) {
+    const image = await resolveMGAImage(direct.payload);
+    if (!image) throw new MemberServiceError('managed_provider_empty_output', 502);
+    return {
+      type: 'image',
+      ...image,
+      provider: 'mga',
+      model: direct.model,
+      requestedModel,
+      fallbackPath: [direct.model],
+      modelType: 'image-generation-model',
+    };
   }
-  const mgaPayload = await callMGAImage(request);
-  if (!mgaPayload) throw new MemberServiceError('managed_provider_unavailable', 503);
-  const image = await resolveMGAImage(mgaPayload);
+  const siblingModel =
+    requestedModel === 'gemini-3-pro-image' ? 'gemini-3.1-flash-image' : 'gemini-3-pro-image';
+  const sibling = await callMGADirectImage({ ...request, model: siblingModel });
+  if (sibling && !sibling.unavailable) {
+    const image = await resolveMGAImage(sibling.payload);
+    if (!image) throw new MemberServiceError('managed_provider_empty_output', 502);
+    return {
+      type: 'image',
+      ...image,
+      provider: 'mga',
+      model: sibling.model,
+      requestedModel,
+      fallbackPath: [requestedModel, sibling.model],
+      modelType: 'image-generation-model',
+    };
+  }
+  if (request.images?.length) throw new MemberServiceError('managed_provider_failed', 502);
+  const fallback = await callMGAImageAgentFallback(request);
+  if (!fallback) throw new MemberServiceError('managed_provider_unavailable', 503);
+  const image = await resolveMGAImage(fallback.payload);
   if (!image) throw new MemberServiceError('managed_provider_empty_output', 502);
-  return { type: 'image', ...image };
+  return {
+    type: 'image',
+    ...image,
+    provider: 'mga',
+    model: fallback.model,
+    requestedModel,
+    fallbackPath: [requestedModel, siblingModel, fallback.model],
+    modelType: 'image-generation-model',
+  };
 }
 
 async function generateOpenAIImage(request: ProviderRequest): Promise<ManagedGenerationOutput> {
-  const mgaPayload = await callMGAImage(request);
-  if (mgaPayload) {
-    const image = await resolveMGAImage(mgaPayload);
+  const mgaResult = await callMGAImageAgentFallback(request);
+  if (mgaResult) {
+    const image = await resolveMGAImage(mgaResult.payload);
     if (!image) throw new MemberServiceError('managed_provider_empty_output', 502);
-    return { type: 'image', ...image };
+    return {
+      type: 'image',
+      ...image,
+      provider: 'mga',
+      model: mgaResult.model,
+      modelType: 'image-generation-model',
+    };
   }
   const headers = { Authorization: `Bearer ${providerSecret('OPENAI_API_KEY')}` };
   const model = providerModel('OPENAI_IMAGE_MODEL', 'gpt-image-1');

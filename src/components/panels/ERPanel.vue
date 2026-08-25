@@ -53,6 +53,7 @@
           </div>
 
           <div class="space-y-3">
+            <CurrentTextModelBadge :workflow-context="workflowContext()" />
             <div class="flex flex-col sm:flex-row gap-4">
               <template v-if="abstractMode === 'standard'">
                 <button
@@ -249,6 +250,7 @@ import {
 import { useAbstract } from '@/composables/useAbstract';
 import { useI18n } from 'vue-i18n';
 import { getMemeTranslation } from '@/lib/i18n';
+import { mergeAIAssistanceRecords } from '@/lib/compliance/aiDisclosure';
 
 // Import sub-components
 import TabButton from './ISMRMPanelComponents/TabButton.vue';
@@ -256,6 +258,7 @@ import ModeSelector from './ISMRMPanelComponents/ModeSelector.vue';
 import ERAnalysisStep from './ERPanelComponents/ERAnalysisStep.vue';
 import TypeSuggestionStep from './ISMRMPanelComponents/TypeSuggestionStep.vue';
 import WorkflowReentryDialog from '@/components/membership/WorkflowReentryDialog.vue';
+import CurrentTextModelBadge from '@/components/ai/CurrentTextModelBadge.vue';
 
 const { t } = useI18n();
 const { settings, databaseService } = useSettings();
@@ -509,6 +512,7 @@ const handleGenerateCreative = async () => {
 
 const handleDeepUpdate = async () => {
   if (!generatedAbstract.value || !selectedAbstractType.value) return;
+  const previousAbstract = generatedAbstract.value;
   if (
     !(await prepareManagedTextReentry(
       workflowContext(),
@@ -553,7 +557,7 @@ Keywords: ${generatedAbstract.value.keywords.join(', ')}`;
     );
 
     result.categories = selectedCategories.value;
-    generatedAbstract.value = result;
+    generatedAbstract.value = mergeAIAssistanceRecords(previousAbstract, result);
     deepUpdateCompleted.value = true;
   } catch (e) {
     error.value = localizeError(e, t, 'errors.deep_update_failed');

@@ -197,6 +197,7 @@ export function createMemberApiClient(options: MemberApiClientOptions) {
     generate: (input: {
       idempotencyKey: string;
       provider: 'gemini-3.6-flash' | 'nano-banana-pro' | 'gpt-image-2';
+      model?: 'glm-5.2' | 'gpt-5.6-luna' | 'gemini-3.1-flash-image' | 'gemini-3-pro-image';
       operation:
         | 'analysis'
         | 'generation'
@@ -217,6 +218,8 @@ export function createMemberApiClient(options: MemberApiClientOptions) {
           mimeType?: string;
           provider?: 'mga' | 'google' | 'openai';
           model?: string;
+          requestedModel?: string;
+          fallbackPath?: string[];
           modelType?: 'large-language-model' | 'research-agent' | 'image-generation-model';
         };
         bonusBalance: number;
@@ -233,6 +236,7 @@ export function createMemberApiClient(options: MemberApiClientOptions) {
           method: 'POST',
           body: JSON.stringify({
             provider: input.provider,
+            model: input.model,
             operation: input.operation,
             workflowId: input.workflowId,
             prompt: input.prompt,

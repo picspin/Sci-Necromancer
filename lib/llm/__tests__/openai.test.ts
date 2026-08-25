@@ -150,6 +150,44 @@ describe('OpenAI LLM Service', () => {
   });
 
   describe('generateImage', () => {
+    it('uses chat completions and decodes MGA Gemini image data URLs', async () => {
+      global.fetch = vi.fn().mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            choices: [
+              {
+                message: {
+                  content: '',
+                  images: [{ image_url: { url: 'data:image/webp;base64,bWdhLWltYWdl' } }],
+                },
+              },
+            ],
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } }
+        )
+      );
+      localStorage.setItem(
+        'app-settings',
+        JSON.stringify({
+          openAIApiKey: 'mga-key',
+          openAIBaseUrl: 'https://mga.example.test/api/v2',
+          openAIImageModel: 'gemini-3.1-flash-image',
+        })
+      );
+
+      const { generateImage } = await import('@/lib/llm/openai');
+      await expect(
+        generateImage({ file: null, specs: 'diagram', base64: null }, 'clinical pathway')
+      ).resolves.toBe('data:image/webp;base64,bWdhLWltYWdl');
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        'https://mga.example.test/api/v2/chat/completions',
+        expect.objectContaining({ method: 'POST' })
+      );
+      const body = JSON.parse(String((global.fetch as any).mock.calls[0][1].body));
+      expect(body).toMatchObject({ model: 'gemini-3.1-flash-image', stream: false });
+    });
+
     it('should generate image with SiliconFlow API', async () => {
       const mockImageResponse = {
         images: [
@@ -159,10 +197,15 @@ describe('OpenAI LLM Service', () => {
         ],
       };
 
-      global.fetch = vi.fn().mockResolvedValueOnce({
-        ok: true,
-        json: async () => mockImageResponse,
-      });
+      global.fetch = vi
+        .fn()
+        .mockResolvedValueOnce({ ok: true, json: async () => mockImageResponse })
+        .mockResolvedValueOnce(
+          new Response(Uint8Array.from([1, 2, 3]), {
+            status: 200,
+            headers: { 'Content-Type': 'image/png' },
+          })
+        );
 
       const { generateImage } = await import('@/lib/llm/openai');
       localStorage.setItem(
@@ -186,10 +229,18 @@ describe('OpenAI LLM Service', () => {
     });
 
     it('does not call image MCP when the MCP capability group is disabled', async () => {
-      global.fetch = vi.fn().mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ images: [{ url: 'https://example.com/direct.png' }] }),
-      });
+      global.fetch = vi
+        .fn()
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({ images: [{ url: 'https://example.com/direct.png' }] }),
+        })
+        .mockResolvedValueOnce(
+          new Response(Uint8Array.from([1, 2, 3]), {
+            status: 200,
+            headers: { 'Content-Type': 'image/png' },
+          })
+        );
       localStorage.setItem(
         'app-settings',
         JSON.stringify({

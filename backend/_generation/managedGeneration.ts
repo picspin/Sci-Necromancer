@@ -50,6 +50,8 @@ export interface ManagedGenerationOutput {
   mimeType?: string;
   provider?: 'mga' | 'google' | 'openai';
   model?: string;
+  requestedModel?: string;
+  fallbackPath?: string[];
   modelType?: 'large-language-model' | 'research-agent' | 'image-generation-model';
 }
 

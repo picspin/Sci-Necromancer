@@ -1,18 +1,21 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import type { Settings } from '@/types';
 import { acceptAIDisclosure } from '@/lib/compliance/aiDisclosure';
+import { clearTextModelWorkflows } from '@/lib/llm/textModelWorkflow';
 
 const {
   generateContentMock,
   generateManagedTextMock,
   generateManagedResearchVerificationMock,
   canUseManagedTextMock,
+  hasManagedCreditsMock,
   canUseManagedResearchVerificationMock,
 } = vi.hoisted(() => ({
   generateContentMock: vi.fn(),
   generateManagedTextMock: vi.fn(),
   generateManagedResearchVerificationMock: vi.fn(),
   canUseManagedTextMock: vi.fn(),
+  hasManagedCreditsMock: vi.fn(),
   canUseManagedResearchVerificationMock: vi.fn(),
 }));
 vi.mock('@google/genai', () => ({
@@ -22,6 +25,7 @@ vi.mock('@google/genai', () => ({
 }));
 vi.mock('@/src/composables/useMembership', () => ({
   canUseManagedText: canUseManagedTextMock,
+  hasManagedCredits: hasManagedCreditsMock,
   canUseManagedResearchVerification: canUseManagedResearchVerificationMock,
   generateManagedText: generateManagedTextMock,
   generateManagedResearchVerification: generateManagedResearchVerificationMock,
@@ -32,8 +36,10 @@ describe('LLM Index - Provider Selection', () => {
     vi.clearAllMocks();
     vi.unstubAllGlobals();
     localStorage.clear();
+    clearTextModelWorkflows();
     acceptAIDisclosure();
     canUseManagedTextMock.mockReturnValue(true);
+    hasManagedCreditsMock.mockReturnValue(true);
     canUseManagedResearchVerificationMock.mockReturnValue(false);
     generateContentMock.mockResolvedValue({
       text: JSON.stringify({ categories: [], keywords: [] }),
@@ -89,6 +95,140 @@ describe('LLM Index - Provider Selection', () => {
     await expect(analyzeContent('test')).resolves.toBeDefined();
   });
 
+  it('keeps the OpenAI BYOK model locked from analysis through generation', async () => {
+    localStorage.setItem(
+      'app-settings',
+      JSON.stringify({
+        provider: 'openai',
+        openAIApiKey: 'test-key',
+        openAIBaseUrl: 'https://api.openai.com/v1',
+        openAITextModel: 'model-at-analysis',
+        textGenerationSource: 'byok',
+      })
+    );
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          choices: [{ message: { content: '{"categories":[],"keywords":[]}' } }],
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          choices: [
+            {
+              message: {
+                content: '{"abstract":"Draft","impact":"","synopsis":"","keywords":[]}',
+              },
+            },
+          ],
+        }),
+      });
+    vi.stubGlobal('fetch', fetchMock);
+    const { analyzeContent, generateFinalAbstract } = await import('@/lib/llm/index');
+
+    await analyzeContent('Locked BYOK source');
+    localStorage.setItem(
+      'app-settings',
+      JSON.stringify({
+        provider: 'openai',
+        openAIApiKey: 'test-key',
+        openAIBaseUrl: 'https://api.openai.com/v1',
+        openAITextModel: 'changed-after-analysis',
+        textGenerationSource: 'byok',
+      })
+    );
+    await generateFinalAbstract('Locked BYOK source', 'Standard Abstract', [], [], '', '');
+
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body).model).toBe('model-at-analysis');
+  });
+
+  it('keeps the Google BYOK model locked for a conference workflow', async () => {
+    localStorage.setItem(
+      'app-settings',
+      JSON.stringify({
+        provider: 'google',
+        googleApiKey: 'test-key',
+        model: 'gemini-at-analysis',
+        textGenerationSource: 'byok',
+      })
+    );
+    generateContentMock
+      .mockResolvedValueOnce({ text: '{"categories":[],"keywords":[]}' })
+      .mockResolvedValueOnce({
+        text: '{"abstract":"Draft","impact":"","synopsis":"","keywords":[]}',
+      });
+    const { analyzeContentForConference, generateAbstractForConference } =
+      await import('@/lib/llm/index');
+
+    const analysis = await analyzeContentForConference('Google lock source', 'ER');
+    localStorage.setItem(
+      'app-settings',
+      JSON.stringify({
+        provider: 'google',
+        googleApiKey: 'test-key',
+        model: 'gemini-changed-after-analysis',
+        textGenerationSource: 'byok',
+      })
+    );
+    await generateAbstractForConference(
+      'Google lock source',
+      'ECR Research Presentation',
+      analysis.categories,
+      analysis.keywords,
+      'ER'
+    );
+
+    expect(generateContentMock.mock.calls[0][0].model).toBe('gemini-at-analysis');
+    expect(generateContentMock.mock.calls[1][0].model).toBe('gemini-at-analysis');
+  });
+
+  it('records the backend actual model for managed analysis fallback', async () => {
+    localStorage.setItem(
+      'app-settings',
+      JSON.stringify({
+        provider: 'openai',
+        memberManagedTextEnabled: true,
+        textGenerationSource: 'managed',
+        memberManagedTextModel: 'glm-5.2',
+      })
+    );
+    generateManagedTextMock
+      .mockResolvedValueOnce({
+        text: '{"categories":[],"keywords":[]}',
+        provider: 'google',
+        model: 'gemini-3.6-flash',
+        workflowId: '77777777-7777-4777-8777-777777777777',
+        workflow: { analysisCount: 1, callCount: 1, generationCount: 0, deepUpdateCount: 0 },
+      })
+      .mockResolvedValueOnce({
+        text: '{"abstract":"Draft","impact":"","synopsis":"","keywords":[]}',
+        provider: 'mga',
+        model: 'glm-5.2',
+        workflowId: '77777777-7777-4777-8777-777777777777',
+        workflow: { analysisCount: 1, callCount: 2, generationCount: 1, deepUpdateCount: 0 },
+      });
+    const { analyzeContentForConference, generateAbstractForConference } =
+      await import('@/lib/llm/index');
+
+    const analysis = await analyzeContentForConference('Fallback source', 'ER');
+    const generated = await generateAbstractForConference(
+      'Fallback source',
+      'ECR Research Presentation',
+      analysis.categories,
+      analysis.keywords,
+      'ER'
+    );
+
+    expect(generated.aiAssistanceRecords).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ provider: 'google', model: 'gemini-3.6-flash' }),
+      ])
+    );
+  });
+
   it('requires both a key and text model before selecting BYOK', async () => {
     localStorage.setItem(
       'app-settings',
@@ -142,7 +282,7 @@ describe('LLM Index - Provider Selection', () => {
     }
   );
 
-  it('uses managed fallback only after explicit confirmation when BYOK fails', async () => {
+  it('never calls a managed text model automatically when selected BYOK fails', async () => {
     localStorage.setItem(
       'app-settings',
       JSON.stringify({
@@ -157,13 +297,34 @@ describe('LLM Index - Provider Selection', () => {
     vi.stubGlobal('confirm', confirm);
     const { analyzeContent } = await import('@/lib/llm/index');
 
-    await expect(analyzeContent('test')).resolves.toEqual({ categories: [], keywords: [] });
-    expect(confirm).toHaveBeenCalledOnce();
-    expect(confirm).toHaveBeenCalledWith(expect.stringContaining('2 credits'));
-    expect(generateManagedTextMock).toHaveBeenCalledOnce();
+    await expect(analyzeContent('test')).rejects.toThrow('byok unavailable');
+    expect(confirm).not.toHaveBeenCalled();
+    expect(generateManagedTextMock).not.toHaveBeenCalled();
   });
 
-  it('discloses the successful MGA model after an explicitly confirmed BYOK generation fallback', async () => {
+  it('blocks a member generation before MGA is called when the credit balance is insufficient', async () => {
+    hasManagedCreditsMock.mockReturnValue(false);
+    localStorage.setItem(
+      'app-settings',
+      JSON.stringify({
+        provider: 'openai',
+        memberManagedTextEnabled: true,
+        textGenerationSource: 'managed',
+        memberManagedTextModel: 'glm-5.2',
+      })
+    );
+    const openMember = vi.fn();
+    window.addEventListener('sci-necromancer:open-member', openMember, { once: true });
+    const { generateCreativeAbstract } = await import('@/lib/llm/index');
+
+    await expect(generateCreativeAbstract('Author idea')).rejects.toThrow(
+      'member_insufficient_credits'
+    );
+    expect(generateManagedTextMock).not.toHaveBeenCalled();
+    expect(openMember).toHaveBeenCalledOnce();
+  });
+
+  it('discloses the successful MGA model after an explicit member-model selection', async () => {
     localStorage.setItem(
       'app-settings',
       JSON.stringify({
@@ -171,10 +332,10 @@ describe('LLM Index - Provider Selection', () => {
         openAIApiKey: 'broken-key',
         openAITextModel: 'failed-byok-model',
         memberManagedTextEnabled: true,
+        textGenerationSource: 'managed',
+        memberManagedTextModel: 'glm-5.2',
       })
     );
-    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('byok unavailable')));
-    vi.stubGlobal('confirm', vi.fn().mockReturnValue(true));
     generateManagedTextMock.mockResolvedValueOnce({
       text: JSON.stringify({
         abstract: 'Managed fallback draft',
@@ -263,7 +424,11 @@ describe('LLM Index - Provider Selection', () => {
     expect(result.aiAssistance?.boundaries).toEqual(
       expect.arrayContaining(['factual claims', 'references', 'current submission requirements'])
     );
-    expect(result.aiAssistanceRecords).toBeUndefined();
+    expect(result.aiAssistanceRecords).toHaveLength(1);
+    expect(result.aiAssistanceRecords?.[0].model).toBe('gemini-2.5-flash');
+    expect(
+      result.aiAssistanceRecords?.some((record) => record.model === 'prompt-injected-model')
+    ).toBe(false);
   });
 
   it('labels creative generation as content generation from an author-supplied concept', async () => {
@@ -351,6 +516,94 @@ describe('LLM Index - Provider Selection', () => {
     });
   });
 
+  it('locks the analysis model through generation and releases it before deep update', async () => {
+    localStorage.setItem(
+      'app-settings',
+      JSON.stringify({
+        provider: 'openai',
+        memberManagedTextEnabled: true,
+        textGenerationSource: 'managed',
+        memberManagedTextModel: 'glm-5.2',
+      })
+    );
+    generateManagedTextMock
+      .mockResolvedValueOnce({
+        text: JSON.stringify({
+          categories: [{ name: 'Chest', type: 'main', probability: 0.9 }],
+          keywords: ['CT', 'Lung', 'Screening'],
+        }),
+        workflowId: '55555555-5555-4555-8555-555555555555',
+        workflow: { analysisCount: 1, callCount: 1, generationCount: 0, deepUpdateCount: 0 },
+      })
+      .mockResolvedValueOnce({
+        text: JSON.stringify({
+          abstract: 'Generated draft',
+          impact: '',
+          synopsis: '',
+          keywords: ['CT', 'Lung', 'Screening'],
+        }),
+        workflowId: '55555555-5555-4555-8555-555555555555',
+        workflow: { analysisCount: 1, callCount: 2, generationCount: 1, deepUpdateCount: 0 },
+        provider: 'mga',
+        model: 'glm-5.2',
+      })
+      .mockResolvedValueOnce({
+        text: JSON.stringify({
+          abstract: 'Deep update',
+          impact: '',
+          synopsis: '',
+          keywords: ['CT', 'Lung', 'Screening'],
+        }),
+        workflowId: '55555555-5555-4555-8555-555555555555',
+        workflow: { analysisCount: 1, callCount: 3, generationCount: 1, deepUpdateCount: 1 },
+        provider: 'mga',
+        model: 'gpt-5.6-luna',
+      });
+    const { analyzeContentForConference, generateAbstractForConference, generateFinalAbstract } =
+      await import('@/lib/llm/index');
+
+    const analysis = await analyzeContentForConference('Model lock source', 'ER');
+    localStorage.setItem(
+      'app-settings',
+      JSON.stringify({
+        provider: 'openai',
+        memberManagedTextEnabled: true,
+        textGenerationSource: 'managed',
+        memberManagedTextModel: 'gpt-5.6-luna',
+      })
+    );
+    const generated = await generateAbstractForConference(
+      'Model lock source',
+      'ECR Research Presentation',
+      analysis.categories,
+      analysis.keywords,
+      'ER'
+    );
+    await generateFinalAbstract(
+      'Deep update source',
+      'ECR Research Presentation',
+      analysis.categories,
+      analysis.keywords,
+      '',
+      '',
+      'deep_update',
+      'ER:Model lock source'
+    );
+
+    expect(generateManagedTextMock.mock.calls[0][0].model).toBe('glm-5.2');
+    expect(generateManagedTextMock.mock.calls[1][0].model).toBe('glm-5.2');
+    expect(generateManagedTextMock.mock.calls[2][0].model).toBe('gpt-5.6-luna');
+    expect(generated.aiAssistanceRecords).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          model: 'glm-5.2',
+          operations: ['ER content analysis and classification'],
+        }),
+        expect.objectContaining({ model: 'glm-5.2' }),
+      ])
+    );
+  });
+
   it('adds the same assistance record to conference generation through personal API', async () => {
     localStorage.setItem(
       'app-settings',
@@ -434,7 +687,7 @@ describe('LLM Index - Provider Selection', () => {
 
     expect(result.aiAssistance).toMatchObject({
       provider: 'openai',
-      providerDisplayName: 'OpenAI-compatible API (api.siliconflow.cn)',
+      providerDisplayName: 'OpenAI-compatible API (user configured; underlying model not verified)',
       model: 'vendor-model-v2',
     });
   });
@@ -558,7 +811,7 @@ describe('LLM Index - Provider Selection', () => {
     expect(generateManagedTextMock).not.toHaveBeenCalled();
   });
 
-  it('offers the independent research agent when blind-review BYOK fails', async () => {
+  it('does not spend research-agent credits when blind-review BYOK fails', async () => {
     canUseManagedTextMock.mockReturnValue(false);
     canUseManagedResearchVerificationMock.mockReturnValue(true);
     localStorage.setItem(
@@ -581,12 +834,11 @@ describe('LLM Index - Provider Selection', () => {
     vi.stubGlobal('confirm', confirm);
     const { reviewAbstractBlind } = await import('@/lib/llm/index');
 
-    await expect(reviewAbstractBlind('Verify after BYOK failure.')).resolves.toMatchObject({
-      recommendation: 'minor-revision',
-    });
-    expect(confirm).toHaveBeenCalledOnce();
-    expect(confirm).toHaveBeenCalledWith(expect.stringContaining('1 credit'));
-    expect(generateManagedResearchVerificationMock).toHaveBeenCalledOnce();
+    await expect(reviewAbstractBlind('Verify after BYOK failure.')).rejects.toThrow(
+      'byok unavailable'
+    );
+    expect(confirm).not.toHaveBeenCalled();
+    expect(generateManagedResearchVerificationMock).not.toHaveBeenCalled();
     expect(generateManagedTextMock).not.toHaveBeenCalled();
   });
 

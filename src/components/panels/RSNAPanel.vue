@@ -53,6 +53,7 @@
           </div>
 
           <div class="space-y-3">
+            <CurrentTextModelBadge :workflow-context="`RSNA:${inputText}`" />
             <div class="flex flex-col sm:flex-row gap-4">
               <template v-if="abstractMode === 'standard'">
                 <button
@@ -263,6 +264,8 @@ import TabButton from './ISMRMPanelComponents/TabButton.vue';
 import ModeSelector from './ISMRMPanelComponents/ModeSelector.vue';
 import RSNAAnalysisStep from './RSNAPanelComponents/RSNAAnalysisStep.vue';
 import WorkflowReentryDialog from '@/components/membership/WorkflowReentryDialog.vue';
+import CurrentTextModelBadge from '@/components/ai/CurrentTextModelBadge.vue';
+import { mergeAIAssistanceRecords } from '@/lib/compliance/aiDisclosure';
 
 const { settings, databaseService } = useSettings();
 const { abstractToLoad, clearLoadedAbstract } = useAbstract();
@@ -487,6 +490,7 @@ const handleGenerateCreative = async () => {
 
 const handleDeepUpdate = async () => {
   if (!generatedAbstract.value || !selectedAbstractType.value) return;
+  const previousAbstract = generatedAbstract.value;
   const workflowContext = `RSNA:${inputText.value}`;
   if (
     !(await prepareManagedTextReentry(
@@ -536,7 +540,7 @@ Keywords: ${generatedAbstract.value.keywords.join(', ')}`;
     );
 
     result.categories = selectedCategories.value;
-    generatedAbstract.value = result;
+    generatedAbstract.value = mergeAIAssistanceRecords(previousAbstract, result);
     deepUpdateCompleted.value = true;
   } catch (e) {
     error.value = localizeError(e, t, 'errors.deep_update_failed');

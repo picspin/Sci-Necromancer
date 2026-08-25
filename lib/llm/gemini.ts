@@ -26,6 +26,7 @@ import {
 } from '../conference/rsnaRules';
 import { assertBlindReviewAssessment } from '../review/blindReview';
 import { createAIAssistanceRecord } from '../compliance/aiDisclosure';
+import { getLockedTextModel } from './textModelWorkflow';
 
 // Initialize AI client lazily with API key from settings
 let aiClient: any | null = null;
@@ -175,12 +176,12 @@ async function callGeminiAPI<T>(
   prompt: string,
   _schema: object,
   apiKey?: string,
-  options: { highThinking?: boolean } = {}
+  options: { highThinking?: boolean; model?: string } = {}
 ): Promise<T> {
   try {
     const client = getAIClient(apiKey);
     const response = await client.models.generateContent({
-      model: getTextModel(),
+      model: options.model || getTextModel(),
       contents: prompt,
       ...(options.highThinking ? { config: { thinkingConfig: { thinkingLevel: 'HIGH' } } } : {}),
     });
@@ -212,7 +213,8 @@ async function callGeminiAPI<T>(
 
 export const analyzeISMRMBundle = async (
   text: string,
-  apiKey?: string
+  apiKey?: string,
+  workflowContext = text
 ): Promise<ISMRMAnalysisBundle> => {
   const [analysis, impactSynopsis, typeSuggestion] = await Promise.all([
     prompts.getAnalysisPrompt(text),
@@ -220,7 +222,9 @@ export const analyzeISMRMBundle = async (
     prompts.getAbstractTypeSuggestionPrompt(text, [], []),
   ]);
   const prompt = `${analysis}\n\n${impactSynopsis}\n\n${typeSuggestion}\n\nReturn one JSON object with exactly these top-level fields: categories, keywords, impact, synopsis, typeSuggestions. typeSuggestions must be an array.`;
-  const result = await callGeminiAPI<any>(prompt, {}, apiKey);
+  const result = await callGeminiAPI<any>(prompt, {}, apiKey, {
+    model: getLockedTextModel(workflowContext)?.model,
+  });
   return {
     categories: Array.isArray(result?.categories) ? result.categories : [],
     keywords: Array.isArray(result?.keywords) ? result.keywords : [],
@@ -230,10 +234,16 @@ export const analyzeISMRMBundle = async (
   };
 };
 
-export const analyzeContent = async (text: string, _apiKey?: string): Promise<AnalysisResult> => {
+export const analyzeContent = async (
+  text: string,
+  apiKey?: string,
+  workflowContext = text
+): Promise<AnalysisResult> => {
   const prompt = await prompts.getAnalysisPrompt(text);
   // Always read API key from app-settings for consistency
-  const raw = await callGeminiAPI<any>(prompt, analysisSchema);
+  const raw = await callGeminiAPI<any>(prompt, analysisSchema, apiKey, {
+    model: getLockedTextModel(workflowContext)?.model,
+  });
   const parsed =
     typeof raw === 'string'
       ? (() => {
@@ -282,7 +292,8 @@ export const generateFinalAbstract = async (
   impact: string,
   synopsis: string,
   _apiKey?: string,
-  managedOperation: 'generation' | 'deep_update' = 'generation'
+  managedOperation: 'generation' | 'deep_update' = 'generation',
+  workflowContext = text
 ): Promise<AbstractData> => {
   const prompt = await prompts.getFinalAbstractPrompt(
     text,
@@ -294,6 +305,7 @@ export const generateFinalAbstract = async (
   );
   return await callGeminiAPI<AbstractData>(prompt, finalAbstractSchema, _apiKey, {
     highThinking: managedOperation === 'deep_update',
+    model: getLockedTextModel(workflowContext)?.model,
   });
 };
 
@@ -314,7 +326,8 @@ export const analyzeRSNAContent = async (
   const raw = await callGeminiAPI<AnalysisResult>(
     getRSNAAnalysisPrompt(text, auxiliaryLocale),
     analysisSchema,
-    apiKey
+    apiKey,
+    { model: getLockedTextModel(`RSNA:${text}`)?.model }
   );
   return normalizeRSNAAnalysis(raw, text, auxiliaryLocale);
 };
@@ -323,12 +336,13 @@ export const generateRSNAAbstract = async (
   input: RSNAPromptInput,
   apiKey?: string,
   managedOperation: 'generation' | 'deep_update' = 'generation',
-  _workflowContext?: string
+  workflowContext = input.inputText
 ): Promise<AbstractData> => {
   const prompt =
     input.mode === 'creative' ? getRSNACreativePrompt(input) : getRSNAGenerationPrompt(input);
   const raw = await callGeminiAPI<AbstractData>(prompt, finalAbstractSchema, apiKey, {
     highThinking: managedOperation === 'deep_update',
+    model: getLockedTextModel(`RSNA:${workflowContext}`)?.model,
   });
   let draft: AbstractData = {
     title: raw.title ?? '',
@@ -342,7 +356,7 @@ export const generateRSNAAbstract = async (
     rsna: input.classification,
     aiAssistance: createAIAssistanceRecord({
       provider: 'google',
-      model: getTextModel(),
+      model: getLockedTextModel(`RSNA:${workflowContext}`)?.model || getTextModel(),
       mode: input.mode,
       operations: ['RSNA classification-aware language editing', 'structure and compliance review'],
     }),

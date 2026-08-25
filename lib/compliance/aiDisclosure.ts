@@ -111,6 +111,23 @@ export function collectAIAssistanceRecords(input: {
   });
 }
 
+export function mergeAIAssistanceRecords<
+  T extends { aiAssistance?: AIAssistanceRecord; aiAssistanceRecords?: AIAssistanceRecord[] },
+>(
+  previous: { aiAssistance?: AIAssistanceRecord; aiAssistanceRecords?: AIAssistanceRecord[] },
+  current: T
+): T & { aiAssistanceRecords: AIAssistanceRecord[] } {
+  return {
+    ...current,
+    aiAssistanceRecords: collectAIAssistanceRecords({
+      aiAssistanceRecords: [
+        ...collectAIAssistanceRecords(previous),
+        ...collectAIAssistanceRecords(current),
+      ],
+    }),
+  };
+}
+
 export const TRUSTED_AI_ASSISTANCE = Symbol('sci-necromancer.trusted-ai-assistance');
 
 export function markTrustedAIAssistance<T extends object>(value: T, record: AIAssistanceRecord): T {

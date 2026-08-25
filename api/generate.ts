@@ -25,6 +25,8 @@ import { reserveHelpUsage, settleHelpUsage } from '../backend/_help/helpUsage.js
 import { relayAnthropicRequest } from '../backend/_generation/anthropicByok.js';
 
 const PROVIDERS = new Set<ManagedProvider>(['gemini-3.6-flash', 'nano-banana-pro', 'gpt-image-2']);
+const TEXT_MODELS = new Set(['glm-5.2', 'gpt-5.6-luna']);
+const NANO_BANANA_MODELS = new Set(['gemini-3.1-flash-image', 'gemini-3-pro-image']);
 const TASK_KINDS = new Set<ManagedTaskKind>([
   'analysis_generation',
   'regeneration',
@@ -156,6 +158,7 @@ export default async function handler(request: VercelRequest, response: VercelRe
     const idempotencyKey = request.headers['idempotency-key'];
     const prompt = typeof request.body?.prompt === 'string' ? request.body.prompt.trim() : '';
     const provider = request.body?.provider as ManagedProvider;
+    const model = typeof request.body?.model === 'string' ? request.body.model : undefined;
     const operation = request.body?.operation as GenerationOperation;
     const workflowId =
       typeof request.body?.workflowId === 'string' ? request.body.workflowId : undefined;
@@ -191,6 +194,13 @@ export default async function handler(request: VercelRequest, response: VercelRe
     if (!PROVIDERS.has(provider) || !TASK_KINDS.has(taskKind)) {
       throw new MemberServiceError('invalid_generation_request', 400);
     }
+    if (
+      (provider === 'gemini-3.6-flash' && model && !TEXT_MODELS.has(model)) ||
+      (provider === 'nano-banana-pro' && model && !NANO_BANANA_MODELS.has(model)) ||
+      (provider === 'gpt-image-2' && model)
+    ) {
+      throw new MemberServiceError('invalid_generation_request', 400);
+    }
     assertGenerationRoute(provider, operation, workflowId);
     if (
       (workflowOperation && !workflowId) ||
@@ -211,9 +221,6 @@ export default async function handler(request: VercelRequest, response: VercelRe
       throw new MemberServiceError('invalid_generation_request', 400);
     }
     const images = parseImages(request.body?.images);
-    if (provider === 'nano-banana-pro' && images.length) {
-      throw new MemberServiceError('invalid_generation_request', 400);
-    }
     const admin = createAdminSupabaseClient();
     const user = await requireAuthenticatedUser(request, admin);
     const member = createMemberService(createScopedMemberRpcClient(admin, user.id));
@@ -223,6 +230,7 @@ export default async function handler(request: VercelRequest, response: VercelRe
       () =>
         callManagedProvider({
           provider,
+          model,
           prompt,
           images,
           size: request.body?.size,

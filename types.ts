@@ -321,6 +321,8 @@ export interface Settings {
   blindReview?: BlindReviewSettings;
   capabilities?: CapabilitySettings;
   memberManagedTextEnabled?: boolean;
+  textGenerationSource?: 'byok' | 'managed';
+  memberManagedTextModel?: 'glm-5.2' | 'gpt-5.6-luna';
   memberManagedImageEnabled?: boolean;
   memberManagedNanoBananaEnabled?: boolean;
   memberManagedGptImageEnabled?: boolean;
@@ -455,7 +457,11 @@ export interface ErrorBoundaryState {
 
 export type ImageGenerationMode = 'standard' | 'text-to-image';
 export type ImageGenerationProvider =
-  'google-byok' | 'openai-byok' | 'nano-banana-pro' | 'gpt-image-2';
+  | 'google-byok'
+  | 'openai-byok'
+  | 'mga-gemini-3.1-flash-image'
+  | 'mga-gemini-3-pro-image'
+  | 'gpt-image-2';
 
 export type JournalStyleId =
   'lancet' | 'nature' | 'nejm' | 'science' | 'jama-bmj' | 'radiology' | 'ieee' | 'cell' | 'pnas';
@@ -503,10 +509,18 @@ export interface ImageGenerationState {
   specsState: ImageSpecsState;
   abstractIntent: SavedAbstract | null; // Selected from Abstract Manager for text-to-image
   generatedImage: string | null;
+  provenance: ImageGenerationProvenance | null;
+  byokFailureProvider: 'google-byok' | 'openai-byok' | null;
   isLoading: boolean;
   loadingMessage: string;
   error: string | null;
   zoomLevel: number;
+}
+
+export interface ImageGenerationProvenance {
+  requestedModel: string;
+  actualModel: string;
+  fallbackPath: string[];
 }
 
 // Autocomplete suggestion item

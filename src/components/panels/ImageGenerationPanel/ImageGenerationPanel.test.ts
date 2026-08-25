@@ -4,42 +4,47 @@ import { describe, expect, it, vi } from 'vitest';
 import en from '../../../../public/locales/en/translation.json';
 import ImageGenerationPanel from './ImageGenerationPanel.vue';
 
-const { generateImage, setImageProvider, panelState, providerState } = vi.hoisted(() => ({
-  generateImage: vi.fn(),
-  setImageProvider: vi.fn(),
-  providerState: {
-    googleAvailable: true,
-    openAIAvailable: true,
-    googleModelId: 'gemini-3-pro-image' as string | null,
-    openAIModelId: 'seedream-1.5' as string | null,
-    googleSupportsEditing: true,
-    openAISupportsEditing: true,
-    nanoAvailable: true,
-  },
-  panelState: {
-    mode: 'standard',
-    uploadedImages: [],
-    abstractIntent: null,
-    generatedImage: null,
-    isLoading: false,
-    loadingMessage: '',
-    error: null,
-    zoomLevel: 100,
-    imageProvider: 'google-byok',
-    specsState: {
-      rawInput: 'Create a scientific figure',
-      customInstructions: 'Create a scientific figure',
-      parsedFields: [],
-      jsonOutput: '{}',
-      selectedJournalStyle: 'nature',
-      selectedSchematicLayout: 'modular-grid',
-      layoutManuallySelected: false,
-      cursorPosition: 0,
-      showSuggestions: false,
-      suggestions: [],
+const { generateImage, retryByokFailureWithMember, setImageProvider, panelState, providerState } =
+  vi.hoisted(() => ({
+    generateImage: vi.fn(),
+    retryByokFailureWithMember: vi.fn(),
+    setImageProvider: vi.fn(),
+    providerState: {
+      googleAvailable: true,
+      openAIAvailable: true,
+      googleModelId: 'gemini-3-pro-image' as string | null,
+      openAIModelId: 'seedream-1.5' as string | null,
+      googleSupportsEditing: true,
+      openAISupportsEditing: true,
+      nanoAvailable: true,
+      gptAvailable: false,
     },
-  },
-}));
+    panelState: {
+      mode: 'standard',
+      uploadedImages: [],
+      abstractIntent: null,
+      generatedImage: null,
+      provenance: null,
+      byokFailureProvider: null as 'google-byok' | 'openai-byok' | null,
+      isLoading: false,
+      loadingMessage: '',
+      error: null,
+      zoomLevel: 100,
+      imageProvider: 'google-byok',
+      specsState: {
+        rawInput: 'Create a scientific figure',
+        customInstructions: 'Create a scientific figure',
+        parsedFields: [],
+        jsonOutput: '{}',
+        selectedJournalStyle: 'nature',
+        selectedSchematicLayout: 'modular-grid',
+        layoutManuallySelected: false,
+        cursorPosition: 0,
+        showSuggestions: false,
+        suggestions: [],
+      },
+    },
+  }));
 
 vi.mock('@/composables/useImageGeneration', async () => {
   const { computed } = await vi.importActual<typeof import('vue')>('vue');
@@ -56,7 +61,7 @@ vi.mock('@/composables/useImageGeneration', async () => {
       googleByokAvailable: computed(() => providerState.googleAvailable),
       openAIByokAvailable: computed(() => providerState.openAIAvailable),
       nanoBananaAvailable: computed(() => providerState.nanoAvailable),
-      gptImageAvailable: computed(() => false),
+      gptImageAvailable: computed(() => providerState.gptAvailable),
       googleByokModelId: computed(() => providerState.googleModelId),
       openAIByokModelId: computed(() => providerState.openAIModelId),
       googleByokSupportsEditing: computed(() => providerState.googleSupportsEditing),
@@ -76,6 +81,7 @@ vi.mock('@/composables/useImageGeneration', async () => {
       selectJournalStyle: vi.fn(),
       selectSchematicLayout: vi.fn(),
       generateImage,
+      retryByokFailureWithMember,
       zoomIn: vi.fn(),
       zoomOut: vi.fn(),
       resetZoom: vi.fn(),
@@ -110,24 +116,17 @@ describe('ImageGenerationPanel provider controls', () => {
     expect(
       (
         screen.getByRole('option', {
-          name: '🍌 Nano Banana · Imagen 4 · Member · 2 credits',
+          name: '🍌 Gemini 3 Pro Image · Member · 2 credits',
         }) as HTMLOptionElement
       ).disabled
     ).toBe(false);
     expect(
       (
         screen.getByRole('option', {
-          name: '🍌 Gemini 3 Pro Image · awaiting MGA deployment',
+          name: '🍌 Gemini 3.1 Flash Image · Member · 2 credits',
         }) as HTMLOptionElement
       ).disabled
-    ).toBe(true);
-    expect(
-      (
-        screen.getByRole('option', {
-          name: '🍌 Gemini 3.1 Flash Image · awaiting MGA deployment',
-        }) as HTMLOptionElement
-      ).disabled
-    ).toBe(true);
+    ).toBe(false);
     expect(screen.getByRole('option', { name: /GPT-Image · Member · 2 credits/ })).toBeTruthy();
     await fireEvent.update(screen.getByLabelText('Image provider'), 'openai-byok');
     expect(setImageProvider).toHaveBeenCalledWith('openai-byok');
@@ -169,7 +168,7 @@ describe('ImageGenerationPanel provider controls', () => {
     providerState.openAIModelId = 'seedream-1.5';
   });
 
-  it('disables generation-only Imagen 4 and future MGA placeholders in image editing mode', () => {
+  it('keeps deployed member Gemini image editing models available in editing mode', () => {
     providerState.googleSupportsEditing = false;
     panelState.mode = 'standard';
 
@@ -193,18 +192,56 @@ describe('ImageGenerationPanel provider controls', () => {
     expect(
       (
         screen.getByRole('option', {
-          name: '🍌 Nano Banana · Imagen 4 · Member · 2 credits · text-to-image only',
+          name: '🍌 Gemini 3 Pro Image · Member · 2 credits',
         }) as HTMLOptionElement
       ).disabled
-    ).toBe(true);
-    expect(
-      (
-        screen.getByRole('option', {
-          name: '🍌 Gemini 3 Pro Image · awaiting MGA deployment',
-        }) as HTMLOptionElement
-      ).disabled
-    ).toBe(true);
+    ).toBe(false);
 
     providerState.googleSupportsEditing = true;
+  });
+
+  it('offers an explicit member retry after BYOK fails instead of switching automatically', async () => {
+    panelState.byokFailureProvider = 'google-byok';
+
+    render(ImageGenerationPanel, {
+      global: {
+        plugins: [i18n],
+        stubs: {
+          TemplateButtons: true,
+          ImageSpecsForm: true,
+          StackedImagePreview: true,
+          ImageCanvas: true,
+          AbstractSelector: true,
+        },
+      },
+    });
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Switch to member model and retry' }));
+    expect(retryByokFailureWithMember).toHaveBeenCalledOnce();
+    panelState.byokFailureProvider = null;
+  });
+
+  it('provides a member CTA when image credits or authentication are unavailable', async () => {
+    providerState.nanoAvailable = false;
+    providerState.gptAvailable = false;
+    const openMember = vi.fn();
+    window.addEventListener('sci-necromancer:open-member', openMember, { once: true });
+
+    render(ImageGenerationPanel, {
+      global: {
+        plugins: [i18n],
+        stubs: {
+          TemplateButtons: true,
+          ImageSpecsForm: true,
+          StackedImagePreview: true,
+          ImageCanvas: true,
+          AbstractSelector: true,
+        },
+      },
+    });
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Sign in or get credits' }));
+    expect(openMember).toHaveBeenCalledOnce();
+    providerState.nanoAvailable = true;
   });
 });

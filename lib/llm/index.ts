@@ -22,6 +22,7 @@ import {
   RSNA_CATEGORIES,
 } from '../conference/rsnaRules';
 import {
+  collectAIAssistanceRecords,
   createAIAssistanceRecord,
   getTrustedAIAssistance,
   requireAIDisclosureAcceptance,
@@ -29,16 +30,27 @@ import {
 import {
   canUseManagedText,
   canUseManagedResearchVerification,
+  hasManagedCredits,
   generateManagedResearchVerification,
   generateManagedText,
 } from '../../src/composables/useMembership';
 import { assertBlindReviewAssessment } from '../review/blindReview';
-import { resolveTextRoute } from './capabilityRouting';
+import { resolveTextRoute, selectedByokTextModel } from './capabilityRouting';
 import {
   enabledMGAResearchToolIds,
   hasEnabledMGAResearchAgent,
 } from '../capabilities/managedResearchCapabilities';
-import { managedConferenceContext } from './managedTextWorkflow';
+import { getManagedAnalysisRetryNotice, managedConferenceContext } from './managedTextWorkflow';
+import { announceByokTextFailure } from './modelEvents';
+import { openMemberPanel } from '../../src/services/memberCta';
+import {
+  completeTextModelGeneration,
+  getLockedTextModel,
+  getTextWorkflowAssistance,
+  lockTextModelForAnalysis,
+  recordTextWorkflowAssistance,
+  type TextModelSnapshot,
+} from './textModelWorkflow';
 
 // Export writing style utilities
 export {
@@ -64,13 +76,26 @@ const getSettings = (): Partial<Settings> => {
   return {};
 };
 
-const getProvider = (): AIProvider => getSettings().provider || 'google';
-
-const getTextRoute = () => {
+const getTextRoute = (workflowContext?: string) => {
   const rawSettings = getSettings();
   const settings = { ...rawSettings, provider: rawSettings.provider || 'google' } as Settings;
+  const locked = workflowContext ? getLockedTextModel(workflowContext) : null;
+  if (locked?.source === 'managed') {
+    settings.textGenerationSource = 'managed';
+    settings.memberManagedTextEnabled = true;
+    settings.memberManagedTextModel = locked.model === 'gpt-5.6-luna' ? 'gpt-5.6-luna' : 'glm-5.2';
+  } else if (locked?.source === 'byok' && locked.provider !== 'mga') {
+    settings.textGenerationSource = 'byok';
+    settings.provider = locked.provider;
+    if (locked.provider === 'google') settings.model = locked.model;
+    if (locked.provider === 'openai') settings.openAITextModel = locked.model;
+    if (locked.provider === 'anthropic') settings.anthropicTextModel = locked.model;
+  }
   return { settings, route: resolveTextRoute(settings, canUseManagedText()) };
 };
+
+const getProvider = (workflowContext?: string): AIProvider =>
+  getTextRoute(workflowContext).settings.provider || 'google';
 
 const compatibleProviderDisplayName = (
   baseUrl: string | undefined,
@@ -85,19 +110,30 @@ const compatibleProviderDisplayName = (
     if (hostname === officialHostname || hostname.endsWith(`.${officialHostname}`)) {
       return officialName;
     }
-    return `${protocolName} (${hostname})`;
+    return `${protocolName} (user configured; underlying model not verified)`;
   } catch {
-    return `configured ${protocolName}`;
+    return `${protocolName} (user configured; underlying model not verified)`;
   }
 };
 
-const currentTextModel = (): Pick<
-  AIAssistanceRecord,
-  'provider' | 'providerDisplayName' | 'model'
-> => {
-  const { settings, route } = getTextRoute();
+const currentTextModel = (
+  workflowContext?: string
+): Pick<AIAssistanceRecord, 'provider' | 'providerDisplayName' | 'model'> => {
+  const locked = workflowContext ? getLockedTextModel(workflowContext) : null;
+  if (locked) {
+    return {
+      provider: locked.provider,
+      providerDisplayName: locked.providerDisplayName,
+      model: locked.model,
+    };
+  }
+  const { settings, route } = getTextRoute(workflowContext);
   if (route === 'managed') {
-    return { provider: 'mga', providerDisplayName: 'MGA', model: 'MGA managed text model' };
+    return {
+      provider: 'mga',
+      providerDisplayName: 'MGA',
+      model: settings.memberManagedTextModel || 'glm-5.2',
+    };
   }
   if (settings.provider === 'anthropic') {
     return {
@@ -108,7 +144,7 @@ const currentTextModel = (): Pick<
         'Anthropic',
         'Anthropic Messages-compatible API'
       ),
-      model: settings.anthropicTextModel || 'claude-sonnet-4-5',
+      model: selectedByokTextModel(settings) || 'claude-sonnet-4-5',
     };
   }
   if (settings.provider === 'openai') {
@@ -120,46 +156,105 @@ const currentTextModel = (): Pick<
         'OpenAI',
         'OpenAI-compatible API'
       ),
-      model: settings.openAITextModel || 'gpt-4o',
+      model: selectedByokTextModel(settings) || 'gpt-4o',
     };
   }
   return {
     provider: 'google',
     providerDisplayName: 'Google',
-    model: settings.model || 'gemini-2.5-pro',
+    model: selectedByokTextModel(settings) || 'gemini-2.5-pro',
   };
+};
+
+const currentTextSnapshot = (): TextModelSnapshot | null => {
+  const { route } = getTextRoute();
+  if (route === 'unavailable') return null;
+  const identity = currentTextModel();
+  return {
+    source: route === 'managed' ? 'managed' : 'byok',
+    provider: identity.provider,
+    providerDisplayName: identity.providerDisplayName,
+    model: identity.model,
+  };
+};
+
+const lockCurrentTextModel = (workflowContext: string): TextModelSnapshot | null => {
+  const snapshot = currentTextSnapshot();
+  return snapshot ? lockTextModelForAnalysis(workflowContext, snapshot) : null;
+};
+
+const requireManagedCredits = (required: number, workflowContext?: string): void => {
+  if (getTextRoute(workflowContext).route !== 'managed' || hasManagedCredits(required)) return;
+  openMemberPanel();
+  throw new Error('member_insufficient_credits');
+};
+
+const requireAnalysisCredits = (workflowContext: string): void => {
+  if (getManagedAnalysisRetryNotice(workflowContext) === 'charge_applies') {
+    requireManagedCredits(1, workflowContext);
+  }
+};
+
+const runAndRecordAnalysis = async <T>(
+  workflowContext: string,
+  operations: string[],
+  run: () => Promise<T>
+): Promise<T> => {
+  requireAnalysisCredits(workflowContext);
+  const result = await run();
+  const trustedRecord =
+    result && typeof result === 'object' ? getTrustedAIAssistance(result as object) : undefined;
+  const identity = trustedRecord ?? currentTextModel(workflowContext);
+  recordTextWorkflowAssistance(
+    workflowContext,
+    createAIAssistanceRecord({
+      ...identity,
+      modelType: trustedRecord?.modelType,
+      mode: 'standard',
+      operations,
+      methodsDisclosureRequired: trustedRecord?.methodsDisclosureRequired,
+      generatedAt: trustedRecord?.generatedAt,
+    })
+  );
+  return result;
 };
 
 const withAIAssistance = (
   result: AbstractData,
   mode: 'standard' | 'creative',
-  operations: string[]
+  operations: string[],
+  workflowContext?: string
 ): AbstractData => {
   const trustedManagedRecord = getTrustedAIAssistance(result);
-  const identity = trustedManagedRecord ?? currentTextModel();
+  const identity = trustedManagedRecord ?? currentTextModel(workflowContext);
   const {
     aiAssistance: _untrustedAssistance,
     aiAssistanceRecords: _untrustedRecords,
     ...safeResult
   } = result;
+  const currentRecord = createAIAssistanceRecord({
+    provider: identity.provider,
+    providerDisplayName: identity.providerDisplayName,
+    model: identity.model,
+    modelType: trustedManagedRecord?.modelType,
+    mode,
+    operations,
+    methodsDisclosureRequired: trustedManagedRecord?.methodsDisclosureRequired,
+    generatedAt: trustedManagedRecord?.generatedAt,
+  });
+  const priorRecords = workflowContext ? getTextWorkflowAssistance(workflowContext) : [];
   return {
     ...safeResult,
-    aiAssistance: createAIAssistanceRecord({
-      provider: identity.provider,
-      providerDisplayName: identity.providerDisplayName,
-      model: identity.model,
-      modelType: trustedManagedRecord?.modelType,
-      mode,
-      operations,
-      methodsDisclosureRequired: trustedManagedRecord?.methodsDisclosureRequired,
-      generatedAt: trustedManagedRecord?.generatedAt,
+    aiAssistance: currentRecord,
+    aiAssistanceRecords: collectAIAssistanceRecords({
+      aiAssistanceRecords: [...priorRecords, currentRecord],
     }),
   };
 };
 
-const getApiKey = (): string | undefined => {
+const getApiKey = (workflowContext?: string): string | undefined => {
   try {
-    const { settings, route } = getTextRoute();
+    const { settings, route } = getTextRoute(workflowContext);
     if (route !== 'byok') return undefined;
     if (settings.provider === 'openai') return settings.openAIApiKey;
     if (settings.provider === 'anthropic') return settings.anthropicApiKey;
@@ -170,9 +265,9 @@ const getApiKey = (): string | undefined => {
   return undefined;
 };
 
-const getService = (allowManagedText = true) => {
-  const { route } = getTextRoute();
-  const provider = getProvider();
+const getService = (allowManagedText = true, workflowContext?: string) => {
+  const { route } = getTextRoute(workflowContext);
+  const provider = getProvider(workflowContext);
   if (route === 'unavailable' || (route === 'managed' && !allowManagedText)) {
     throw new Error('llm.api_key_missing');
   }
@@ -184,40 +279,28 @@ const getService = (allowManagedText = true) => {
   return gemini;
 };
 
-async function withExplicitManagedFallback<T>(
-  apiKey: string | undefined,
-  runSelectedByok: () => Promise<T>,
-  runManaged: () => Promise<T>,
-  managedAvailable: () => boolean = canUseManagedText,
-  creditCost = 2
-): Promise<T> {
+async function runSelectedByok<T>(run: () => Promise<T>, workflowContext?: string): Promise<T> {
   try {
-    return await runSelectedByok();
+    return await run();
   } catch (byokError) {
-    if (!apiKey || !managedAvailable() || typeof globalThis.confirm !== 'function') {
-      throw byokError;
-    }
-    const isChinese = getAuxiliaryLocale() === 'zh';
-    const approved = globalThis.confirm(
-      isChinese
-        ? `个人 API 调用失败。是否改用会员托管模型并消耗 ${creditCost} 学分？取消则不调用托管模型，也不扣费。`
-        : `Your personal API call failed. Use the managed member model for ${creditCost} ${creditCost === 1 ? 'credit' : 'credits'}? Cancel makes no managed call and incurs no charge.`
-    );
-    if (!approved) throw byokError;
-    return runManaged();
+    announceByokTextFailure(workflowContext);
+    throw byokError;
   }
 }
 
 export const analyzeISMRMBundle = async (text: string): Promise<ISMRMAnalysisBundle> => {
   requireAIDisclosureAcceptance();
-  const apiKey = getApiKey();
-  const service = getService();
   const workflowContext = managedConferenceContext('ISMRM', text);
-  if (!apiKey) return openai.analyzeISMRMBundle(text, undefined, workflowContext, true);
-  return withExplicitManagedFallback(
-    apiKey,
-    () => service.analyzeISMRMBundle(text, apiKey),
-    () => openai.analyzeISMRMBundle(text, undefined, workflowContext, true)
+  lockCurrentTextModel(workflowContext);
+  const apiKey = getApiKey(workflowContext);
+  const service = getService(true, workflowContext);
+  return runAndRecordAnalysis(workflowContext, ['ISMRM content analysis'], () =>
+    !apiKey
+      ? openai.analyzeISMRMBundle(text, undefined, workflowContext, true)
+      : runSelectedByok(
+          () => service.analyzeISMRMBundle(text, apiKey, workflowContext),
+          workflowContext
+        )
   );
 };
 
@@ -228,24 +311,18 @@ export async function reviewAbstractBlind(prompt: string): Promise<BlindReviewMo
   requireAIDisclosureAcceptance();
   const apiKey = getApiKey();
   if (apiKey) {
-    return withExplicitManagedFallback(
-      apiKey,
-      async () => {
-        const assessment = await getService(false).reviewAbstractBlind(prompt, apiKey);
-        const identity = currentTextModel();
-        return {
-          ...assessment,
-          aiAssistance: createAIAssistanceRecord({
-            ...identity,
-            mode: 'standard',
-            operations: ['independent abstract review'],
-          }),
-        };
-      },
-      () => runManagedBlindReview(prompt),
-      () => canUseManagedText() || canUseManagedResearchVerification(),
-      1
-    );
+    return runSelectedByok(async () => {
+      const assessment = await getService(false).reviewAbstractBlind(prompt, apiKey);
+      const identity = currentTextModel();
+      return {
+        ...assessment,
+        aiAssistance: createAIAssistanceRecord({
+          ...identity,
+          mode: 'standard',
+          operations: ['independent abstract review'],
+        }),
+      };
+    });
   }
   return runManagedBlindReview(prompt);
 }
@@ -264,6 +341,10 @@ async function runManagedBlindReview(prompt: string): Promise<BlindReviewModelAs
     (!useResearchAgent && !canUseManagedText())
   ) {
     throw new Error('llm.api_key_missing');
+  }
+  if (!hasManagedCredits(1)) {
+    openMemberPanel();
+    throw new Error('member_insufficient_credits');
   }
   const result = useResearchAgent
     ? await generateManagedResearchVerification({
@@ -296,13 +377,13 @@ async function runManagedBlindReview(prompt: string): Promise<BlindReviewModelAs
 
 export const analyzeContent = async (text: string): Promise<AnalysisResult> => {
   requireAIDisclosureAcceptance();
-  const apiKey = getApiKey();
-  const service = getService();
-  if (!apiKey) return openai.analyzeContent(text, undefined, text, true);
-  return withExplicitManagedFallback(
-    apiKey,
-    () => service.analyzeContent(text, apiKey),
-    () => openai.analyzeContent(text, undefined, text, true)
+  lockCurrentTextModel(text);
+  const apiKey = getApiKey(text);
+  const service = getService(true, text);
+  return runAndRecordAnalysis(text, ['content analysis'], () =>
+    !apiKey
+      ? openai.analyzeContent(text, undefined, text, true)
+      : runSelectedByok(() => service.analyzeContent(text, apiKey, text), text)
   );
 };
 
@@ -339,8 +420,9 @@ export const generateFinalAbstract = async (
   workflowContext = text
 ): Promise<AbstractData> => {
   requireAIDisclosureAcceptance();
-  const apiKey = getApiKey();
-  const service = getService();
+  requireManagedCredits(1, workflowContext);
+  const apiKey = getApiKey(workflowContext);
+  const service = getService(true, workflowContext);
   const run = () =>
     service.generateFinalAbstract(
       text,
@@ -366,38 +448,29 @@ export const generateFinalAbstract = async (
         workflowContext,
         true
       )
-    : await withExplicitManagedFallback(apiKey, run, () =>
-        openai.generateFinalAbstract(
-          text,
-          type,
-          categories,
-          keywords,
-          impact,
-          synopsis,
-          undefined,
-          managedOperation,
-          workflowContext,
-          true
-        )
-      );
-  return withAIAssistance(result, 'standard', [
-    'abstract drafting',
-    'language revision',
-    managedOperation === 'deep_update' ? 'deep revision' : 'structure and compliance review',
-  ]);
+    : await runSelectedByok(run, workflowContext);
+  const assisted = withAIAssistance(
+    result,
+    'standard',
+    [
+      'abstract drafting',
+      'language revision',
+      managedOperation === 'deep_update' ? 'deep revision' : 'structure and compliance review',
+    ],
+    workflowContext
+  );
+  completeTextModelGeneration(workflowContext);
+  return assisted;
 };
 
 export const generateCreativeAbstract = async (coreIdea: string): Promise<AbstractData> => {
   requireAIDisclosureAcceptance();
+  requireManagedCredits(1);
   const apiKey = getApiKey();
   const service = getService();
   const result = !apiKey
     ? await openai.generateCreativeAbstract(coreIdea, undefined, true)
-    : await withExplicitManagedFallback(
-        apiKey,
-        () => service.generateCreativeAbstract(coreIdea, apiKey),
-        () => openai.generateCreativeAbstract(coreIdea, undefined, true)
-      );
+    : await runSelectedByok(() => service.generateCreativeAbstract(coreIdea, apiKey));
   return withAIAssistance(result, 'creative', [
     'content generation from an author-supplied concept',
     'language drafting',
@@ -435,36 +508,34 @@ export const analyzeContentForConference = async (
   conference: Conference
 ): Promise<AnalysisResult> => {
   requireAIDisclosureAcceptance();
-  const apiKey = getApiKey();
-  const service = getService();
   const managedContext = managedConferenceContext(conference, text);
-  if (conference === 'RSNA') {
-    const locale = getAuxiliaryLocale();
-    const run = () => service.analyzeRSNAContent(text, apiKey, locale);
-    if (!apiKey) return openai.analyzeRSNAContent(text, undefined, locale, true);
-    return withExplicitManagedFallback(apiKey, run, () =>
-      openai.analyzeRSNAContent(text, undefined, locale, true)
-    );
-  }
-  if (service === openai || service === anthropic) {
-    const run = () => service.analyzeContent(text, apiKey, managedContext);
-    if (!apiKey) return openai.analyzeContent(text, undefined, managedContext, true);
-    return withExplicitManagedFallback(apiKey, run, () =>
-      openai.analyzeContent(text, undefined, managedContext, true)
-    );
-  }
-  if ('analyzeContentForConference' in service) {
-    const run = () => (service as any).analyzeContentForConference(text, conference);
-    if (!apiKey) return openai.analyzeContent(text, undefined, managedContext, true);
-    return withExplicitManagedFallback(apiKey, run, () =>
-      openai.analyzeContent(text, undefined, managedContext, true)
-    );
-  }
-  // Fallback to regular analysis
-  const run = () => service.analyzeContent(text, apiKey);
-  if (!apiKey) return openai.analyzeContent(text, undefined, managedContext, true);
-  return withExplicitManagedFallback(apiKey, run, () =>
-    openai.analyzeContent(text, undefined, managedContext, true)
+  lockCurrentTextModel(managedContext);
+  const apiKey = getApiKey(managedContext);
+  const service = getService(true, managedContext);
+  return runAndRecordAnalysis(
+    managedContext,
+    [`${conference} content analysis and classification`],
+    async () => {
+      if (conference === 'RSNA') {
+        const locale = getAuxiliaryLocale();
+        const run = () => service.analyzeRSNAContent(text, apiKey, locale);
+        if (!apiKey) return openai.analyzeRSNAContent(text, undefined, locale, true);
+        return runSelectedByok(run, managedContext);
+      }
+      if (service === openai || service === anthropic) {
+        const run = () => service.analyzeContent(text, apiKey, managedContext);
+        if (!apiKey) return openai.analyzeContent(text, undefined, managedContext, true);
+        return runSelectedByok(run, managedContext);
+      }
+      if ('analyzeContentForConference' in service) {
+        const run = () => (service as any).analyzeContentForConference(text, conference);
+        if (!apiKey) return openai.analyzeContent(text, undefined, managedContext, true);
+        return runSelectedByok(run, managedContext);
+      }
+      const run = () => service.analyzeContent(text, apiKey, managedContext);
+      if (!apiKey) return openai.analyzeContent(text, undefined, managedContext, true);
+      return runSelectedByok(run, managedContext);
+    }
   );
 };
 
@@ -479,14 +550,24 @@ export const generateAbstractForConference = async (
   workflowContext = text
 ): Promise<AbstractData> => {
   requireAIDisclosureAcceptance();
-  const apiKey = getApiKey();
-  const service = getService();
-  const finalize = (result: AbstractData) =>
-    withAIAssistance(result, 'standard', [
-      `${conference} classification-informed abstract drafting`,
-      'language revision',
-      managedOperation === 'deep_update' ? 'deep revision' : 'structure and compliance review',
-    ]);
+  const lockedContext = managedConferenceContext(conference, workflowContext);
+  requireManagedCredits(1, lockedContext);
+  const apiKey = getApiKey(lockedContext);
+  const service = getService(true, lockedContext);
+  const finalize = (result: AbstractData) => {
+    const assisted = withAIAssistance(
+      result,
+      'standard',
+      [
+        `${conference} classification-informed abstract drafting`,
+        'language revision',
+        managedOperation === 'deep_update' ? 'deep revision' : 'structure and compliance review',
+      ],
+      lockedContext
+    );
+    completeTextModelGeneration(lockedContext);
+    return assisted;
+  };
   if (conference === 'RSNA') {
     const auxiliaryLocale = getAuxiliaryLocale();
     const category = categories[0]?.name;
@@ -539,15 +620,7 @@ export const generateAbstractForConference = async (
           workflowContext,
           true
         )
-      : await withExplicitManagedFallback(apiKey, run, () =>
-          openai.generateRSNAAbstract(
-            promptInput,
-            undefined,
-            managedOperation,
-            workflowContext,
-            true
-          )
-        );
+      : await runSelectedByok(run, lockedContext);
     return finalize(result);
   }
   if ('generateAbstractForConference' in service) {
@@ -562,7 +635,6 @@ export const generateAbstractForConference = async (
     );
   }
   if (service === openai || service === anthropic) {
-    const context = managedConferenceContext(conference, workflowContext);
     const run = () =>
       service.generateFinalAbstract(
         text,
@@ -573,7 +645,7 @@ export const generateAbstractForConference = async (
         '',
         apiKey,
         managedOperation,
-        context
+        lockedContext
       );
     const result = !apiKey
       ? await openai.generateFinalAbstract(
@@ -585,27 +657,13 @@ export const generateAbstractForConference = async (
           '',
           undefined,
           managedOperation,
-          context,
+          lockedContext,
           true
         )
-      : await withExplicitManagedFallback(apiKey, run, () =>
-          openai.generateFinalAbstract(
-            text,
-            type,
-            categories,
-            keywords,
-            '',
-            '',
-            undefined,
-            managedOperation,
-            context,
-            true
-          )
-        );
+      : await runSelectedByok(run, lockedContext);
     return finalize(result);
   }
   // Fallback to regular generation
-  const context = managedConferenceContext(conference, workflowContext);
   const run = () =>
     service.generateFinalAbstract(
       text,
@@ -616,7 +674,7 @@ export const generateAbstractForConference = async (
       '',
       apiKey,
       managedOperation,
-      context
+      lockedContext
     );
   const result = !apiKey
     ? await openai.generateFinalAbstract(
@@ -628,23 +686,10 @@ export const generateAbstractForConference = async (
         '',
         undefined,
         managedOperation,
-        context,
+        lockedContext,
         true
       )
-    : await withExplicitManagedFallback(apiKey, run, () =>
-        openai.generateFinalAbstract(
-          text,
-          type,
-          categories,
-          keywords,
-          '',
-          '',
-          undefined,
-          managedOperation,
-          context,
-          true
-        )
-      );
+    : await runSelectedByok(run, lockedContext);
   return finalize(result);
 };
 
@@ -656,6 +701,7 @@ export const generateCreativeAbstractForConference = async (
   keywords: string[] = []
 ): Promise<AbstractData> => {
   requireAIDisclosureAcceptance();
+  requireManagedCredits(1);
   const apiKey = getApiKey();
   const service = getService();
   const finalize = (result: AbstractData) =>
@@ -722,29 +768,21 @@ export const generateCreativeAbstractForConference = async (
     };
     const result = !apiKey
       ? await execute(openai, true)
-      : await withExplicitManagedFallback(
-          apiKey,
-          () => execute(service),
-          () => execute(openai, true)
-        );
+      : await runSelectedByok(() => execute(service));
     return finalize(result);
   }
   if ('generateCreativeAbstractForConference' in service) {
-    const run = () =>
+    const run = (): Promise<AbstractData> =>
       (service as any).generateCreativeAbstractForConference(coreIdea, conference, apiKey);
     const result = !apiKey
       ? await openai.generateCreativeAbstract(coreIdea, undefined, true)
-      : await withExplicitManagedFallback(apiKey, run, () =>
-          openai.generateCreativeAbstract(coreIdea, undefined, true)
-        );
+      : await runSelectedByok(run);
     return finalize(result);
   }
   // Fallback to regular creative generation
   const run = () => service.generateCreativeAbstract(coreIdea, apiKey);
   const result = !apiKey
     ? await openai.generateCreativeAbstract(coreIdea, undefined, true)
-    : await withExplicitManagedFallback(apiKey, run, () =>
-        openai.generateCreativeAbstract(coreIdea, undefined, true)
-      );
+    : await runSelectedByok(run);
   return finalize(result);
 };

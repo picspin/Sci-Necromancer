@@ -16,6 +16,17 @@ export function hasTextByok(settings: Settings): boolean {
   }
 }
 
+export function selectedByokTextModel(settings: Settings): string | undefined {
+  switch (settings.provider) {
+    case 'google':
+      return settings.model;
+    case 'openai':
+      return settings.openAITextModel;
+    case 'anthropic':
+      return settings.anthropicTextModel;
+  }
+}
+
 export function hasImageByok(settings: Settings, provider: ImageCapabilityProvider): boolean {
   if (provider === 'nano-banana-pro') {
     return present(settings.googleApiKey) && present(settings.googleImageModel);
@@ -26,6 +37,12 @@ export function hasImageByok(settings: Settings, provider: ImageCapabilityProvid
 export type CapabilityRoute = 'byok' | 'managed' | 'unavailable';
 
 export function resolveTextRoute(settings: Settings, memberAvailable: boolean): CapabilityRoute {
+  if (settings.textGenerationSource === 'managed') {
+    return memberAvailable && settings.memberManagedTextEnabled ? 'managed' : 'unavailable';
+  }
+  if (settings.textGenerationSource === 'byok') {
+    return hasTextByok(settings) ? 'byok' : 'unavailable';
+  }
   if (hasTextByok(settings)) return 'byok';
   return memberAvailable && settings.memberManagedTextEnabled ? 'managed' : 'unavailable';
 }

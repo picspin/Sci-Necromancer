@@ -43,8 +43,9 @@ Provide a low-friction membership layer without weakening BYOK, privacy, or wall
 ## Capability routing
 
 - Text and image capabilities are resolved independently.
-- A complete BYOK configuration for the requested capability always wins and consumes no bonus.
-- A configured BYOK failure never silently falls back to a paid member request. The user must explicitly confirm managed fallback.
+- When both routes are available, users explicitly select BYOK or a member model before starting a workflow; the device remembers the global text preference. BYOK consumes no bonus.
+- A configured BYOK failure never silently falls back to or charges a paid member request. The user must explicitly switch routes, and the failed request is not replayed automatically.
+- Each text workflow snapshots its selected provider/model at analysis and keeps it through successful generation. A later deep update starts from the then-current selection. Actual models are recorded per operation for billing and AI-use disclosure.
 - Personal API protocols are OpenAI Chat Completions, Anthropic Messages, and advanced Google Gemini Native. Model loading is optional; manual model entry always remains available.
 - Personal credentials remain browser-local and are never sent to the membership backend.
 - Managed credentials are provider-authorized server credentials only. Personal Antigravity consumer OAuth files/tokens and shared consumer account pools are prohibited.
@@ -64,8 +65,8 @@ Provide a low-friction membership layer without weakening BYOK, privacy, or wall
 
 - Blind Review obeys BYOK-first routing. Without text BYOK, every click is one managed bonus task. Selected PubMed/CiteCheck/DOI checks are included in that task, not separately charged. No deliverable means refund; retries are new tasks.
 - Member Benefits exposes separate Nano Banana and GPT Image checkboxes. The checkboxes enable availability only; invoking a model performs the charge.
-- A corresponding image BYOK configuration wins. Otherwise each managed Imagen 4 generation or GPT Image generation/edit costs two credits. Imagen 4 is generation-only, so managed reference-image editing remains on GPT Image. There is no silent cross-provider fallback.
-- Nano Banana currently routes to the healthy Imagen 4 deployment. Gemini 3 Pro Image and Gemini 3.1 Flash Image are visible only as disabled placeholders until MGA reports healthy deployments and publishes the integration contract.
+- Image BYOK and member routes remain independently selectable. Each managed Nano Banana or GPT Image generation/edit costs two credits.
+- Nano Banana defaults to MGA Gemini 3.1 Flash Image and also offers Gemini 3 Pro Image. On deployment, timeout, rate-limit, or server failures, text-to-image follows selected Gemini → sibling Gemini → Imagen 4; reference-image editing may use only the sibling Gemini and never Imagen 4. Safety, invalid-request, and authentication failures do not fallback. The UI records and displays the requested model, actual model, and fallback path.
 
 ## UI requirements
 

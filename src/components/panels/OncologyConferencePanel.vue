@@ -48,6 +48,8 @@
           @input="handleTextChange"
         />
 
+        <CurrentTextModelBadge :workflow-context="workflowContext" />
+
         <div v-if="mode === 'standard'" class="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <button
             type="button"
@@ -272,6 +274,8 @@ import Modal from '@/components/ui/Modal.vue';
 import OutputDisplay from '@/components/OutputDisplay.vue';
 import WorkflowReentryDialog from '@/components/membership/WorkflowReentryDialog.vue';
 import ModeSelector from './ISMRMPanelComponents/ModeSelector.vue';
+import CurrentTextModelBadge from '@/components/ai/CurrentTextModelBadge.vue';
+import { mergeAIAssistanceRecords } from '@/lib/compliance/aiDisclosure';
 
 const props = defineProps<{ conference: OncologyConference }>();
 const { t } = useI18n();
@@ -476,6 +480,7 @@ const handleCreative = async () => {
 
 const handleDeepUpdate = async () => {
   if (!generatedAbstract.value || !classification.value) return;
+  const previousAbstract = generatedAbstract.value;
   if (
     !(await prepareManagedTextReentry(
       workflowContext.value,
@@ -509,7 +514,10 @@ const handleDeepUpdate = async () => {
       'deep_update',
       workflowContext.value
     );
-    generatedAbstract.value = attachCompliance(result, classification.value);
+    generatedAbstract.value = attachCompliance(
+      mergeAIAssistanceRecords(previousAbstract, result),
+      classification.value
+    );
     deepUpdateCompleted.value = true;
   } catch (caught) {
     error.value = localizeError(caught, t, 'errors.deep_update_failed');

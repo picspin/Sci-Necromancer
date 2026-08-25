@@ -119,6 +119,24 @@
     </div>
 
     <!-- Download button -->
+    <div
+      v-if="image && !isLoading && provenance"
+      class="mt-4 rounded-lg border border-base-300 bg-base-200 p-3 text-sm text-text-secondary"
+      data-test="image-provenance"
+    >
+      <p>
+        {{ t('image_generation.actual_model', { model: provenance.actualModel }) }}
+      </p>
+      <p v-if="provenance.fallbackPath.length > 1" class="mt-1">
+        {{
+          t('image_generation.fallback_path', {
+            path: provenance.fallbackPath.join(' → '),
+          })
+        }}
+      </p>
+    </div>
+
+    <!-- Download button -->
     <div v-if="image && !isLoading" class="mt-4 flex justify-end">
       <button
         @click="$emit('download')"
@@ -154,6 +172,7 @@
 import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import LoadingSpinner from '@/components/ui/LoadingSpinner.vue';
+import type { ImageGenerationProvenance } from '@/types';
 
 const { t } = useI18n();
 
@@ -163,11 +182,13 @@ interface Props {
   loadingMessage?: string;
   error?: string | null;
   zoomLevel: number;
+  provenance?: ImageGenerationProvenance | null;
 }
 
 const props = withDefaults(defineProps<Props>(), {
   loadingMessage: '',
   error: null,
+  provenance: null,
 });
 
 defineEmits<{

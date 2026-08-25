@@ -16,6 +16,31 @@ describe('capability-specific BYOK routing', () => {
     expect(resolveImageRoute(settings, 'gpt-image-2', true)).toBe('unavailable');
   });
 
+  it('honors an explicit managed text choice even when BYOK is configured', () => {
+    const settings: Settings = {
+      ...base(),
+      openAIApiKey: 'key',
+      openAITextModel: 'text-model',
+      memberManagedTextEnabled: true,
+      textGenerationSource: 'managed',
+      memberManagedTextModel: 'gpt-5.6-luna',
+    };
+
+    expect(resolveTextRoute(settings, true)).toBe('managed');
+  });
+
+  it('honors an explicit BYOK text choice when membership is also available', () => {
+    const settings: Settings = {
+      ...base(),
+      openAIApiKey: 'key',
+      openAITextModel: 'text-model',
+      memberManagedTextEnabled: true,
+      textGenerationSource: 'byok',
+    };
+
+    expect(resolveTextRoute(settings, true)).toBe('byok');
+  });
+
   it('falls back only for the explicitly enabled managed image capability', () => {
     const settings = {
       ...base(),

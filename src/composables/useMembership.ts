@@ -95,8 +95,21 @@ function readManagedTextPreference(): boolean {
   }
 }
 
+function readManagedTextModel(): 'glm-5.2' | 'gpt-5.6-luna' {
+  try {
+    const model = JSON.parse(localStorage.getItem('app-settings') || '{}')?.memberManagedTextModel;
+    return model === 'gpt-5.6-luna' ? model : 'glm-5.2';
+  } catch {
+    return 'glm-5.2';
+  }
+}
+
 export function canUseManagedText(): boolean {
   return Boolean(session.value && memberStatus.value && readManagedTextPreference());
+}
+
+export function hasManagedCredits(required: number): boolean {
+  return Boolean(memberStatus.value && memberStatus.value.bonusBalance >= required);
 }
 
 export function canUseManagedResearchVerification(): boolean {
@@ -114,6 +127,7 @@ export async function generateManagedText(input: {
   idempotencyKey: string;
   operation: 'analysis' | 'generation' | 'regeneration' | 'deep_update' | 'blind_review';
   workflowId?: string;
+  model?: 'glm-5.2' | 'gpt-5.6-luna';
 }): Promise<{
   text: string;
   provider?: 'mga' | 'google' | 'openai';
@@ -131,6 +145,7 @@ export async function generateManagedText(input: {
     const result = await api.generate({
       ...input,
       provider: 'gemini-3.6-flash',
+      model: input.model ?? readManagedTextModel(),
     });
     if (memberStatus.value) memberStatus.value.bonusBalance = result.bonusBalance;
     if (result.output.type !== 'text' || !result.output.text) {
@@ -298,6 +313,7 @@ export function useMembership() {
   async function managedGenerate(input: {
     idempotencyKey: string;
     provider: 'gemini-3.6-flash' | 'nano-banana-pro' | 'gpt-image-2';
+    model?: 'glm-5.2' | 'gpt-5.6-luna' | 'gemini-3.1-flash-image' | 'gemini-3-pro-image';
     operation:
       | 'analysis'
       | 'generation'

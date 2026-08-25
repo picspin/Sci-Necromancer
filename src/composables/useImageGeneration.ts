@@ -53,13 +53,15 @@ const createInitialSpecsState = (): ImageSpecsState => ({
 
 const createInitialState = (): ImageGenerationState => ({
   mode: 'standard',
-  imageProvider: 'google-byok',
+  imageProvider: 'mga-gemini-3.1-flash-image',
   imageFile: null,
   imageBase64: null,
   uploadedImages: [], // Multi-image support
   specsState: createInitialSpecsState(),
   abstractIntent: null,
   generatedImage: null,
+  provenance: null,
+  byokFailureProvider: null,
   isLoading: false,
   loadingMessage: '',
   error: null,
@@ -134,7 +136,7 @@ export function useImageGeneration() {
     if (state.value.mode === 'text-to-image') return true;
     if (provider === 'google-byok') return googleByokSupportsEditing.value;
     if (provider === 'openai-byok') return openAIByokSupportsEditing.value;
-    return provider === 'gpt-image-2';
+    return true;
   };
   const selectedImageRoute = computed<'byok' | 'managed' | 'unavailable'>(() => {
     if (!providerSupportsCurrentMode(state.value.imageProvider)) return 'unavailable';
@@ -144,7 +146,8 @@ export function useImageGeneration() {
     if (state.value.imageProvider === 'openai-byok') {
       return openAIByokAvailable.value ? 'byok' : 'unavailable';
     }
-    return state.value.imageProvider === 'nano-banana-pro'
+    return state.value.imageProvider === 'mga-gemini-3.1-flash-image' ||
+      state.value.imageProvider === 'mga-gemini-3-pro-image'
       ? nanoBananaAvailable.value
         ? 'managed'
         : 'unavailable'
@@ -153,20 +156,6 @@ export function useImageGeneration() {
         : 'unavailable';
   });
   const managedImageAvailable = computed(() => selectedImageRoute.value !== 'unavailable');
-  const managedFallbackAvailable = (provider: 'nano-banana-pro' | 'gpt-image-2') => {
-    const enabled =
-      provider === 'nano-banana-pro'
-        ? (settings.value.memberManagedNanoBananaEnabled ??
-          settings.value.memberManagedImageEnabled)
-        : settings.value.memberManagedGptImageEnabled;
-    return Boolean(
-      enabled &&
-      membership.isAuthenticated.value &&
-      membership.status.value &&
-      (membership.status.value.bonusBalance || 0) >= 2
-    );
-  };
-
   const finalPrompt = computed(() => {
     let researchIntent = state.value.specsState.customInstructions.trim();
 
@@ -465,6 +454,8 @@ export function useImageGeneration() {
     state.value.loadingMessage = 'Generating figure...';
     state.value.error = null;
     state.value.generatedImage = null;
+    state.value.provenance = null;
+    state.value.byokFailureProvider = null;
 
     try {
       requireAIDisclosureAcceptance();
@@ -492,10 +483,19 @@ export function useImageGeneration() {
             : null;
       const managedProvider =
         byokProvider ||
-        (state.value.imageProvider === 'nano-banana-pro' ||
-        state.value.imageProvider === 'gpt-image-2'
-          ? state.value.imageProvider
-          : null);
+        (state.value.imageProvider === 'mga-gemini-3.1-flash-image' ||
+        state.value.imageProvider === 'mga-gemini-3-pro-image'
+          ? 'nano-banana-pro'
+          : state.value.imageProvider === 'gpt-image-2'
+            ? 'gpt-image-2'
+            : null);
+      const managedModel =
+        state.value.imageProvider === 'mga-gemini-3-pro-image'
+          ? 'gemini-3-pro-image'
+          : state.value.imageProvider === 'mga-gemini-3.1-flash-image' ||
+              state.value.imageProvider === 'google-byok'
+            ? 'gemini-3.1-flash-image'
+            : undefined;
       const runManagedImage = async () => {
         if (!managedProvider) throw new Error('member_generation_locked');
         if (
@@ -510,6 +510,7 @@ export function useImageGeneration() {
               ? crypto.randomUUID()
               : `image-${Date.now()}-${Math.random().toString(36).slice(2)}`,
           provider: managedProvider,
+          model: managedModel,
           operation: 'image_generation',
           prompt: finalPrompt.value,
           images: state.value.uploadedImages.map((image) => ({
@@ -519,6 +520,14 @@ export function useImageGeneration() {
         });
         if (!output.base64) throw new Error('managed_provider_empty_output');
         state.value.generatedImage = `data:${output.mimeType || 'image/png'};base64,${output.base64}`;
+        const requestedModel =
+          output.requestedModel || managedModel || state.value.imageProvider.replace(/^mga-/, '');
+        const actualModel = output.model || requestedModel;
+        state.value.provenance = {
+          requestedModel,
+          actualModel,
+          fallbackPath: output.fallbackPath?.length ? output.fallbackPath : [actualModel],
+        };
       };
       if (selectedImageRoute.value === 'byok') {
         if (!byokProvider) throw new Error('member_generation_locked');
@@ -528,14 +537,13 @@ export function useImageGeneration() {
             imageState,
             creativeContext
           );
-          state.value.generatedImage = `data:image/png;base64,${result}`;
+          state.value.generatedImage = result.startsWith('data:image/')
+            ? result
+            : `data:image/png;base64,${result}`;
         } catch (byokError) {
-          if (
-            !managedFallbackAvailable(byokProvider) ||
-            !window.confirm(t('image_generation.confirm_managed_fallback'))
-          )
-            throw byokError;
-          await runManagedImage();
+          state.value.byokFailureProvider = state.value.imageProvider as
+            'google-byok' | 'openai-byok';
+          throw byokError;
         }
       } else {
         if (selectedImageRoute.value !== 'managed') throw new Error('member_generation_locked');
@@ -548,6 +556,16 @@ export function useImageGeneration() {
       state.value.isLoading = false;
       state.value.loadingMessage = '';
     }
+  };
+
+  const retryByokFailureWithMember = async () => {
+    const failedProvider = state.value.byokFailureProvider;
+    if (!failedProvider) return;
+    setImageProvider(
+      failedProvider === 'google-byok' ? 'mga-gemini-3.1-flash-image' : 'gpt-image-2'
+    );
+    state.value.byokFailureProvider = null;
+    await generateImage();
   };
 
   // ============================================================================
@@ -666,6 +684,7 @@ export function useImageGeneration() {
 
     // Generation actions
     generateImage,
+    retryByokFailureWithMember,
 
     // Canvas actions
     zoomIn,
