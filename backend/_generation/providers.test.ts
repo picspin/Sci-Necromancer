@@ -458,16 +458,16 @@ describe('managed MGA capability routing', () => {
   it('uses Google Pro when the Google Flash fallback is transiently unavailable', async () => {
     enableMGA();
     vi.stubEnv('GOOGLE_API_KEY', 'google-test-key');
-    const unavailable = () =>
+    const unavailable = (status = 503) =>
       new Response(JSON.stringify({ error: { message: 'temporarily unavailable' } }), {
-        status: 503,
+        status,
         headers: { 'Content-Type': 'application/json' },
       });
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce(unavailable())
       .mockResolvedValueOnce(unavailable())
-      .mockResolvedValueOnce(unavailable())
+      .mockResolvedValueOnce(unavailable(404))
       .mockResolvedValueOnce(
         new Response(
           JSON.stringify({
@@ -497,6 +497,32 @@ describe('managed MGA capability routing', () => {
       ],
     });
     expect(fetchMock.mock.calls[3][0]).toContain('/gemini-3-pro-image:generateContent');
+  });
+
+  it('does not hide a Google credential failure behind another fallback', async () => {
+    enableMGA();
+    vi.stubEnv('GOOGLE_API_KEY', 'invalid-google-key');
+    const mgaUnavailable = () =>
+      new Response(JSON.stringify({ error: { message: 'temporarily unavailable' } }), {
+        status: 503,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(mgaUnavailable())
+      .mockResolvedValueOnce(mgaUnavailable())
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ error: { message: 'invalid credential' } }), {
+          status: 403,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(
+      callManagedProvider({ provider: 'nano-banana-pro', prompt: 'Generate a figure' })
+    ).rejects.toMatchObject({ code: 'managed_provider_failed' });
+    expect(fetchMock).toHaveBeenCalledTimes(3);
   });
 
   it('does not fallback when Gemini rejects the request for safety reasons', async () => {
@@ -596,6 +622,34 @@ describe('managed MGA capability routing', () => {
       fallbackPath: ['google/gemini-3.1-flash-image'],
     });
     expect(fetchMock).toHaveBeenCalledOnce();
+  });
+
+  it('accepts GEMINI_API_KEY as a legacy alias for direct Google fallback', async () => {
+    vi.stubEnv('MGA_BASE_URL', '');
+    vi.stubEnv('MGA_API_KEY', '');
+    vi.stubEnv('GOOGLE_API_KEY', '');
+    vi.stubEnv('GEMINI_API_KEY', 'legacy-google-key');
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          candidates: [
+            {
+              content: {
+                parts: [{ inlineData: { mimeType: 'image/png', data: 'aW1hZ2U=' } }],
+              },
+            },
+          ],
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      )
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await callManagedProvider({ provider: 'nano-banana-pro', prompt: 'Generate a figure' });
+
+    expect(fetchMock.mock.calls[0][1]).toMatchObject({
+      headers: expect.objectContaining({ 'x-goog-api-key': 'legacy-google-key' }),
+    });
   });
 
   it('routes GPT Image editing to GPT-Image-1 with the reference image input', async () => {

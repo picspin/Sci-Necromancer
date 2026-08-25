@@ -408,7 +408,7 @@ async function callGoogleDirectImage(
     }
     throw error;
   }
-  if ([429, 500, 502, 503, 504].includes(response.status)) {
+  if ([404, 408, 429, 500, 502, 503, 504].includes(response.status)) {
     await response.body?.cancel();
     return { payload: null, model, unavailable: true as const };
   }
