@@ -792,7 +792,9 @@ describe('LLM Index - Provider Selection', () => {
     );
     const { reviewAbstractBlind } = await import('@/lib/llm/index');
 
-    await expect(reviewAbstractBlind('Verify the abstract.')).resolves.toMatchObject({
+    await expect(
+      reviewAbstractBlind('Verify the manuscript.', 'manuscript')
+    ).resolves.toMatchObject({
       recommendation: 'minor-revision',
       aiAssistance: {
         provider: 'mga',
@@ -800,11 +802,12 @@ describe('LLM Index - Provider Selection', () => {
         modelType: 'research-agent',
         methodsDisclosureRequired: true,
         authorVerificationRequired: true,
+        operations: expect.arrayContaining(['independent manuscript review']),
       },
     });
     expect(generateManagedResearchVerificationMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        prompt: 'Verify the abstract.',
+        prompt: 'Verify the manuscript.',
         enabledCapabilityIds: ['mga-pubmed'],
       })
     );

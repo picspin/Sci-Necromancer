@@ -14,6 +14,13 @@ vi.mock('./OncologyConferencePanel.vue', () => ({
     template: '<div data-test="oncology-panel">{{ conference }}</div>',
   },
 }));
+vi.mock('@/components/ai/GlobalModelSelector.vue', () => ({
+  default: {
+    emits: ['open-member', 'open-model-settings'],
+    template:
+      '<div data-test="global-model-selector-stub"><button data-test="open-member" @click="$emit(\'open-member\')" /><button data-test="open-model-settings" @click="$emit(\'open-model-settings\')" /></div>',
+  },
+}));
 
 const switchConference = vi.hoisted(() => vi.fn());
 
@@ -39,6 +46,19 @@ vi.mock('vue-i18n', () => ({
 }));
 
 describe('ConferencePanel navigation', () => {
+  it('keeps the global model selector inside the conference toolbar and forwards its CTAs', async () => {
+    const wrapper = mount(ConferencePanel);
+
+    expect(
+      wrapper.get('[data-test="conference-toolbar"] [data-test="model-selector-slot"]').element
+    ).toContain(wrapper.get('[data-test="global-model-selector-stub"]').element);
+
+    await wrapper.get('[data-test="open-member"]').trigger('click');
+    await wrapper.get('[data-test="open-model-settings"]').trigger('click');
+    expect(wrapper.emitted('open-member')).toHaveLength(1);
+    expect(wrapper.emitted('open-model-settings')).toHaveLength(1);
+  });
+
   it('keeps every existing slice and routes ASCO/ESMO through the shared oncology panel', async () => {
     const wrapper = mount(ConferencePanel, {
       global: {

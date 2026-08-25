@@ -11,13 +11,13 @@ const i18n = createI18n({ legacy: false, locale: 'en', messages: { en } });
 describe('OutputDisplay blind-review entry', () => {
   afterEach(cleanup);
 
-  it.each<Conference>(['ISMRM', 'RSNA', 'ER', 'ESC'])(
-    'uses the shared control for %s',
+  it.each<Conference>(['ISMRM', 'RSNA', 'ER', 'ASCO', 'ESMO'])(
+    'offers direct source-manuscript review for %s before an abstract exists',
     (conference) => {
       render(OutputDisplay, {
         props: {
-          abstract: { impact: '', synopsis: '', abstract: 'Generated abstract', keywords: [] },
-          sourceText: 'Original source',
+          abstract: null,
+          sourceText: 'Complete pasted manuscript',
           conference,
           isLoading: false,
           error: null,
@@ -38,6 +38,33 @@ describe('OutputDisplay blind-review entry', () => {
       });
 
       expect(screen.getAllByTestId('shared-blind-review')).toHaveLength(1);
+    }
+  );
+
+  it.each<Conference>(['ESC', 'IMAGE'])(
+    'does not offer direct blind review for unavailable panel %s',
+    (conference) => {
+      render(OutputDisplay, {
+        props: {
+          abstract: null,
+          sourceText: 'Complete pasted manuscript',
+          conference,
+          isLoading: false,
+          error: null,
+        },
+        global: {
+          plugins: [i18n],
+          stubs: {
+            BlindReviewControl: { template: '<button data-testid="shared-blind-review" />' },
+            ExportButtons: true,
+            LiveRegion: true,
+            AbstractBody: true,
+            SvgIcon: true,
+          },
+        },
+      });
+
+      expect(screen.queryByTestId('shared-blind-review')).toBeNull();
     }
   );
 

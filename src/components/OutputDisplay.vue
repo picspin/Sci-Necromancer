@@ -25,7 +25,7 @@
       <ErrorMessage v-if="error" :message="error" />
 
       <div
-        v-if="!isLoading && !error && !hasOutput"
+        v-if="!isLoading && !error && !hasOutput && !canReviewSource"
         class="text-center text-text-secondary flex flex-col items-center justify-center h-full"
       >
         <SvgIcon type="logo" class="h-16 w-16 text-base-300 mb-4" />
@@ -86,7 +86,7 @@
         </div>
 
         <BlindReviewControl
-          v-if="abstract && reviewConference"
+          v-if="canReviewSource && reviewConference"
           :abstract="abstract"
           :conference="reviewConference"
           :source-text="sourceText"
@@ -341,10 +341,11 @@ const acknowledgementText = computed(() =>
     .join('\n\n')
 );
 const reviewConference = computed(() =>
-  ['ISMRM', 'RSNA', 'ER', 'ESC'].includes(props.conference)
-    ? (props.conference as Exclude<Conference, 'IMAGE' | 'JACC'>)
+  ['ISMRM', 'RSNA', 'ER', 'ASCO', 'ESMO'].includes(props.conference)
+    ? (props.conference as Exclude<Conference, 'IMAGE' | 'JACC' | 'ESC'>)
     : null
 );
+const canReviewSource = computed(() => Boolean(reviewConference.value && props.sourceText.trim()));
 const rsnaRoute = computed(() => {
   const route = props.abstract?.rsna;
   if (!route) return '';

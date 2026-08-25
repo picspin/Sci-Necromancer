@@ -7,7 +7,13 @@
     <div class="flex flex-wrap items-center justify-between gap-3">
       <div>
         <h3 class="font-semibold text-cyan-100">{{ t('blind_review.title') }}</h3>
-        <p class="mt-1 text-xs text-text-secondary">{{ t('blind_review.description') }}</p>
+        <p class="mt-1 text-xs text-text-secondary">
+          {{
+            t(abstract ? 'blind_review.description' : 'blind_review.manuscript_description', {
+              conference,
+            })
+          }}
+        </p>
         <p class="mt-1 text-xs text-amber-200">{{ t('blind_review.external_data_notice') }}</p>
         <p v-if="usesManagedReview" class="mt-1 text-xs text-amber-200">
           {{ t('blind_review.member_cost') }}
@@ -16,12 +22,16 @@
       <button
         type="button"
         class="rounded-md bg-cyan-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-cyan-600 disabled:cursor-not-allowed disabled:opacity-60"
-        :disabled="isRunning || reviewRoute === 'unavailable'"
+        :disabled="isRunning || reviewRoute === 'unavailable' || !hasSourceText"
         @click="handleReview"
       >
         {{ isRunning ? t('blind_review.running') : t('blind_review.button') }}
       </button>
     </div>
+
+    <p v-if="!hasSourceText" class="mt-2 text-xs text-amber-200">
+      {{ t('blind_review.source_required') }}
+    </p>
 
     <p v-if="error" class="mt-3 rounded bg-red-900/40 p-2 text-sm text-red-200" role="alert">
       {{ t('blind_review.error') }}：{{ error }}
@@ -123,6 +133,13 @@
       <p class="rounded border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-100">
         {{ t(report.disclaimer) }}
       </p>
+      <div
+        v-if="reviewAcknowledgement"
+        class="rounded border border-emerald-500/30 bg-emerald-500/10 p-3 text-xs text-emerald-100"
+      >
+        <p class="font-semibold">{{ t('blind_review.ai_acknowledgement') }}</p>
+        <p class="mt-1">{{ reviewAcknowledgement }}</p>
+      </div>
     </article>
   </section>
 </template>
@@ -141,11 +158,12 @@ import {
 } from '@/lib/capabilities/capabilityRegistry';
 import { resolveBlindReviewRoute } from '@/lib/llm/capabilityRouting';
 import { useMembership } from '@/composables/useMembership';
+import { buildAIAcknowledgement } from '@/lib/compliance/aiDisclosure';
 
 const props = defineProps<{
-  conference: Exclude<Conference, 'IMAGE' | 'JACC'>;
+  conference: Exclude<Conference, 'IMAGE' | 'JACC' | 'ESC'>;
   sourceText: string;
-  abstract: AbstractData;
+  abstract?: AbstractData | null;
 }>();
 const emit = defineEmits<{
   'ai-assistance': [record: AIAssistanceRecord | null];
@@ -170,13 +188,17 @@ const reviewRoute = computed(() =>
   resolveBlindReviewRoute(settings.value, isAuthenticated.value && Boolean(status.value))
 );
 const usesManagedReview = computed(() => reviewRoute.value === 'managed');
+const hasSourceText = computed(() => Boolean(props.sourceText.trim()));
+const reviewAcknowledgement = computed(() =>
+  report.value?.aiAssistance ? buildAIAcknowledgement(report.value.aiAssistance) : ''
+);
 const reviewedAbstractFingerprint = computed(() =>
   JSON.stringify({
-    title: props.abstract.title ?? '',
-    impact: props.abstract.impact,
-    synopsis: props.abstract.synopsis,
-    abstract: props.abstract.abstract ?? '',
-    keywords: props.abstract.keywords,
+    title: props.abstract?.title ?? '',
+    impact: props.abstract?.impact ?? '',
+    synopsis: props.abstract?.synopsis ?? '',
+    abstract: props.abstract?.abstract ?? '',
+    keywords: props.abstract?.keywords ?? [],
   })
 );
 
@@ -199,6 +221,7 @@ watch(
 );
 
 const handleReview = async () => {
+  if (!hasSourceText.value) return;
   const revision = ++reviewRevision;
   isRunning.value = true;
   error.value = '';
@@ -207,6 +230,7 @@ const handleReview = async () => {
       conference: props.conference,
       sourceText: props.sourceText,
       abstract: props.abstract,
+      target: props.abstract ? 'generated-abstract' : 'manuscript',
       locale: locale.value.toLowerCase().startsWith('zh') ? 'zh' : 'en',
       settings: {
         ...normalizeBlindReviewSettings(settings.value.blindReview),
