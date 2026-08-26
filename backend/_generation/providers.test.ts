@@ -502,6 +502,7 @@ describe('managed MGA capability routing', () => {
   it('does not hide a Google credential failure behind another fallback', async () => {
     enableMGA();
     vi.stubEnv('GOOGLE_API_KEY', 'invalid-google-key');
+    const logSpy = vi.spyOn(console, 'info').mockImplementation(() => undefined);
     const mgaUnavailable = () =>
       new Response(JSON.stringify({ error: { message: 'temporarily unavailable' } }), {
         status: 503,
@@ -523,6 +524,15 @@ describe('managed MGA capability routing', () => {
       callManagedProvider({ provider: 'nano-banana-pro', prompt: 'Generate a figure' })
     ).rejects.toMatchObject({ code: 'managed_provider_failed' });
     expect(fetchMock).toHaveBeenCalledTimes(3);
+    const events = logSpy.mock.calls.map(([event]) => JSON.parse(String(event)));
+    expect(events).toContainEqual(
+      expect.objectContaining({
+        provider: 'google',
+        model: 'gemini-3.1-flash-image',
+        outcome: 'rejected',
+        status: 403,
+      })
+    );
   });
 
   it('falls back to Google Flash when MGA returns a generic upstream 400', async () => {
@@ -587,7 +597,7 @@ describe('managed MGA capability routing', () => {
     enableMGA();
     vi.stubEnv('GOOGLE_API_KEY', 'google-test-key');
     const fetchMock = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify({ detail: 'Invalid API key authentication failed' }), {
+      new Response(JSON.stringify({ detail: 'The supplied credential is not valid' }), {
         status: 400,
         headers: { 'Content-Type': 'application/json' },
       })

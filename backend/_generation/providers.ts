@@ -25,7 +25,7 @@ const MGA_TEXT_MODELS = new Set(['glm-5.2', 'gpt-5.6-luna']);
 const MGA_IMAGE_MODELS = new Set(['gemini-3.1-flash-image', 'gemini-3-pro-image']);
 const GOOGLE_IMAGE_FALLBACK_MODELS = ['gemini-3.1-flash-image', 'gemini-3-pro-image'] as const;
 const NON_FALLBACKABLE_BAD_REQUEST =
-  /safety|content[_ -]?policy|blocked|prohibited|moderation|invalid\s+(?:api\s*)?key|unauthori[sz]ed|forbidden|authentication|permission denied/i;
+  /safety|content[_ -]?policy|blocked|prohibited|moderation|credential|invalid\s+(?:(?:api\s*)?key|(?:access\s+)?token)|api\s*key[^\n]{0,32}not valid|token[^\n]{0,32}(?:invalid|expired)|unauthori[sz]ed|forbidden|authentication|permission denied|access denied/i;
 
 function logManagedImageAttempt(
   request: ProviderRequest,
@@ -412,14 +412,14 @@ async function callMGADirectImage(request: ProviderRequest) {
     });
     return { payload: null, model, unavailable: true as const };
   }
-  const payload = await jsonOrProviderError(response);
   logManagedImageAttempt(request, {
     provider: 'mga',
     model,
-    outcome: 'response_received',
+    outcome: response.ok ? 'response_received' : 'rejected',
     status: response.status,
     startedAt,
   });
+  const payload = await jsonOrProviderError(response);
   return { payload, model, unavailable: false as const };
 }
 
@@ -491,14 +491,14 @@ async function callGoogleDirectImage(
     });
     return { payload: null, model, unavailable: true as const };
   }
-  const payload = await jsonOrProviderError(response);
   logManagedImageAttempt(request, {
     provider: 'google',
     model,
-    outcome: 'response_received',
+    outcome: response.ok ? 'response_received' : 'rejected',
     status: response.status,
     startedAt,
   });
+  const payload = await jsonOrProviderError(response);
   return { payload, model, unavailable: false as const };
 }
 
