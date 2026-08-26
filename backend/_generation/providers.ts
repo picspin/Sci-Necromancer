@@ -129,6 +129,47 @@ async function jsonOrProviderError(response: Response): Promise<any> {
   return payload;
 }
 
+async function parseManagedImageResponse(
+  request: ProviderRequest,
+  provider: 'mga' | 'google',
+  model: string,
+  response: Response,
+  startedAt: number
+) {
+  if (!response.ok) {
+    logManagedImageAttempt(request, {
+      provider,
+      model,
+      outcome: 'rejected',
+      status: response.status,
+      startedAt,
+    });
+  }
+  let payload: any;
+  try {
+    payload = await jsonOrProviderError(response);
+  } catch (error) {
+    if (response.ok) {
+      logManagedImageAttempt(request, {
+        provider,
+        model,
+        outcome: 'rejected',
+        status: response.status,
+        startedAt,
+      });
+    }
+    throw error;
+  }
+  logManagedImageAttempt(request, {
+    provider,
+    model,
+    outcome: 'response_received',
+    status: response.status,
+    startedAt,
+  });
+  return payload;
+}
+
 function extractOpenAICompatibleText(payload: any): string | null {
   const content = payload?.choices?.[0]?.message?.content;
   if (typeof content === 'string') return content.trim() || null;
@@ -380,6 +421,13 @@ async function callMGADirectImage(request: ProviderRequest) {
   if (response.status === 400) {
     const detail = await response.text();
     if (detail.length > PROVIDER_RESPONSE_LIMIT) {
+      logManagedImageAttempt(request, {
+        provider: 'mga',
+        model,
+        outcome: 'rejected',
+        status: response.status,
+        startedAt,
+      });
       throw new MemberServiceError('managed_provider_failed', 502);
     }
     if (NON_FALLBACKABLE_BAD_REQUEST.test(detail)) {
@@ -412,14 +460,7 @@ async function callMGADirectImage(request: ProviderRequest) {
     });
     return { payload: null, model, unavailable: true as const };
   }
-  logManagedImageAttempt(request, {
-    provider: 'mga',
-    model,
-    outcome: response.ok ? 'response_received' : 'rejected',
-    status: response.status,
-    startedAt,
-  });
-  const payload = await jsonOrProviderError(response);
+  const payload = await parseManagedImageResponse(request, 'mga', model, response, startedAt);
   return { payload, model, unavailable: false as const };
 }
 
@@ -491,14 +532,7 @@ async function callGoogleDirectImage(
     });
     return { payload: null, model, unavailable: true as const };
   }
-  logManagedImageAttempt(request, {
-    provider: 'google',
-    model,
-    outcome: response.ok ? 'response_received' : 'rejected',
-    status: response.status,
-    startedAt,
-  });
-  const payload = await jsonOrProviderError(response);
+  const payload = await parseManagedImageResponse(request, 'google', model, response, startedAt);
   return { payload, model, unavailable: false as const };
 }
 
@@ -509,28 +543,46 @@ async function callMGAImageAgentFallback(request: ProviderRequest) {
     request.provider === 'nano-banana-pro'
       ? providerModel('MGA_IMAGEN_MODEL', 'imagen-4')
       : providerModel('MGA_GPT_IMAGE_MODEL', 'gpt-image-1');
-  const response = await fetch(`${config.baseUrl}/chat/agent`, {
-    method: 'POST',
-    signal: providerTimeout(),
-    headers: {
-      Authorization: `Bearer ${config.apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: providerModel('MGA_IMAGE_AGENT_MODEL', 'glm-5.2'),
-      messages: [
-        {
-          role: 'system',
-          content: `Use the img_generator tool exactly once with ${imageModel}. Return one final image.`,
-        },
-        { role: 'user', content: mgaImageContent(request) },
-      ],
-      stream: false,
-      tool_keys: ['img_generator'],
-      hidden: true,
-    }),
+  const startedAt = Date.now();
+  logManagedImageAttempt(request, {
+    provider: 'mga',
+    model: imageModel,
+    outcome: 'started',
   });
-  return { payload: await jsonOrProviderError(response), model: imageModel };
+  let response: Response;
+  try {
+    response = await fetch(`${config.baseUrl}/chat/agent`, {
+      method: 'POST',
+      signal: providerTimeout(),
+      headers: {
+        Authorization: `Bearer ${config.apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: providerModel('MGA_IMAGE_AGENT_MODEL', 'glm-5.2'),
+        messages: [
+          {
+            role: 'system',
+            content: `Use the img_generator tool exactly once with ${imageModel}. Return one final image.`,
+          },
+          { role: 'user', content: mgaImageContent(request) },
+        ],
+        stream: false,
+        tool_keys: ['img_generator'],
+        hidden: true,
+      }),
+    });
+  } catch (error) {
+    logManagedImageAttempt(request, {
+      provider: 'mga',
+      model: imageModel,
+      outcome: 'rejected',
+      startedAt,
+    });
+    throw error;
+  }
+  const payload = await parseManagedImageResponse(request, 'mga', imageModel, response, startedAt);
+  return { payload, model: imageModel };
 }
 
 export async function callMGAResearchAgent(input: {
