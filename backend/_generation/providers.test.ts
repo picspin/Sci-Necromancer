@@ -525,6 +525,48 @@ describe('managed MGA capability routing', () => {
     expect(fetchMock).toHaveBeenCalledTimes(3);
   });
 
+  it('falls back to Google Flash when MGA returns a generic upstream 400', async () => {
+    enableMGA();
+    vi.stubEnv('GOOGLE_API_KEY', 'google-test-key');
+    const upstreamBadRequest = () =>
+      new Response(JSON.stringify({ detail: 'Image generation request failed upstream' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(upstreamBadRequest())
+      .mockResolvedValueOnce(upstreamBadRequest())
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            candidates: [
+              {
+                content: {
+                  parts: [{ inlineData: { mimeType: 'image/png', data: 'aW1hZ2U=' } }],
+                },
+              },
+            ],
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } }
+        )
+      );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(
+      callManagedProvider({ provider: 'nano-banana-pro', prompt: 'Generate a figure' })
+    ).resolves.toMatchObject({
+      provider: 'google',
+      model: 'gemini-3.1-flash-image',
+      fallbackPath: [
+        'gemini-3.1-flash-image',
+        'gemini-3-pro-image',
+        'google/gemini-3.1-flash-image',
+      ],
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
+
   it('does not fallback when Gemini rejects the request for safety reasons', async () => {
     enableMGA();
     const fetchMock = vi.fn().mockResolvedValue(
@@ -537,6 +579,23 @@ describe('managed MGA capability routing', () => {
 
     await expect(
       callManagedProvider({ provider: 'nano-banana-pro', prompt: 'Unsafe request' })
+    ).rejects.toMatchObject({ code: 'managed_provider_failed' });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not fallback when MGA reports an authentication failure as HTTP 400', async () => {
+    enableMGA();
+    vi.stubEnv('GOOGLE_API_KEY', 'google-test-key');
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ detail: 'Invalid API key authentication failed' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(
+      callManagedProvider({ provider: 'nano-banana-pro', prompt: 'Generate a figure' })
     ).rejects.toMatchObject({ code: 'managed_provider_failed' });
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });

@@ -10,6 +10,7 @@ export interface ProviderImageInput {
 export interface ProviderRequest {
   provider: ManagedProvider;
   model?: 'glm-5.2' | 'gpt-5.6-luna' | 'gemini-3.1-flash-image' | 'gemini-3-pro-image';
+  requestId?: string;
   prompt: string;
   images?: ProviderImageInput[];
   size?: '1024x1024' | '1024x1536' | '1536x1024';
@@ -23,6 +24,32 @@ const PROVIDER_RESPONSE_LIMIT = 6_000_000;
 const MGA_TEXT_MODELS = new Set(['glm-5.2', 'gpt-5.6-luna']);
 const MGA_IMAGE_MODELS = new Set(['gemini-3.1-flash-image', 'gemini-3-pro-image']);
 const GOOGLE_IMAGE_FALLBACK_MODELS = ['gemini-3.1-flash-image', 'gemini-3-pro-image'] as const;
+const NON_FALLBACKABLE_BAD_REQUEST =
+  /safety|content[_ -]?policy|blocked|prohibited|moderation|invalid\s+(?:api\s*)?key|unauthori[sz]ed|forbidden|authentication|permission denied/i;
+
+function logManagedImageAttempt(
+  request: ProviderRequest,
+  event: {
+    provider: 'mga' | 'google';
+    model: string;
+    outcome: 'started' | 'response_received' | 'fallback_eligible' | 'rejected';
+    status?: number;
+    startedAt?: number;
+  }
+) {
+  console.info(
+    JSON.stringify({
+      level: 'info',
+      msg: 'managed_image_provider_attempt',
+      requestId: request.requestId?.slice(0, 128),
+      provider: event.provider,
+      model: event.model,
+      outcome: event.outcome,
+      ...(event.status ? { status: event.status } : {}),
+      ...(event.startedAt ? { durationMs: Date.now() - event.startedAt } : {}),
+    })
+  );
+}
 
 function providerSecret(name: 'OPENAI_API_KEY'): string {
   const value = process.env[name]?.trim();
@@ -318,6 +345,8 @@ async function callMGADirectImage(request: ProviderRequest) {
   if (!MGA_IMAGE_MODELS.has(model)) {
     throw new MemberServiceError('invalid_generation_request', 400);
   }
+  const startedAt = Date.now();
+  logManagedImageAttempt(request, { provider: 'mga', model, outcome: 'started' });
   let response: Response;
   try {
     response = await fetch(`${config.baseUrl}/chat/completions`, {
@@ -338,6 +367,12 @@ async function callMGADirectImage(request: ProviderRequest) {
       error instanceof TypeError ||
       (error instanceof DOMException && ['AbortError', 'TimeoutError'].includes(error.name))
     ) {
+      logManagedImageAttempt(request, {
+        provider: 'mga',
+        model,
+        outcome: 'fallback_eligible',
+        startedAt,
+      });
       return { payload: null, model, unavailable: true as const };
     }
     throw error;
@@ -347,16 +382,45 @@ async function callMGADirectImage(request: ProviderRequest) {
     if (detail.length > PROVIDER_RESPONSE_LIMIT) {
       throw new MemberServiceError('managed_provider_failed', 502);
     }
-    if (/no healthy deployments/i.test(detail)) {
-      return { payload: null, model, unavailable: true as const };
+    if (NON_FALLBACKABLE_BAD_REQUEST.test(detail)) {
+      logManagedImageAttempt(request, {
+        provider: 'mga',
+        model,
+        outcome: 'rejected',
+        status: response.status,
+        startedAt,
+      });
+      throw new MemberServiceError('managed_provider_failed', 502);
     }
-    throw new MemberServiceError('managed_provider_failed', 502);
+    logManagedImageAttempt(request, {
+      provider: 'mga',
+      model,
+      outcome: 'fallback_eligible',
+      status: response.status,
+      startedAt,
+    });
+    return { payload: null, model, unavailable: true as const };
   }
   if ([404, 429, 500, 502, 503, 504].includes(response.status)) {
     await response.body?.cancel();
+    logManagedImageAttempt(request, {
+      provider: 'mga',
+      model,
+      outcome: 'fallback_eligible',
+      status: response.status,
+      startedAt,
+    });
     return { payload: null, model, unavailable: true as const };
   }
-  return { payload: await jsonOrProviderError(response), model, unavailable: false as const };
+  const payload = await jsonOrProviderError(response);
+  logManagedImageAttempt(request, {
+    provider: 'mga',
+    model,
+    outcome: 'response_received',
+    status: response.status,
+    startedAt,
+  });
+  return { payload, model, unavailable: false as const };
 }
 
 function googleImageParts(request: ProviderRequest): Array<Record<string, unknown>> {
@@ -379,6 +443,8 @@ async function callGoogleDirectImage(
 ) {
   const apiKey = googleApiKey();
   if (!apiKey) return null;
+  const startedAt = Date.now();
+  logManagedImageAttempt(request, { provider: 'google', model, outcome: 'started' });
   let response: Response;
   try {
     response = await fetch(
@@ -404,15 +470,36 @@ async function callGoogleDirectImage(
       error instanceof TypeError ||
       (error instanceof DOMException && ['AbortError', 'TimeoutError'].includes(error.name))
     ) {
+      logManagedImageAttempt(request, {
+        provider: 'google',
+        model,
+        outcome: 'fallback_eligible',
+        startedAt,
+      });
       return { payload: null, model, unavailable: true as const };
     }
     throw error;
   }
   if ([404, 408, 429, 500, 502, 503, 504].includes(response.status)) {
     await response.body?.cancel();
+    logManagedImageAttempt(request, {
+      provider: 'google',
+      model,
+      outcome: 'fallback_eligible',
+      status: response.status,
+      startedAt,
+    });
     return { payload: null, model, unavailable: true as const };
   }
-  return { payload: await jsonOrProviderError(response), model, unavailable: false as const };
+  const payload = await jsonOrProviderError(response);
+  logManagedImageAttempt(request, {
+    provider: 'google',
+    model,
+    outcome: 'response_received',
+    status: response.status,
+    startedAt,
+  });
+  return { payload, model, unavailable: false as const };
 }
 
 async function callMGAImageAgentFallback(request: ProviderRequest) {

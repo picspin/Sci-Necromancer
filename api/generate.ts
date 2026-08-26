@@ -231,6 +231,7 @@ export default async function handler(request: VercelRequest, response: VercelRe
         callManagedProvider({
           provider,
           model,
+          requestId: idempotencyKey,
           prompt,
           images,
           size: request.body?.size,
