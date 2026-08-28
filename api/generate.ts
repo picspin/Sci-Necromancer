@@ -156,6 +156,10 @@ export default async function handler(request: VercelRequest, response: VercelRe
 
   try {
     const idempotencyKey = request.headers['idempotency-key'];
+    const providerRequestId =
+      typeof request.headers['x-vercel-id'] === 'string'
+        ? request.headers['x-vercel-id']
+        : globalThis.crypto.randomUUID();
     const prompt = typeof request.body?.prompt === 'string' ? request.body.prompt.trim() : '';
     const provider = request.body?.provider as ManagedProvider;
     const model = typeof request.body?.model === 'string' ? request.body.model : undefined;
@@ -231,6 +235,7 @@ export default async function handler(request: VercelRequest, response: VercelRe
         callManagedProvider({
           provider,
           model,
+          requestId: providerRequestId,
           prompt,
           images,
           size: request.body?.size,

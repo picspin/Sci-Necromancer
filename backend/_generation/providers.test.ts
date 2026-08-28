@@ -502,6 +502,7 @@ describe('managed MGA capability routing', () => {
   it('does not hide a Google credential failure behind another fallback', async () => {
     enableMGA();
     vi.stubEnv('GOOGLE_API_KEY', 'invalid-google-key');
+    const logSpy = vi.spyOn(console, 'info').mockImplementation(() => undefined);
     const mgaUnavailable = () =>
       new Response(JSON.stringify({ error: { message: 'temporarily unavailable' } }), {
         status: 503,
@@ -523,6 +524,57 @@ describe('managed MGA capability routing', () => {
       callManagedProvider({ provider: 'nano-banana-pro', prompt: 'Generate a figure' })
     ).rejects.toMatchObject({ code: 'managed_provider_failed' });
     expect(fetchMock).toHaveBeenCalledTimes(3);
+    const events = logSpy.mock.calls.map(([event]) => JSON.parse(String(event)));
+    expect(events).toContainEqual(
+      expect.objectContaining({
+        provider: 'google',
+        model: 'gemini-3.1-flash-image',
+        outcome: 'rejected',
+        status: 403,
+      })
+    );
+  });
+
+  it('falls back to Google Flash when MGA returns a generic upstream 400', async () => {
+    enableMGA();
+    vi.stubEnv('GOOGLE_API_KEY', 'google-test-key');
+    const upstreamBadRequest = () =>
+      new Response(JSON.stringify({ detail: 'Image generation request failed upstream' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(upstreamBadRequest())
+      .mockResolvedValueOnce(upstreamBadRequest())
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            candidates: [
+              {
+                content: {
+                  parts: [{ inlineData: { mimeType: 'image/png', data: 'aW1hZ2U=' } }],
+                },
+              },
+            ],
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } }
+        )
+      );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(
+      callManagedProvider({ provider: 'nano-banana-pro', prompt: 'Generate a figure' })
+    ).resolves.toMatchObject({
+      provider: 'google',
+      model: 'gemini-3.1-flash-image',
+      fallbackPath: [
+        'gemini-3.1-flash-image',
+        'gemini-3-pro-image',
+        'google/gemini-3.1-flash-image',
+      ],
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(3);
   });
 
   it('does not fallback when Gemini rejects the request for safety reasons', async () => {
@@ -541,8 +593,90 @@ describe('managed MGA capability routing', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
+  it('does not fallback when MGA reports an authentication failure as HTTP 400', async () => {
+    enableMGA();
+    vi.stubEnv('GOOGLE_API_KEY', 'google-test-key');
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ detail: 'The supplied credential is not valid' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(
+      callManagedProvider({ provider: 'nano-banana-pro', prompt: 'Generate a figure' })
+    ).rejects.toMatchObject({ code: 'managed_provider_failed' });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('records a terminal event before rejecting an oversized MGA 400 response', async () => {
+    enableMGA();
+    const logSpy = vi.spyOn(console, 'info').mockImplementation(() => undefined);
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response('x'.repeat(6_000_001), {
+        status: 400,
+        headers: { 'Content-Type': 'text/plain' },
+      })
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(
+      callManagedProvider({
+        provider: 'nano-banana-pro',
+        prompt: 'Generate a figure',
+        requestId: 'oversized-response-test',
+      })
+    ).rejects.toMatchObject({ code: 'managed_provider_failed' });
+
+    const events = logSpy.mock.calls.map(([event]) => JSON.parse(String(event)));
+    expect(events).toContainEqual(
+      expect.objectContaining({
+        requestId: 'oversized-response-test',
+        provider: 'mga',
+        model: 'gemini-3.1-flash-image',
+        outcome: 'rejected',
+        status: 400,
+      })
+    );
+  });
+
+  it('records a rejected terminal event when direct MGA returns invalid 2xx JSON', async () => {
+    enableMGA();
+    const logSpy = vi.spyOn(console, 'info').mockImplementation(() => undefined);
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response('not-json', {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      )
+    );
+
+    await expect(
+      callManagedProvider({
+        provider: 'nano-banana-pro',
+        prompt: 'Generate a figure',
+        requestId: 'invalid-mga-json-test',
+      })
+    ).rejects.toMatchObject({ code: 'managed_provider_failed' });
+
+    const events = logSpy.mock.calls.map(([event]) => JSON.parse(String(event)));
+    expect(events).toContainEqual(
+      expect.objectContaining({
+        requestId: 'invalid-mga-json-test',
+        provider: 'mga',
+        model: 'gemini-3.1-flash-image',
+        outcome: 'rejected',
+        status: 200,
+      })
+    );
+  });
+
   it('falls back to Imagen 4 only when direct Nano Banana generation is unavailable', async () => {
     enableMGA();
+    const logSpy = vi.spyOn(console, 'info').mockImplementation(() => undefined);
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce(
@@ -581,7 +715,11 @@ describe('managed MGA capability routing', () => {
     vi.stubGlobal('fetch', fetchMock);
 
     await expect(
-      callManagedProvider({ provider: 'nano-banana-pro', prompt: 'Generate a figure' })
+      callManagedProvider({
+        provider: 'nano-banana-pro',
+        prompt: 'Generate a figure',
+        requestId: 'imagen-fallback-test',
+      })
     ).resolves.toMatchObject({
       type: 'image',
       base64: 'aW1hZ2U=',
@@ -592,6 +730,64 @@ describe('managed MGA capability routing', () => {
 
     expect(fetchMock.mock.calls[1][0]).toBe('https://mga.example.com/api/v2/chat/completions');
     expect(fetchMock.mock.calls[2][0]).toBe('https://mga.example.com/api/v2/chat/agent');
+    const events = logSpy.mock.calls.map(([event]) => JSON.parse(String(event)));
+    expect(events).toContainEqual(
+      expect.objectContaining({
+        requestId: 'imagen-fallback-test',
+        provider: 'mga',
+        model: 'imagen-4',
+        outcome: 'started',
+      })
+    );
+    expect(events).toContainEqual(
+      expect.objectContaining({
+        requestId: 'imagen-fallback-test',
+        provider: 'mga',
+        model: 'imagen-4',
+        outcome: 'response_received',
+        status: 200,
+      })
+    );
+  });
+
+  it('records a rejected terminal event when the Imagen fallback returns invalid JSON', async () => {
+    enableMGA();
+    const logSpy = vi.spyOn(console, 'info').mockImplementation(() => undefined);
+    const unavailable = () =>
+      new Response(JSON.stringify({ detail: 'There are no healthy deployments for this model' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(unavailable())
+      .mockResolvedValueOnce(unavailable())
+      .mockResolvedValueOnce(
+        new Response('not-json', {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(
+      callManagedProvider({
+        provider: 'nano-banana-pro',
+        prompt: 'Generate a figure',
+        requestId: 'invalid-agent-json-test',
+      })
+    ).rejects.toMatchObject({ code: 'managed_provider_failed' });
+
+    const events = logSpy.mock.calls.map(([event]) => JSON.parse(String(event)));
+    expect(events).toContainEqual(
+      expect.objectContaining({
+        requestId: 'invalid-agent-json-test',
+        provider: 'mga',
+        model: 'imagen-4',
+        outcome: 'rejected',
+        status: 200,
+      })
+    );
   });
 
   it('uses Google directly when MGA is not configured', async () => {
@@ -622,6 +818,41 @@ describe('managed MGA capability routing', () => {
       fallbackPath: ['google/gemini-3.1-flash-image'],
     });
     expect(fetchMock).toHaveBeenCalledOnce();
+  });
+
+  it('records a rejected terminal event when direct Google returns invalid 2xx JSON', async () => {
+    vi.stubEnv('MGA_BASE_URL', '');
+    vi.stubEnv('MGA_API_KEY', '');
+    vi.stubEnv('GOOGLE_API_KEY', 'google-test-key');
+    const logSpy = vi.spyOn(console, 'info').mockImplementation(() => undefined);
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response('not-json', {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      )
+    );
+
+    await expect(
+      callManagedProvider({
+        provider: 'nano-banana-pro',
+        prompt: 'Generate a figure',
+        requestId: 'invalid-google-json-test',
+      })
+    ).rejects.toMatchObject({ code: 'managed_provider_failed' });
+
+    const events = logSpy.mock.calls.map(([event]) => JSON.parse(String(event)));
+    expect(events).toContainEqual(
+      expect.objectContaining({
+        requestId: 'invalid-google-json-test',
+        provider: 'google',
+        model: 'gemini-3.1-flash-image',
+        outcome: 'rejected',
+        status: 200,
+      })
+    );
   });
 
   it('accepts GEMINI_API_KEY as a legacy alias for direct Google fallback', async () => {
