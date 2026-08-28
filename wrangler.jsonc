@@ -2,6 +2,16 @@
   "name": "sci-necromancer",
   "compatibility_date": "2026-01-12",
   "main": "./worker/index.ts",
+  "routes": [
+    {
+      "pattern": "www.rad-sci.org",
+      "custom_domain": true,
+    },
+    {
+      "pattern": "rad-sci.org",
+      "custom_domain": true,
+    },
+  ],
   "vars": {
     "API_ORIGIN": "https://sci-necromancer-backend.vercel.app",
     "SUPABASE_ORIGIN": "https://wdueydmtgidrmiwpqsqv.supabase.co",
