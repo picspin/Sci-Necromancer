@@ -58,7 +58,7 @@ begin
     delete from public.member_jev_analysis_cache where user_id=p_user_id;
     update public.member_jev_analysis_attempts set status='failed' where user_id=p_user_id and status='pending';
   end if;
-  return '{}'::jsonb;
+  return jsonb_build_object('accepted', p_accepted, 'version', p_version);
 end $$;
 
 create or replace function public.jev_reserve_analysis(p_user_id uuid, p_version text, p_cache_key text) returns jsonb language plpgsql security definer set search_path = public as $$
@@ -105,7 +105,17 @@ begin
   if v.lease_expires_at<=v_now then update public.member_jev_analysis_attempts set status='failed' where id=v.id; return jsonb_build_object('status','expired'); end if;
   if p_success is null then raise exception 'invalid_jev_result'; end if;
   if p_success then
-    if p_result is null or jsonb_typeof(p_result)<>'object' or octet_length(convert_to(p_result::text,'utf8'))>65536 then raise exception 'invalid_jev_result'; end if;
+    if p_result is null or jsonb_typeof(p_result)<>'object' or octet_length(convert_to(p_result::text,'utf8'))>65536
+       or (p_result - array['analysis','preflight','provider','model','policyVersion']) <> '{}'::jsonb
+       or not (p_result ?& array['analysis','preflight','provider','model','policyVersion'])
+       or jsonb_typeof(p_result->'analysis')<>'object' or (p_result->'analysis' - array['categories','keywords']) <> '{}'::jsonb
+       or not (p_result->'analysis' ?& array['categories','keywords'])
+       or jsonb_typeof(p_result->'preflight')<>'object'
+       or p_result ?| array['sourceText','source_text','prompt','evidence','manuscript','text']
+       or p_result->'analysis' ?| array['sourceText','source_text','prompt','evidence','manuscript','text']
+       or p_result->'preflight' ?| array['sourceText','source_text','prompt','evidence','manuscript','text']
+       or p_result->>'provider' <> 'typesafe' or coalesce(length(p_result->>'model'),0)=0 or p_result->>'policyVersion' <> 'jev-analysis-v1'
+    then raise exception 'invalid_jev_result'; end if;
     if not exists(select 1 from public.member_jev_consents where user_id=p_user_id and version='typesafe-member-2026-09-21-v1' and accepted) then raise exception 'jev_consent_required'; end if;
     insert into public.member_jev_analysis_cache(user_id,cache_key,result,expires_at) values(p_user_id,v.cache_key,p_result,v_now+interval '24 hours') on conflict(user_id,cache_key) do update set result=excluded.result,expires_at=excluded.expires_at;
     update public.member_jev_analysis_attempts set status='completed' where id=v.id;
@@ -116,14 +126,20 @@ begin
   return jsonb_build_object('status','settled');
 end $$;
 
-create or replace function public.jev_prune_expired_analysis() returns void language plpgsql security definer set search_path = public as $$ declare v_profile uuid; begin
+create or replace function public.jev_prune_expired_analysis() returns void language plpgsql security definer set search_path = public as $$ declare v_profile uuid; v_now timestamptz; begin
   -- Match settlement's profile-first lock order so maintenance cannot deadlock it.
-  for v_profile in select distinct user_id from public.member_jev_analysis_attempts where status='pending' and lease_expires_at<=clock_timestamp() loop
+  for v_profile in
+    select user_id from (
+      select user_id from public.member_jev_analysis_attempts where status='pending' or created_at<clock_timestamp()-interval '48 hours'
+      union select user_id from public.member_jev_analysis_cache where expires_at<=clock_timestamp()
+    ) affected order by user_id
+  loop
     perform 1 from public.member_profiles where user_id=v_profile for update;
+    v_now:=clock_timestamp();
+    delete from public.member_jev_analysis_cache where user_id=v_profile and expires_at<=v_now;
+    update public.member_jev_analysis_attempts set status='failed' where user_id=v_profile and status='pending' and lease_expires_at<=v_now;
+    delete from public.member_jev_analysis_attempts where user_id=v_profile and created_at<v_now-interval '48 hours';
   end loop;
-  delete from public.member_jev_analysis_cache where expires_at<=clock_timestamp();
-  update public.member_jev_analysis_attempts set status='failed' where status='pending' and lease_expires_at<=clock_timestamp();
-  delete from public.member_jev_analysis_attempts where created_at<clock_timestamp()-interval '48 hours';
 end $$;
 
 revoke all on function public.jev_get_consent(uuid), public.jev_set_consent(uuid,text,boolean), public.jev_reserve_analysis(uuid,text,text), public.jev_settle_analysis(uuid,uuid,boolean,jsonb), public.jev_prune_expired_analysis() from public, anon, authenticated;

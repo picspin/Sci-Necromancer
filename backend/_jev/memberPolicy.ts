@@ -21,6 +21,16 @@ function asRecord(value: unknown): Record<string, unknown> | null {
     ? (value as Record<string, unknown>)
     : null;
 }
+function isPlainJsonObject(value: unknown): value is Record<string, unknown> {
+  return (
+    asRecord(value) !== null &&
+    (Object.getPrototypeOf(value) === Object.prototype || Object.getPrototypeOf(value) === null)
+  );
+}
+function hasExactKeys(value: Record<string, unknown>, keys: string[]) {
+  const actual = Object.keys(value);
+  return actual.length === keys.length && actual.every((key) => keys.includes(key));
+}
 function validRemaining(value: unknown): value is number {
   return typeof value === 'number' && Number.isInteger(value) && value >= 0 && value <= 30;
 }
@@ -51,17 +61,102 @@ async function call<T>(
   } catch {
     return unavailable();
   }
+  if (
+    !isPlainJsonObject(reply) ||
+    !('error' in reply) ||
+    !('data' in reply) ||
+    (reply.error !== null && !isPlainJsonObject(reply.error))
+  )
+    return unavailable();
   if (reply.error) return rpcError(reply.error);
-  if (reply.data === null) return unavailable();
+  if (reply.data === null || reply.data === undefined) return unavailable();
   return reply.data;
 }
 function uuid(value: unknown): value is string {
   return typeof value === 'string' && UUID.test(value);
 }
 function resultObject(value: unknown): value is Record<string, unknown> {
-  if (!asRecord(value)) return false;
+  if (
+    !isPlainJsonObject(value) ||
+    !hasExactKeys(value, ['analysis', 'preflight', 'provider', 'model', 'policyVersion'])
+  )
+    return false;
+  const analysis = value.analysis;
+  const preflight = value.preflight;
+  if (
+    !isPlainJsonObject(analysis) ||
+    !hasExactKeys(analysis, ['categories', 'keywords']) ||
+    !Array.isArray(analysis.categories) ||
+    !Array.isArray(analysis.keywords)
+  )
+    return false;
+  if (
+    !analysis.categories.every(
+      (category) =>
+        isPlainJsonObject(category) &&
+        hasExactKeys(category, ['name', 'type', 'probability']) &&
+        typeof category.name === 'string' &&
+        category.name.length > 0 &&
+        category.name.length <= 160 &&
+        ['main', 'sub', 'secondary'].includes(String(category.type)) &&
+        typeof category.probability === 'number' &&
+        Number.isFinite(category.probability) &&
+        category.probability >= 0 &&
+        category.probability <= 1
+    )
+  )
+    return false;
+  if (
+    !analysis.keywords.every(
+      (keyword) => typeof keyword === 'string' && keyword.length > 0 && keyword.length <= 160
+    )
+  )
+    return false;
+  const preflightKeys = [
+    'isScientificSubmission',
+    'hasObjective',
+    'hasMethods',
+    'hasResults',
+    'hasConclusion',
+    'needsReview',
+  ];
+  if (
+    !isPlainJsonObject(preflight) ||
+    !Object.keys(preflight).every((key) => [...preflightKeys, 'reviewReason'].includes(key)) ||
+    !preflightKeys.every((key) => key in preflight) ||
+    !preflightKeys
+      .slice(0, 5)
+      .every(
+        (key) =>
+          typeof preflight[key] === 'number' &&
+          Number.isFinite(preflight[key]) &&
+          (preflight[key] as number) >= 0 &&
+          (preflight[key] as number) <= 1
+      ) ||
+    typeof preflight.needsReview !== 'boolean' ||
+    (preflight.reviewReason !== undefined &&
+      (typeof preflight.reviewReason !== 'string' ||
+        ![
+          'source_not_confidently_scientific',
+          'category_uncertain',
+          'no_category_selected',
+        ].includes(preflight.reviewReason)))
+  )
+    return false;
+  if (
+    value.provider !== 'typesafe' ||
+    typeof value.model !== 'string' ||
+    value.model.length === 0 ||
+    value.model.length > 160 ||
+    value.policyVersion !== 'jev-analysis-v1'
+  )
+    return false;
   try {
-    return new TextEncoder().encode(JSON.stringify(value)).byteLength <= MAX_RESULT_BYTES;
+    const serialized = JSON.stringify(value);
+    return (
+      new TextEncoder().encode(serialized).byteLength <= MAX_RESULT_BYTES &&
+      JSON.parse(serialized) !== null
+    );
   } catch {
     return false;
   }
@@ -80,10 +175,19 @@ export function createJevMemberPolicy(client: MemberRpcClient) {
     },
     async setConsent(accepted: boolean): Promise<void> {
       if (typeof accepted !== 'boolean') throw new MemberServiceError('invalid_jev_consent', 400);
-      await call<unknown>(client, 'jev_set_consent', {
-        p_version: JEV_CONSENT_VERSION,
-        p_accepted: accepted,
-      });
+      const acknowledgment = asRecord(
+        await call<unknown>(client, 'jev_set_consent', {
+          p_version: JEV_CONSENT_VERSION,
+          p_accepted: accepted,
+        })
+      );
+      if (
+        !acknowledgment ||
+        !hasExactKeys(acknowledgment, ['accepted', 'version']) ||
+        acknowledgment.accepted !== accepted ||
+        acknowledgment.version !== JEV_CONSENT_VERSION
+      )
+        return unavailable();
     },
     async reserve(cacheKey: string): Promise<JevReservation> {
       if (!CACHE_KEY.test(cacheKey)) throw new MemberServiceError('invalid_jev_cache_key', 400);

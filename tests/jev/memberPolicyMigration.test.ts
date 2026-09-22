@@ -48,5 +48,12 @@ describe('Jev member policy migration (static contract only; not transaction sem
     expect(migration).toContain("set status='failed' where user_id=p_user_id and status='pending'");
     expect(migration).toContain("return jsonb_build_object('status','expired')");
     expect(migration).toContain("return jsonb_build_object('status','conflict')");
+    expect(migration).toContain(
+      "p_result - array['analysis','preflight','provider','model','policyVersion']"
+    );
+    expect(migration).toContain(
+      "p_result ?| array['sourceText','source_text','prompt','evidence','manuscript','text']"
+    );
+    expect(migration).toContain('select user_id from (');
   });
 });
