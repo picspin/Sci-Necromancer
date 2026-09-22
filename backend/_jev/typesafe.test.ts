@@ -208,6 +208,16 @@ describe('TypeSafe Jev analysis adapter', () => {
       },
     ],
     [
+      'a boxed category type',
+      {
+        ...validInput(),
+        categories: [
+          { name: 'Valid', type: new String('main') },
+          { name: 'Other', type: 'main' },
+        ],
+      },
+    ],
+    [
       'empty category label',
       {
         ...validInput(),

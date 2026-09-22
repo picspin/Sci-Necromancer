@@ -95,6 +95,7 @@ export function sanitizeJevAnalysisInput(value: unknown): JevAnalysisInput {
     if (
       !name ||
       name.length > MAX_LABEL_LENGTH ||
+      typeof type !== 'string' ||
       !['main', 'sub', 'secondary'].includes(String(type))
     ) {
       throw new TypesafeJevError('invalid_jev_analysis_candidates', 400);
