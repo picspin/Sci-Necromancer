@@ -108,7 +108,7 @@ begin
     if p_result is null or jsonb_typeof(p_result)<>'object' or octet_length(convert_to(p_result::text,'utf8'))>65536
        or (p_result - array['analysis','preflight','provider','model','policyVersion']) <> '{}'::jsonb
        or not (p_result ?& array['analysis','preflight','provider','model','policyVersion'])
-       or jsonb_typeof(p_result->'analysis')<>'object' or (p_result->'analysis' - array['categories','keywords']) <> '{}'::jsonb
+       or jsonb_typeof(p_result->'analysis')<>'object' or ((p_result->'analysis') - array['categories','keywords']) <> '{}'::jsonb
        or not (p_result->'analysis' ?& array['categories','keywords'])
        or jsonb_typeof(p_result->'preflight')<>'object'
        or p_result ?| array['sourceText','source_text','prompt','evidence','manuscript','text']

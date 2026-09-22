@@ -51,6 +51,7 @@ describe('Jev member policy migration (static contract only; not transaction sem
     expect(migration).toContain(
       "p_result - array['analysis','preflight','provider','model','policyVersion']"
     );
+    expect(migration).toContain("((p_result->'analysis') - array['categories','keywords'])");
     expect(migration).toContain(
       "p_result ?| array['sourceText','source_text','prompt','evidence','manuscript','text']"
     );

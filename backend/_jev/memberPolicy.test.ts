@@ -136,8 +136,11 @@ describe('Jev member policy RPC boundary', () => {
     for (const response of [
       undefined,
       null,
+      [],
       { data: undefined, error: null },
       { data: { accepted: true, version: JEV_CONSENT_VERSION } },
+      { data: null, error: { message: 42 } },
+      { data: null, error: { message: {} } },
     ]) {
       await expect(
         createJevMemberPolicy({ rpc: vi.fn().mockResolvedValue(response) }).getConsent()

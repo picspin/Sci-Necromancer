@@ -35,6 +35,9 @@ function validRemaining(value: unknown): value is number {
   return typeof value === 'number' && Number.isInteger(value) && value >= 0 && value <= 30;
 }
 function rpcError(error: { message?: string } | null): never {
+  if (error !== null && error.message !== undefined && typeof error.message !== 'string') {
+    return unavailable();
+  }
   const message = error?.message ?? '';
   const known: Array<[string, number]> = [
     ['jev_consent_required', 403],
