@@ -84,7 +84,11 @@ const getTextRoute = (workflowContext?: string) => {
     settings.textGenerationSource = 'managed';
     settings.memberManagedTextEnabled = true;
     settings.memberManagedTextModel = locked.model === 'gpt-5.6-luna' ? 'gpt-5.6-luna' : 'glm-5.2';
-  } else if (locked?.source === 'byok' && locked.provider !== 'mga') {
+  } else if (
+    locked?.source === 'byok' &&
+    locked.provider !== 'mga' &&
+    locked.provider !== 'typesafe'
+  ) {
     settings.textGenerationSource = 'byok';
     settings.provider = locked.provider;
     if (locked.provider === 'google') settings.model = locked.model;
