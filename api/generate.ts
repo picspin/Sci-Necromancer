@@ -1,4 +1,6 @@
+import { createHash } from 'node:crypto';
 import type { VercelRequest, VercelResponse } from '../backend/_types/vercel.js';
+import { createJevGenerationWorkflow } from '../backend/_jev/generationWorkflow.js';
 import { callManagedProvider, type ProviderImageInput } from '../backend/_generation/providers.js';
 import {
   runManagedGeneration,
@@ -227,7 +229,31 @@ export default async function handler(request: VercelRequest, response: VercelRe
     const images = parseImages(request.body?.images);
     const admin = createAdminSupabaseClient();
     const user = await requireAuthenticatedUser(request, admin);
-    const member = createMemberService(createScopedMemberRpcClient(admin, user.id));
+    const scopedClient = createScopedMemberRpcClient(admin, user.id);
+    const member = createMemberService(scopedClient);
+    let providerPrompt = prompt;
+    if (workflowId && workflowOperation) {
+      const sourceText =
+        typeof request.body?.sourceText === 'string' ? request.body.sourceText.trim() : '';
+      if (sourceText.length > 80_000)
+        throw new MemberServiceError('invalid_generation_request', 400);
+      const conference =
+        typeof request.body?.conference === 'string' ? request.body.conference : '';
+      const isJevWorkflow = await createJevGenerationWorkflow(scopedClient).assertContext(
+        workflowId,
+        {
+          sourceHash: sourceText
+            ? createHash('sha256').update(sourceText, 'utf8').digest('hex')
+            : '',
+          conference,
+          model: model ?? '',
+        },
+        workflowOperation
+      );
+      if (isJevWorkflow && !prompt.includes(sourceText)) {
+        providerPrompt = `${prompt}\n\nAUTHOR SOURCE — preserve its facts:\n${sourceText}`;
+      }
+    }
     const result = await runManagedGeneration(
       { idempotencyKey, taskKind, provider, completeWorkflow, workflowId, workflowOperation },
       member,
@@ -236,7 +262,7 @@ export default async function handler(request: VercelRequest, response: VercelRe
           provider,
           model,
           requestId: providerRequestId,
-          prompt,
+          prompt: providerPrompt,
           images,
           size: request.body?.size,
           reasoning: operation === 'deep_update' ? 'high' : 'default',

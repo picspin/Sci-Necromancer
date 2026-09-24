@@ -1,8 +1,8 @@
-import type { AIAssistanceRecord, AIProvider } from '../../types';
+import type { AIAssistanceRecord } from '../../types';
 
 export interface TextModelSnapshot {
   source: 'byok' | 'managed';
-  provider: AIProvider | 'mga';
+  provider: AIAssistanceRecord['provider'];
   providerDisplayName?: string;
   model: string;
 }

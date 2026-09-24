@@ -53,6 +53,7 @@ const providerNames: Record<AIAssistanceRecord['provider'], string> = {
   openai: 'OpenAI',
   anthropic: 'Anthropic',
   mga: 'MGA',
+  typesafe: 'TypeSafe',
 };
 
 function formatList(values: string[], conjunction: 'and' | 'or'): string {

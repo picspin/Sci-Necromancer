@@ -254,6 +254,7 @@ import {
   getManagedAnalysisRetryNotice,
   prepareManagedTextReentry,
 } from '@/lib/llm/managedTextWorkflow';
+import { canUseJevForConference } from '@/lib/llm/jevAnalysis';
 import { useAbstract } from '@/composables/useAbstract';
 import { getMemeTranslation } from '@/lib/i18n';
 
@@ -374,6 +375,7 @@ const handleAnalyze = async () => {
   }
   const workflowContext = `RSNA:${inputText.value}`;
   if (
+    !canUseJevForConference('RSNA') &&
     getManagedAnalysisRetryNotice(workflowContext) === 'one_free_remaining' &&
     !window.confirm(t('membership.analysis_retry_warning'))
   ) {

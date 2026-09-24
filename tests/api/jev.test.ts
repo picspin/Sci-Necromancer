@@ -1,4 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { createHash } from 'node:crypto';
+import { buildJevAnalysisRequest } from '../../backend/_jev/typesafe';
 
 const mocks = vi.hoisted(() => ({
   requestTypesafeJev: vi.fn(),
@@ -9,6 +11,7 @@ const mocks = vi.hoisted(() => ({
     reserve: vi.fn(),
     settle: vi.fn(),
   },
+  workflow: { open: vi.fn() },
 }));
 
 vi.mock('../../backend/_jev/typesafe', async (importOriginal) => {
@@ -17,6 +20,9 @@ vi.mock('../../backend/_jev/typesafe', async (importOriginal) => {
 });
 vi.mock('../../backend/_jev/memberPolicy', () => ({
   createJevMemberPolicy: vi.fn(() => mocks.policy),
+}));
+vi.mock('../../backend/_jev/generationWorkflow', () => ({
+  createJevGenerationWorkflow: vi.fn(() => mocks.workflow),
 }));
 vi.mock('../../backend/_member/supabaseServer', () => ({
   createAdminSupabaseClient: vi.fn(() => ({ rpc: vi.fn() })),
@@ -53,7 +59,11 @@ function response() {
 }
 
 function request(body: unknown = {}, method = 'POST'): any {
-  return { method, headers: { origin: 'https://www.rad-sci.org' }, body };
+  return {
+    method,
+    headers: { origin: 'https://www.rad-sci.org', 'idempotency-key': 'jev-analysis-1' },
+    body: { model: 'glm-5.2', ...(body as Record<string, unknown>) },
+  };
 }
 
 describe('/api/jev', () => {
@@ -73,6 +83,11 @@ describe('/api/jev', () => {
     });
     mocks.policy.settle.mockResolvedValue(undefined);
     mocks.requestTypesafeJev.mockResolvedValue(result);
+    mocks.workflow.open.mockResolvedValue({
+      workflowId: '550e8400-e29b-41d4-a716-446655440000',
+      bonusBalance: 9,
+      workflow: { analysisCount: 1, callCount: 1, generationCount: 0, deepUpdateCount: 0 },
+    });
   });
 
   it('remains disabled and does not authenticate when the feature flag is off', async () => {
@@ -113,11 +128,33 @@ describe('/api/jev', () => {
     );
     expect(input.categories.some((candidate: any) => candidate.name === 'attacker')).toBe(false);
     expect(input.keywords).toContain('CT');
-    expect(mocks.policy.reserve).toHaveBeenCalledWith(expect.stringMatching(/^[a-f0-9]{64}$/));
+    const expectedCacheKey = createHash('sha256')
+      .update(
+        JSON.stringify({
+          policyVersion: 'jev-analysis-v1',
+          request: buildJevAnalysisRequest(input),
+        })
+      )
+      .digest('hex');
+    expect(mocks.policy.reserve).toHaveBeenCalledWith(expectedCacheKey);
     expect(mocks.policy.settle).toHaveBeenCalledWith(expect.any(String), true, result);
+    expect(mocks.workflow.open).toHaveBeenCalledWith(
+      'jev-analysis-1',
+      expect.stringMatching(/^[a-f0-9]{64}$/),
+      {
+        sourceHash: createHash('sha256').update(input.text, 'utf8').digest('hex'),
+        conference: 'RSNA',
+        model: 'glm-5.2',
+      }
+    );
     expect(res.status).toHaveBeenCalledWith(200);
     expect(res.json).toHaveBeenCalledWith(
-      expect.objectContaining({ provider: 'typesafe', cached: false, remaining: 29 })
+      expect.objectContaining({
+        provider: 'typesafe',
+        cached: false,
+        remaining: 29,
+        workflowId: '550e8400-e29b-41d4-a716-446655440000',
+      })
     );
   });
 
@@ -126,7 +163,9 @@ describe('/api/jev', () => {
     const cached = response();
     await handler(request({ conference: 'ISMRM', text: 'cached manuscript' }), cached);
     expect(cached.status).toHaveBeenCalledWith(200);
-    expect(cached.json).toHaveBeenCalledWith(expect.objectContaining({ cached: true }));
+    expect(cached.json).toHaveBeenCalledWith(
+      expect.objectContaining({ cached: true, workflowId: '550e8400-e29b-41d4-a716-446655440000' })
+    );
     mocks.policy.reserve.mockResolvedValueOnce({
       kind: 'pending',
       reservationId: '550e8400-e29b-41d4-a716-446655440000',
@@ -144,6 +183,7 @@ describe('/api/jev', () => {
     await handler(request({ conference: 'ISMRM', text: 'limited manuscript' }), limited);
     expect(limited.status).toHaveBeenCalledWith(429);
     expect(mocks.requestTypesafeJev).not.toHaveBeenCalled();
+    expect(mocks.workflow.open).toHaveBeenCalledOnce();
   });
 
   it('settles reservations as failed and returns only a sanitized provider error', async () => {
@@ -162,6 +202,24 @@ describe('/api/jev', () => {
     await handler(request({ conference: 'ESC', text: 'source' }), res);
     expect(res.status).toHaveBeenCalledWith(400);
     expect(res.json).toHaveBeenCalledWith({ error: 'unsupported_jev_conference' });
+    expect(mocks.requestTypesafeJev).not.toHaveBeenCalled();
+  });
+
+  it('requires a stable idempotency key before quota reservation or provider egress', async () => {
+    const req = request({ action: 'analyze', conference: 'ISMRM', text: 'source' });
+    delete req.headers['idempotency-key'];
+    const res = response();
+    await handler(req, res);
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(mocks.policy.reserve).not.toHaveBeenCalled();
+    expect(mocks.requestTypesafeJev).not.toHaveBeenCalled();
+  });
+
+  it('requires a supported locked member model before quota reservation', async () => {
+    const res = response();
+    await handler(request({ conference: 'ISMRM', text: 'source', model: 'attacker-model' }), res);
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(mocks.policy.reserve).not.toHaveBeenCalled();
     expect(mocks.requestTypesafeJev).not.toHaveBeenCalled();
   });
 });

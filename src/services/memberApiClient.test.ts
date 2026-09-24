@@ -58,6 +58,11 @@ describe('member API client', () => {
           provider: 'typesafe',
           model: 'jev-1.13.0',
           policyVersion: 'jev-analysis-v1',
+          workflowId: '550e8400-e29b-41d4-a716-446655440000',
+          bonusBalance: 9,
+          workflow: { analysisCount: 1, generationCount: 0, deepUpdateCount: 0, callCount: 1 },
+          cached: false,
+          remaining: 29,
         }),
         { status: 200, headers: { 'Content-Type': 'application/json' } }
       )
@@ -72,20 +77,96 @@ describe('member API client', () => {
       client.jevAnalyze({
         text: 'MRI reconstruction study',
         conference: 'ISMRM',
+        idempotencyKey: 'analysis-1',
+        model: 'glm-5.2',
       })
     ).resolves.toMatchObject({ provider: 'typesafe', model: 'jev-1.13.0' });
     expect(fetcher).toHaveBeenCalledWith(
       'https://api.example.test/api/jev',
       expect.objectContaining({
         method: 'POST',
-        headers: expect.objectContaining({ Authorization: 'Bearer member-jwt' }),
+        headers: expect.objectContaining({
+          Authorization: 'Bearer member-jwt',
+          'Idempotency-Key': 'analysis-1',
+        }),
       })
     );
     expect(JSON.parse(String(fetcher.mock.calls[0][1].body))).toEqual({
       action: 'analyze',
       text: 'MRI reconstruction study',
       conference: 'ISMRM',
+      model: 'glm-5.2',
     });
+  });
+
+  it('does not mistake a pending Jev reservation for a completed analysis', async () => {
+    const fetcher = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ error: 'jev_analysis_pending', remaining: 29 }), {
+        status: 202,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    );
+    const client = createMemberApiClient({
+      baseUrl: 'https://api.example.test',
+      getAccessToken: async () => 'member-jwt',
+      fetcher,
+    });
+    await expect(
+      client.jevAnalyze({
+        text: 'source',
+        conference: 'ISMRM',
+        idempotencyKey: 'analysis-1',
+        model: 'glm-5.2',
+      })
+    ).rejects.toThrow('jev_analysis_pending');
+  });
+
+  it.each([
+    {
+      preflight: undefined,
+      workflow: { analysisCount: 1, callCount: 1, generationCount: 0, deepUpdateCount: 0 },
+    },
+    {
+      preflight: {
+        isScientificSubmission: 1,
+        hasObjective: 1,
+        hasMethods: 1,
+        hasResults: 1,
+        hasConclusion: 1,
+        needsReview: false,
+      },
+      workflow: undefined,
+    },
+  ])('rejects an incomplete Jev analysis response', async ({ preflight, workflow }) => {
+    const fetcher = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          analysis: { categories: [], keywords: [] },
+          preflight,
+          workflow,
+          provider: 'typesafe',
+          model: 'jev-1.13.0',
+          policyVersion: 'jev-analysis-v1',
+          workflowId: '550e8400-e29b-41d4-a716-446655440000',
+          bonusBalance: 9,
+          remaining: 29,
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      )
+    );
+    const client = createMemberApiClient({
+      baseUrl: 'https://api.example.test',
+      getAccessToken: async () => 'member-jwt',
+      fetcher,
+    });
+    await expect(
+      client.jevAnalyze({
+        text: 'source',
+        conference: 'ISMRM',
+        idempotencyKey: 'analysis-1',
+        model: 'glm-5.2',
+      })
+    ).rejects.toThrow('invalid_jev_analysis_response');
   });
 
   it('lists and runs managed research capabilities through one member endpoint', async () => {

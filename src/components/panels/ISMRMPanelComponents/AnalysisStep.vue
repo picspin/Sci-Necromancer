@@ -6,6 +6,9 @@
     <p id="analysis-description" class="text-text-secondary">
       {{ t('analysis_ui.review_generated') }}
     </p>
+    <p v-if="jevClassificationOnly" class="text-sm text-text-secondary">
+      {{ t('membership.jev_optional_notes') }}
+    </p>
 
     <!-- Impact Section -->
     <div>
@@ -140,6 +143,7 @@ interface Props {
   result: AnalysisResult;
   impact: string;
   synopsis: string;
+  jevClassificationOnly?: boolean;
 }
 
 const props = defineProps<Props>();
@@ -195,9 +199,9 @@ const impactWordCount = computed(() => countWords(localImpact.value));
 const synopsisWordCount = computed(() => countWords(localSynopsis.value));
 
 const sortedCategories = computed(() =>
-  (Array.isArray(props.result.categories) ? props.result.categories : [])
-    .sort((a, b) => b.probability - a.probability)
-    .filter((c) => c.probability > 0.25)
+  (Array.isArray(props.result.categories) ? props.result.categories : []).sort(
+    (a, b) => b.probability - a.probability
+  )
 );
 
 const keywords = computed(() =>

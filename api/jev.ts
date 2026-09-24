@@ -1,13 +1,16 @@
 import { createHash } from 'node:crypto';
 import type { VercelRequest, VercelResponse } from '../backend/_types/vercel.js';
 import { createJevMemberPolicy } from '../backend/_jev/memberPolicy.js';
+import { createJevGenerationWorkflow } from '../backend/_jev/generationWorkflow.js';
 import {
+  buildJevAnalysisRequest,
   requestTypesafeJev,
   sanitizeJevAnalysisInput,
   TypesafeJevError,
   type JevAnalysisInput,
 } from '../backend/_jev/typesafe.js';
 import { prepareMemberApi, sendApiError } from '../backend/_member/http.js';
+import { MemberServiceError } from '../backend/_member/memberService.js';
 import {
   createAdminSupabaseClient,
   createScopedMemberRpcClient,
@@ -242,7 +245,9 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function canonicalDigest(input: JevAnalysisInput): string {
   return createHash('sha256')
-    .update(JSON.stringify({ policyVersion: 'jev-analysis-v1', ...input }))
+    .update(
+      JSON.stringify({ policyVersion: 'jev-analysis-v1', request: buildJevAnalysisRequest(input) })
+    )
     .digest('hex');
 }
 
@@ -270,7 +275,8 @@ export default async function handler(request: VercelRequest, response: VercelRe
   try {
     const admin = createAdminSupabaseClient();
     const user = await requireAuthenticatedUser(request, admin);
-    const policy = createJevMemberPolicy(createScopedMemberRpcClient(admin, user.id));
+    const memberClient = createScopedMemberRpcClient(admin, user.id);
+    const policy = createJevMemberPolicy(memberClient);
     if (request.method === 'GET') return response.status(200).json(await policy.getConsent());
 
     const body = isRecord(request.body) ? request.body : {};
@@ -289,11 +295,28 @@ export default async function handler(request: VercelRequest, response: VercelRe
       conference: body.conference,
       ...candidates,
     });
-    const reservation = await policy.reserve(canonicalDigest(input));
-    if (reservation.kind === 'cached')
-      return response
-        .status(200)
-        .json({ ...reservation.result, cached: true, remaining: reservation.remaining });
+    const idempotencyKey = request.headers['idempotency-key'];
+    if (typeof idempotencyKey !== 'string' || !idempotencyKey || idempotencyKey.length > 128)
+      throw new MemberServiceError('invalid_jev_workflow_request', 400);
+    if (body.model !== 'glm-5.2' && body.model !== 'gpt-5.6-luna')
+      throw new MemberServiceError('invalid_jev_workflow_request', 400);
+    const cacheKey = canonicalDigest(input);
+    const openWorkflow = () =>
+      createJevGenerationWorkflow(memberClient).open(idempotencyKey, cacheKey, {
+        sourceHash: createHash('sha256').update(input.text, 'utf8').digest('hex'),
+        conference: input.conference,
+        model: body.model as string,
+      });
+    const reservation = await policy.reserve(cacheKey);
+    if (reservation.kind === 'cached') {
+      const workflow = await openWorkflow();
+      return response.status(200).json({
+        ...reservation.result,
+        ...workflow,
+        cached: true,
+        remaining: reservation.remaining,
+      });
+    }
     if (reservation.kind === 'pending')
       return response
         .status(202)
@@ -303,21 +326,17 @@ export default async function handler(request: VercelRequest, response: VercelRe
         'Retry-After',
         Math.max(1, Math.ceil((Date.parse(reservation.retryAt) - Date.now()) / 1000))
       );
-      return response
-        .status(429)
-        .json({
-          error: 'jev_analysis_rate_limited',
-          retryAt: reservation.retryAt,
-          remaining: reservation.remaining,
-        });
+      return response.status(429).json({
+        error: 'jev_analysis_rate_limited',
+        retryAt: reservation.retryAt,
+        remaining: reservation.remaining,
+      });
     }
 
+    let result;
     try {
-      const result = await requestTypesafeJev(input);
+      result = await requestTypesafeJev(input);
       await policy.settle(reservation.reservationId, true, { ...result });
-      return response
-        .status(200)
-        .json({ ...result, cached: false, remaining: reservation.remaining });
     } catch (error) {
       try {
         await policy.settle(reservation.reservationId, false);
@@ -328,6 +347,10 @@ export default async function handler(request: VercelRequest, response: VercelRe
         .status(error instanceof TypesafeJevError ? error.status : 503)
         .json(providerError(error));
     }
+    const workflow = await openWorkflow();
+    return response
+      .status(200)
+      .json({ ...result, ...workflow, cached: false, remaining: reservation.remaining });
   } catch (error) {
     if (error instanceof TypesafeJevError)
       return response.status(error.status).json(providerError(error));

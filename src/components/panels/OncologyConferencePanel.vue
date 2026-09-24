@@ -268,6 +268,7 @@ import {
   getManagedAnalysisRetryNotice,
   prepareManagedTextReentry,
 } from '@/lib/llm/managedTextWorkflow';
+import { canUseJevForConference } from '@/lib/llm/jevAnalysis';
 import { useAbstract } from '@/composables/useAbstract';
 import { useSettings } from '@/composables/useSettings';
 import Modal from '@/components/ui/Modal.vue';
@@ -397,6 +398,7 @@ const handleFileChange = async (event: Event) => {
 const handleAnalyze = async () => {
   if (!inputText.value.trim()) return;
   if (
+    !canUseJevForConference(props.conference) &&
     getManagedAnalysisRetryNotice(workflowContext.value) === 'one_free_remaining' &&
     !window.confirm(t('membership.analysis_retry_warning'))
   )

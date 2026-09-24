@@ -89,10 +89,15 @@ async function callOpenAIAPI(
         lockedModel?.source === 'managed'
           ? lockedModel.model
           : getSettings().memberManagedTextModel || 'glm-5.2';
+      const separator = workflowContext.indexOf(':');
+      const conference = separator > 0 ? workflowContext.slice(0, separator) : undefined;
+      const sourceText = separator > 0 ? workflowContext.slice(separator + 1) : undefined;
       const result = await generateManagedText({
         prompt,
         ...billing,
         model: selectedManagedModel === 'gpt-5.6-luna' ? 'gpt-5.6-luna' : 'glm-5.2',
+        conference,
+        sourceText,
       });
       registerManagedTextWorkflow(
         workflowContext,

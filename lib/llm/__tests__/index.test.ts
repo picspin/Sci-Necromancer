@@ -25,6 +25,7 @@ vi.mock('@google/genai', () => ({
 }));
 vi.mock('@/src/composables/useMembership', () => ({
   canUseManagedText: canUseManagedTextMock,
+  canUseJev: () => false,
   hasManagedCredits: hasManagedCreditsMock,
   canUseManagedResearchVerification: canUseManagedResearchVerificationMock,
   generateManagedText: generateManagedTextMock,

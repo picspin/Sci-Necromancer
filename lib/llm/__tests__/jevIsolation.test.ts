@@ -2,9 +2,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { acceptAIDisclosure } from '@/lib/compliance/aiDisclosure';
 import { clearTextModelWorkflows } from '@/lib/llm/textModelWorkflow';
 
-const { generateContentMock, tryJevContentAnalysisMock } = vi.hoisted(() => ({
+const { generateContentMock, analyzeJevContentMock } = vi.hoisted(() => ({
   generateContentMock: vi.fn(),
-  tryJevContentAnalysisMock: vi.fn(),
+  analyzeJevContentMock: vi.fn(),
 }));
 
 vi.mock('@google/genai', () => ({
@@ -12,7 +12,10 @@ vi.mock('@google/genai', () => ({
     models = { generateContent: generateContentMock };
   },
 }));
-vi.mock('@/lib/llm/jevAnalysis', () => ({ tryJevContentAnalysis: tryJevContentAnalysisMock }));
+vi.mock('@/lib/llm/jevAnalysis', () => ({
+  analyzeJevContent: analyzeJevContentMock,
+  canUseJevForConference: () => false,
+}));
 vi.mock('@/src/composables/useMembership', () => ({
   canUseManagedText: () => false,
   hasManagedCredits: () => true,
@@ -42,7 +45,7 @@ describe('Jev isolation from BYOK analysis', () => {
   it('does not call Jev and uses the configured BYOK provider despite the frontend flag', async () => {
     const { analyzeContentForConference } = await import('@/lib/llm/index');
     await analyzeContentForConference('Private manuscript source', 'ER');
-    expect(tryJevContentAnalysisMock).not.toHaveBeenCalled();
+    expect(analyzeJevContentMock).not.toHaveBeenCalled();
     expect(generateContentMock).toHaveBeenCalledOnce();
   });
 });

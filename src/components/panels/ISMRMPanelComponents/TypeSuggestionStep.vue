@@ -4,7 +4,7 @@
       {{ t('abstract_types.title') }}
     </h2>
     <p id="type-suggestion-description" class="text-text-secondary">
-      {{ t('abstract_types.description') }}
+      {{ hasModelSuggestions ? t('abstract_types.description') : t('membership.jev_choose_type') }}
     </p>
     <p class="sr-only">{{ t('accessibility.navigation_instructions') }}</p>
     <div
@@ -22,16 +22,21 @@
         role="radio"
         :aria-checked="selectedIndex === index"
         :aria-label="
-          t('analysis_ui.type_aria', {
-            type: suggestion.type,
-            percent: (suggestion.probability * 100).toFixed(0),
-          })
+          suggestion.probability === null
+            ? suggestion.type
+            : t('analysis_ui.type_aria', {
+                type: suggestion.type,
+                percent: (suggestion.probability * 100).toFixed(0),
+              })
         "
         tabindex="0"
       >
         <div class="flex justify-between items-center">
           <span class="font-semibold text-text-primary">{{ suggestion.type }}</span>
-          <span class="text-xs font-mono px-2 py-1 bg-brand-primary/20 text-brand-primary rounded">
+          <span
+            v-if="suggestion.probability !== null"
+            class="text-xs font-mono px-2 py-1 bg-brand-primary/20 text-brand-primary rounded"
+          >
             {{
               t('abstract_types.match_probability', {
                 percent: (suggestion.probability * 100).toFixed(0),
@@ -63,8 +68,18 @@ const emit = defineEmits<{
 
 const selectedIndex = ref(0);
 
-const validSuggestions = computed(() =>
-  Array.isArray(props.suggestions) ? props.suggestions : []
+const hasModelSuggestions = computed(
+  () => Array.isArray(props.suggestions) && props.suggestions.length > 0
+);
+const validSuggestions = computed<Array<{ type: AbstractType; probability: number | null }>>(() =>
+  hasModelSuggestions.value
+    ? props.suggestions
+    : [
+        { type: 'Standard Abstract', probability: null },
+        { type: 'MRI in Clinical Practice Abstract', probability: null },
+        { type: 'ISMRT Abstract', probability: null },
+        { type: 'Registered Abstract', probability: null },
+      ]
 );
 
 const handleSelect = (type: AbstractType) => {

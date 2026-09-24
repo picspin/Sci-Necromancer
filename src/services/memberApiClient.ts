@@ -49,6 +49,8 @@ export interface ManagedCapabilityDescriptor {
 export interface JevAnalysisInput {
   text: string;
   conference: string;
+  idempotencyKey: string;
+  model: 'glm-5.2' | 'gpt-5.6-luna';
 }
 
 export interface JevConsent {
@@ -77,6 +79,16 @@ export interface JevAnalysisResponse {
   provider: 'typesafe';
   model: string;
   policyVersion: 'jev-analysis-v1';
+  workflowId: string;
+  bonusBalance: number;
+  workflow: {
+    analysisCount: number;
+    generationCount: number;
+    deepUpdateCount: number;
+    callCount: number;
+  };
+  cached: boolean;
+  remaining: number;
 }
 
 interface MemberApiClientOptions {
@@ -228,16 +240,59 @@ export function createMemberApiClient(options: MemberApiClientOptions) {
         {},
         15_000
       ),
-    jevAnalyze: (input: JevAnalysisInput) =>
-      request<JevAnalysisResponse>(
+    jevAnalyze: async (input: JevAnalysisInput) => {
+      const result = await request<JevAnalysisResponse | { error: string }>(
         '/api/jev',
         {
           method: 'POST',
-          body: JSON.stringify({ action: 'analyze', ...input }),
+          body: JSON.stringify({
+            action: 'analyze',
+            text: input.text,
+            conference: input.conference,
+            model: input.model,
+          }),
         },
-        {},
+        { 'Idempotency-Key': input.idempotencyKey },
         20_000
-      ),
+      );
+      if ('error' in result) throw new MemberApiError(result.error, 202);
+      const preflight = result.preflight;
+      const workflow = result.workflow;
+      const probabilities = preflight && [
+        preflight.isScientificSubmission,
+        preflight.hasObjective,
+        preflight.hasMethods,
+        preflight.hasResults,
+        preflight.hasConclusion,
+      ];
+      if (
+        !result.workflowId ||
+        result.provider !== 'typesafe' ||
+        !result.model ||
+        result.policyVersion !== 'jev-analysis-v1' ||
+        !result.analysis ||
+        !Array.isArray(result.analysis.categories) ||
+        !Array.isArray(result.analysis.keywords) ||
+        !probabilities?.every((value) => typeof value === 'number' && value >= 0 && value <= 1) ||
+        typeof preflight?.needsReview !== 'boolean' ||
+        !Number.isInteger(result.bonusBalance) ||
+        result.bonusBalance <= 0 ||
+        !Number.isInteger(result.remaining) ||
+        result.remaining < 0 ||
+        !workflow ||
+        !Number.isInteger(workflow.analysisCount) ||
+        workflow.analysisCount < 1 ||
+        !Number.isInteger(workflow.callCount) ||
+        workflow.callCount < 1 ||
+        !Number.isInteger(workflow.generationCount) ||
+        workflow.generationCount < 0 ||
+        !Number.isInteger(workflow.deepUpdateCount) ||
+        workflow.deepUpdateCount < 0
+      ) {
+        throw new MemberApiError('invalid_jev_analysis_response', 502);
+      }
+      return result;
+    },
     bootstrap: () =>
       request<{ bonus_balance: number; awarded: boolean }>('/api/member/bootstrap', {
         method: 'POST',
@@ -259,6 +314,8 @@ export function createMemberApiClient(options: MemberApiClientOptions) {
         | 'blind_review';
       workflowId?: string;
       prompt: string;
+      sourceText?: string;
+      conference?: string;
       images?: ManagedImageInput[];
       size?: '1024x1024' | '1024x1536' | '1536x1024';
     }) =>
@@ -292,6 +349,8 @@ export function createMemberApiClient(options: MemberApiClientOptions) {
             operation: input.operation,
             workflowId: input.workflowId,
             prompt: input.prompt,
+            sourceText: input.sourceText,
+            conference: input.conference,
             images: input.images,
             size: input.size,
           }),

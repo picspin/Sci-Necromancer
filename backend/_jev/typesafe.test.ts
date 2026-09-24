@@ -115,6 +115,12 @@ describe('TypeSafe Jev analysis adapter', () => {
       },
     ],
     [
+      'unexpected model',
+      (payload: ReturnType<typeof validPayload>) => {
+        payload.model = 'another-model';
+      },
+    ],
+    [
       'extra answer ID',
       (payload: ReturnType<typeof validPayload>) => {
         payload.answers.unexpected = { type: 'noul', noul: 0.5 };
@@ -130,7 +136,9 @@ describe('TypeSafe Jev analysis adapter', () => {
     const payload = validPayload(0.1);
     const parsed = parseJevAnalysisResponse(payload, input);
     expect(parsed.preflight.needsReview).toBe(true);
-    expect(parsed.model).toBe('returned-model-id');
+    expect(parsed.model).toBe('jev-1.13.0');
+    expect(parsed.analysis.categories).toHaveLength(2);
+    expect(parsed.analysis.keywords).toHaveLength(3);
   });
 
   it('validates answers below selection thresholds too', () => {
@@ -139,11 +147,11 @@ describe('TypeSafe Jev analysis adapter', () => {
     expect(() => parseJevAnalysisResponse(payload, input)).toThrow('invalid_jev_analysis_response');
   });
 
-  it('uses the fixed official endpoint and preserves the returned model identity', async () => {
+  it('uses the fixed official endpoint and validates the returned model identity', async () => {
     process.env.TYPESAFE_API_KEY = 'test-key';
     const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => validPayload() });
     await expect(requestTypesafeJev(input, fetchMock)).resolves.toMatchObject({
-      model: 'returned-model-id',
+      model: 'jev-1.13.0',
     });
     expect(fetchMock).toHaveBeenCalledWith(
       'https://api.typesafe.ai/v1/systemone',
@@ -275,7 +283,7 @@ function validInput() {
 
 function validPayload(probability = 0.9) {
   return {
-    model: 'returned-model-id',
+    model: 'jev-1.13.0',
     answers: {
       is_scientific_submission: { type: 'noul', noul: probability },
       has_objective: { type: 'noul', noul: probability },

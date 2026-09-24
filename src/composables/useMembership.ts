@@ -155,6 +155,8 @@ export async function generateManagedText(input: {
   operation: 'analysis' | 'generation' | 'regeneration' | 'deep_update' | 'blind_review';
   workflowId?: string;
   model?: 'glm-5.2' | 'gpt-5.6-luna';
+  sourceText?: string;
+  conference?: string;
 }): Promise<{
   text: string;
   provider?: 'mga' | 'google' | 'openai';

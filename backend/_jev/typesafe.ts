@@ -192,7 +192,7 @@ export function parseJevAnalysisResponse(
 ): JevAnalysisOutput {
   const result = asRecord(payload);
   const answers = asRecord(result?.answers);
-  const model = typeof result?.model === 'string' && result.model.trim() ? result.model : null;
+  const model = result?.model === TYPESAFE_MODEL ? TYPESAFE_MODEL : null;
   const expectedAnswerIds = Object.keys(buildJevAnalysisRequest(input).questions);
   if (
     !answers ||
@@ -207,26 +207,37 @@ export function parseJevAnalysisResponse(
   const hasMethods = noulAnswer(answers, 'has_methods');
   const hasResults = noulAnswer(answers, 'has_results');
   const hasConclusion = noulAnswer(answers, 'has_conclusion');
-  const categories = input.categories
+  const rankedCategories = input.categories
     .map((candidate, index) => ({
       ...candidate,
       probability: noulAnswer(answers, `category_${index}`),
     }))
-    .filter((candidate) => candidate.probability >= CATEGORY_SELECTION_THRESHOLD)
-    .sort((left, right) => right.probability - left.probability)
-    .slice(0, 8);
-  const keywords = input.keywords
+    .sort((left, right) => right.probability - left.probability);
+  const selectedCategories = rankedCategories.filter(
+    (candidate) => candidate.probability >= CATEGORY_SELECTION_THRESHOLD
+  );
+  // Preserve low-confidence, explicitly scored options for author selection.
+  // A zero-candidate result would strand the conference panels before generation.
+  const categories = (
+    selectedCategories.length ? selectedCategories : rankedCategories.slice(0, 3)
+  ).slice(0, 8);
+  const rankedKeywords = input.keywords
     .map((keyword, index) => ({ keyword, probability: noulAnswer(answers, `keyword_${index}`) }))
-    .filter((candidate) => candidate.probability >= KEYWORD_SELECTION_THRESHOLD)
-    .sort((left, right) => right.probability - left.probability)
-    .slice(0, 12);
+    .sort((left, right) => right.probability - left.probability);
+  const selectedKeywords = rankedKeywords.filter(
+    (candidate) => candidate.probability >= KEYWORD_SELECTION_THRESHOLD
+  );
+  const keywords = (selectedKeywords.length ? selectedKeywords : rankedKeywords.slice(0, 5)).slice(
+    0,
+    12
+  );
   const strongestCategory = Math.max(
     ...input.categories.map((_, index) => noulAnswer(answers, `category_${index}`))
   );
   const needsReview =
     isScientificSubmission < ACCEPTANCE_THRESHOLD ||
     strongestCategory < ACCEPTANCE_THRESHOLD ||
-    categories.length === 0;
+    selectedCategories.length === 0;
 
   return {
     analysis: {

@@ -25,6 +25,7 @@ import {
   collectAIAssistanceRecords,
   createAIAssistanceRecord,
   getTrustedAIAssistance,
+  markTrustedAIAssistance,
   requireAIDisclosureAcceptance,
 } from '../compliance/aiDisclosure';
 import {
@@ -42,6 +43,7 @@ import {
 } from '../capabilities/managedResearchCapabilities';
 import { getManagedAnalysisRetryNotice, managedConferenceContext } from './managedTextWorkflow';
 import { announceByokTextFailure } from './modelEvents';
+import { analyzeJevContent, canUseJevForConference } from './jevAnalysis';
 import { openMemberPanel } from '../../src/services/memberCta';
 import {
   completeTextModelGeneration,
@@ -202,9 +204,10 @@ const requireAnalysisCredits = (workflowContext: string): void => {
 const runAndRecordAnalysis = async <T>(
   workflowContext: string,
   operations: string[],
-  run: () => Promise<T>
+  run: () => Promise<T>,
+  skipLegacyRetryCharge = false
 ): Promise<T> => {
-  requireAnalysisCredits(workflowContext);
+  if (!skipLegacyRetryCharge) requireAnalysisCredits(workflowContext);
   const result = await run();
   const trustedRecord =
     result && typeof result === 'object' ? getTrustedAIAssistance(result as object) : undefined;
@@ -298,6 +301,24 @@ export const analyzeISMRMBundle = async (text: string): Promise<ISMRMAnalysisBun
   lockCurrentTextModel(workflowContext);
   const apiKey = getApiKey(workflowContext);
   const service = getService(true, workflowContext);
+  if (canUseJevForConference('ISMRM')) {
+    return runAndRecordAnalysis(
+      workflowContext,
+      ['ISMRM content analysis'],
+      async () => {
+        const analysis = await analyzeJevContent(text, 'ISMRM', workflowContext);
+        const bundle: ISMRMAnalysisBundle = {
+          ...analysis,
+          impact: '',
+          synopsis: '',
+          typeSuggestions: [],
+        };
+        const identity = getTrustedAIAssistance(analysis);
+        return identity ? markTrustedAIAssistance(bundle, identity) : bundle;
+      },
+      true
+    );
+  }
   return runAndRecordAnalysis(workflowContext, ['ISMRM content analysis'], () =>
     !apiKey
       ? openai.analyzeISMRMBundle(text, undefined, workflowContext, true)
@@ -522,6 +543,20 @@ export const analyzeContentForConference = async (
   lockCurrentTextModel(managedContext);
   const apiKey = getApiKey(managedContext);
   const service = getService(true, managedContext);
+  if (canUseJevForConference(conference)) {
+    return runAndRecordAnalysis(
+      managedContext,
+      [`${conference} content analysis and classification`],
+      async () => {
+        const analysis = await analyzeJevContent(text, conference, managedContext);
+        if (conference !== 'RSNA') return analysis;
+        const normalized = normalizeRSNAAnalysis(analysis, text, getAuxiliaryLocale());
+        const identity = getTrustedAIAssistance(analysis);
+        return identity ? markTrustedAIAssistance(normalized, identity) : normalized;
+      },
+      true
+    );
+  }
   return runAndRecordAnalysis(
     managedContext,
     [`${conference} content analysis and classification`],

@@ -1,22 +1,48 @@
 import type { AnalysisResult, Conference } from '../../types';
 import { createAIAssistanceRecord, markTrustedAIAssistance } from '../compliance/aiDisclosure';
 import { canUseJev, useMembership } from '../../src/composables/useMembership';
+import {
+  abandonManagedTextWorkflow,
+  beginManagedTextWorkflow,
+  registerManagedTextWorkflow,
+} from './managedTextWorkflow';
+import { getLockedTextModel } from './textModelWorkflow';
 
-const JEV_ENABLED = import.meta.env.VITE_TYPESAFE_JEV_ENABLED?.trim() === 'true';
-const JEV_CONFERENCES = new Set<Conference>(['ISMRM', 'JACC']);
+const JEV_CONFERENCES = new Set<Conference>(['ISMRM', 'RSNA', 'ER', 'ASCO', 'ESMO', 'JACC']);
+const inFlightAnalysis = new Map<string, Promise<AnalysisResult>>();
 
-export async function tryJevContentAnalysis(
+export function canUseJevForConference(conference: Conference): boolean {
+  return JEV_CONFERENCES.has(conference) && canUseJev();
+}
+
+export async function analyzeJevContent(
   text: string,
-  conference: Conference
-): Promise<AnalysisResult | null> {
-  if (!JEV_ENABLED || !JEV_CONFERENCES.has(conference) || !canUseJev()) return null;
+  conference: Conference,
+  workflowContext: string
+): Promise<AnalysisResult> {
+  if (!canUseJevForConference(conference)) throw new Error('typesafe_jev_unavailable');
+  const existing = inFlightAnalysis.get(workflowContext);
+  if (existing) return existing;
 
-  try {
+  const operation = (async () => {
+    const lockedModel = getLockedTextModel(workflowContext);
+    if (
+      lockedModel?.source !== 'managed' ||
+      (lockedModel.model !== 'glm-5.2' && lockedModel.model !== 'gpt-5.6-luna')
+    )
+      throw new Error('typesafe_jev_unavailable');
+    // A Jev analysis begins a fresh no-charge staged workflow, even if a prior
+    // LLM analysis for this context exists. The server binds the key to its own
+    // canonical digest and remains authoritative for future generation charges.
+    abandonManagedTextWorkflow(workflowContext);
+    const clientKey = beginManagedTextWorkflow(workflowContext);
     const result = await useMembership().memberApi.jevAnalyze({
       text,
       conference,
+      idempotencyKey: clientKey,
+      model: lockedModel.model,
     });
-    if (result.preflight.needsReview) return null;
+    registerManagedTextWorkflow(workflowContext, clientKey, result.workflowId, result.workflow);
 
     return markTrustedAIAssistance(
       result.analysis,
@@ -28,9 +54,12 @@ export async function tryJevContentAnalysis(
         operations: [`${conference} Jev content classification`],
       })
     );
-  } catch {
-    // Jev is an optional fast path. Preserve the existing provider fallback when it is disabled,
-    // unavailable, unauthenticated, or uncertain.
-    return null;
+  })();
+  inFlightAnalysis.set(workflowContext, operation);
+  try {
+    return await operation;
+  } finally {
+    if (inFlightAnalysis.get(workflowContext) === operation)
+      inFlightAnalysis.delete(workflowContext);
   }
 }

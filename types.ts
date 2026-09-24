@@ -37,7 +37,7 @@ export interface AIAssistanceRecord {
     url: 'https://www.rad-sci.org';
   };
   generatedAt: string;
-  provider: AIProvider | 'mga';
+  provider: AIProvider | 'mga' | 'typesafe';
   providerDisplayName?: string;
   model: string;
   modelType: 'large-language-model' | 'research-agent' | 'image-generation-model';

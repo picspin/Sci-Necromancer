@@ -166,6 +166,7 @@
         :abstract="generatedAbstract"
         :impact="impact"
         :synopsis="synopsis"
+        :jev-classification-only="jevAnalysisUsed"
         :categories="selectedCategories"
         :keywords="selectedKeywords"
         :is-loading="isLoading"
@@ -227,6 +228,7 @@ import AnalysisStep from './ISMRMPanelComponents/AnalysisStep.vue';
 import TypeSuggestionStep from './ISMRMPanelComponents/TypeSuggestionStep.vue';
 import WorkflowReentryDialog from '@/components/membership/WorkflowReentryDialog.vue';
 import CurrentTextModelBadge from '@/components/ai/CurrentTextModelBadge.vue';
+import { canUseJevForConference } from '@/lib/llm/jevAnalysis';
 
 const { t } = useI18n();
 const { settings, databaseService } = useSettings();
@@ -247,6 +249,7 @@ const selectedKeywords = ref<string[]>([]);
 const impact = ref<string>('');
 const synopsis = ref<string>('');
 const typeSuggestions = ref<AbstractTypeSuggestion[]>([]);
+const jevAnalysisUsed = ref(false);
 const selectedAbstractType = ref<AbstractType | null>(null);
 const isModalOpen = ref<boolean>(false);
 const modalStep = ref<'analysis' | 'impactSynopsis' | 'type'>('analysis');
@@ -266,6 +269,7 @@ const resetWorkflow = () => {
   impact.value = '';
   synopsis.value = '';
   typeSuggestions.value = [];
+  jevAnalysisUsed.value = false;
   selectedAbstractType.value = null;
   generatedAbstract.value = null;
   deepUpdateCompleted.value = false;
@@ -327,6 +331,7 @@ const handleAnalyze = async () => {
     return;
   }
   if (
+    !canUseJevForConference('ISMRM') &&
     getManagedAnalysisRetryNotice(workflowContext()) === 'one_free_remaining' &&
     !window.confirm(t('membership.analysis_retry_warning'))
   )
@@ -336,10 +341,12 @@ const handleAnalyze = async () => {
   resetWorkflow();
 
   try {
+    const usingJev = canUseJevForConference('ISMRM');
     // One provider call returns the full analysis bundle so the paid workflow
     // still has room for generation, one regeneration, and one deep update.
     loadingMessage.value = t('loading_messages.analyzing_content');
     const result = await llm.analyzeISMRMBundle(inputText.value);
+    jevAnalysisUsed.value = usingJev;
 
     // Validate and sanitize the result
     const validatedResult = {
@@ -397,8 +404,7 @@ const handleGenerateAbstract = async () => {
     !selectedAbstractType.value ||
     selectedCategories.value.length === 0 ||
     selectedKeywords.value.length === 0 ||
-    !impact.value ||
-    !synopsis.value
+    (!jevAnalysisUsed.value && (!impact.value || !synopsis.value))
   ) {
     error.value = t('errors.incomplete_analysis');
     return;
