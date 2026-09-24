@@ -2,6 +2,7 @@ import { computed, ref } from 'vue';
 import { createClient, type Session, type SupabaseClient, type User } from '@supabase/supabase-js';
 import {
   createMemberApiClient,
+  type JevConsent,
   type MemberStatus,
   type ManagedImageInput,
 } from '@/src/services/memberApiClient';
@@ -40,6 +41,7 @@ const supabase: SupabaseClient | null = isConfigured
 
 const session = ref<Session | null>(null);
 const memberStatus = ref<MemberStatus | null>(null);
+const jevConsent = ref<JevConsent | null>(null);
 const initialized = ref(false);
 const isLoading = ref(false);
 const isStatusLoading = ref(false);
@@ -62,6 +64,7 @@ const api = createMemberApiClient({
   getAccessToken: async () => session.value?.access_token || null,
   refreshAccessToken,
 });
+const typesafeJevEnabled = import.meta.env.VITE_TYPESAFE_JEV_ENABLED?.trim() === 'true';
 
 async function refreshStatus(): Promise<void> {
   if (!session.value) {
@@ -82,6 +85,19 @@ async function refreshStatus(): Promise<void> {
     }
   })();
   return statusRefreshPromise;
+}
+
+async function refreshJevConsent(): Promise<void> {
+  if (!typesafeJevEnabled || !session.value) {
+    jevConsent.value = null;
+    return;
+  }
+  try {
+    jevConsent.value = await api.getJevConsent();
+  } catch {
+    // Consent is fail-closed: an unavailable route never enables Jev.
+    jevConsent.value = null;
+  }
 }
 
 function readManagedTextPreference(): boolean {
@@ -106,6 +122,17 @@ function readManagedTextModel(): 'glm-5.2' | 'gpt-5.6-luna' {
 
 export function canUseManagedText(): boolean {
   return Boolean(session.value && memberStatus.value && readManagedTextPreference());
+}
+
+export function canUseJev(): boolean {
+  return Boolean(
+    typesafeJevEnabled &&
+    session.value &&
+    jevConsent.value?.accepted &&
+    memberStatus.value &&
+    memberStatus.value.bonusBalance > 0 &&
+    readManagedTextPreference()
+  );
 }
 
 export function hasManagedCredits(required: number): boolean {
@@ -209,11 +236,14 @@ export function useMembership() {
       supabase.auth.onAuthStateChange((event, nextSession) => {
         session.value = nextSession;
         passwordRecovery.value = event === 'PASSWORD_RECOVERY';
+        if (!nextSession) jevConsent.value = null;
         window.setTimeout(() => void refreshStatus(), 0);
+        window.setTimeout(() => void refreshJevConsent(), 0);
       });
       const { data } = await supabase.auth.getSession();
       session.value = data.session;
       await refreshStatus();
+      await refreshJevConsent();
       initialized.value = true;
     })();
     return initializePromise;
@@ -277,6 +307,13 @@ export function useMembership() {
     await supabase.auth.signOut();
     session.value = null;
     memberStatus.value = null;
+    jevConsent.value = null;
+  }
+
+  async function setJevConsent(accepted: boolean) {
+    if (!typesafeJevEnabled || !session.value) throw new Error('member_service_unavailable');
+    jevConsent.value = await api.setJevConsent(accepted);
+    return jevConsent.value;
   }
 
   async function bootstrap() {
@@ -346,10 +383,13 @@ export function useMembership() {
     passwordRecovery: computed(() => passwordRecovery.value),
     user: computed<User | null>(() => session.value?.user || null),
     status: computed(() => memberStatus.value),
+    jevEnabled: computed(() => typesafeJevEnabled),
+    jevConsent: computed(() => jevConsent.value),
     error: computed(() => error.value),
     getAccessToken: async () => session.value?.access_token || null,
     initialize,
     refreshStatus,
+    refreshJevConsent,
     signInWithGitHub,
     signInWithEmail,
     signUpWithEmail,
@@ -357,6 +397,7 @@ export function useMembership() {
     updatePassword,
     updateProfile,
     signOut,
+    setJevConsent,
     bootstrap,
     checkIn,
     createCheckout,

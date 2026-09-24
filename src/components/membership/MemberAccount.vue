@@ -204,6 +204,42 @@
         <p v-else class="text-sm text-text-secondary">{{ t('membership.credit_history_empty') }}</p>
       </section>
 
+      <section
+        v-if="jevEnabled"
+        class="space-y-3 rounded-lg border border-brand-primary/30 bg-base-100 p-4"
+        aria-labelledby="jev-consent-title"
+      >
+        <div>
+          <h3 id="jev-consent-title" class="text-sm font-semibold text-text-primary">
+            {{ t('membership.jev_title') }}
+          </h3>
+          <p class="mt-1 text-xs leading-5 text-text-secondary">
+            {{ t('membership.jev_consent_help') }}
+          </p>
+        </div>
+        <p v-if="jevConsent?.accepted" class="text-xs text-emerald-400" role="status">
+          {{ t('membership.jev_enabled') }}
+        </p>
+        <button
+          v-else
+          type="button"
+          class="rounded-md border border-brand-primary px-3 py-2 text-sm text-brand-primary hover:bg-brand-primary/10"
+          :disabled="isLoading || (status?.bonusBalance ?? 0) <= 0"
+          @click="enableJev"
+        >
+          {{ t('membership.jev_enable') }}
+        </button>
+        <button
+          v-if="jevConsent?.accepted"
+          type="button"
+          class="text-left text-xs text-text-secondary underline hover:text-text-primary"
+          :disabled="isLoading"
+          @click="disableJev"
+        >
+          {{ t('membership.jev_disable') }}
+        </button>
+      </section>
+
       <details class="rounded-lg bg-base-100 p-4">
         <summary class="cursor-pointer text-sm font-medium text-text-primary">
           {{ t('membership.account_management') }}
@@ -296,6 +332,8 @@ const {
   passwordRecovery,
   user,
   status,
+  jevEnabled,
+  jevConsent,
   error: membershipError,
   refreshStatus,
   signInWithGitHub,
@@ -308,6 +346,7 @@ const {
   checkIn,
   createCheckout,
   upgradeAbstractQuota,
+  setJevConsent,
 } = membership;
 
 const authMode = ref<AuthMode>('login');
@@ -430,5 +469,17 @@ const savePassword = () =>
     await updatePassword(newPassword.value);
     newPassword.value = '';
     notice.value = t('membership.password_changed');
+  });
+
+const enableJev = () =>
+  run(async () => {
+    await setJevConsent(true);
+    notice.value = t('membership.jev_enabled');
+  });
+
+const disableJev = () =>
+  run(async () => {
+    await setJevConsent(false);
+    notice.value = t('membership.jev_disabled');
   });
 </script>

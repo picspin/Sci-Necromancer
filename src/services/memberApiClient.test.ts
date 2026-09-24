@@ -2,6 +2,92 @@ import { describe, expect, it, vi } from 'vitest';
 import { createMemberApiClient, MemberApiError } from './memberApiClient';
 
 describe('member API client', () => {
+  it('reads and updates versioned Jev consent through the authenticated API route', async () => {
+    const fetcher = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ accepted: false, version: 'typesafe-member-v1' }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ accepted: true, version: 'typesafe-member-v1' }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      );
+    const client = createMemberApiClient({
+      baseUrl: 'https://api.example.test',
+      getAccessToken: async () => 'member-jwt',
+      fetcher,
+    });
+
+    await expect(client.getJevConsent()).resolves.toEqual({
+      accepted: false,
+      version: 'typesafe-member-v1',
+    });
+    await expect(client.setJevConsent(true)).resolves.toEqual({
+      accepted: true,
+      version: 'typesafe-member-v1',
+    });
+    expect(fetcher).toHaveBeenNthCalledWith(
+      1,
+      'https://api.example.test/api/jev?action=consent',
+      expect.objectContaining({ method: 'GET' })
+    );
+    expect(JSON.parse(String(fetcher.mock.calls[1][1].body))).toEqual({
+      action: 'consent',
+      accepted: true,
+    });
+  });
+
+  it('sends a Jev classification request through the authenticated API route', async () => {
+    const fetcher = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          analysis: { categories: [], keywords: [] },
+          preflight: {
+            isScientificSubmission: 0.92,
+            hasObjective: 0.9,
+            hasMethods: 0.8,
+            hasResults: 0.7,
+            hasConclusion: 0.6,
+            needsReview: false,
+          },
+          provider: 'typesafe',
+          model: 'jev-1.13.0',
+          policyVersion: 'jev-analysis-v1',
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      )
+    );
+    const client = createMemberApiClient({
+      baseUrl: 'https://api.example.test',
+      getAccessToken: async () => 'member-jwt',
+      fetcher,
+    });
+
+    await expect(
+      client.jevAnalyze({
+        text: 'MRI reconstruction study',
+        conference: 'ISMRM',
+      })
+    ).resolves.toMatchObject({ provider: 'typesafe', model: 'jev-1.13.0' });
+    expect(fetcher).toHaveBeenCalledWith(
+      'https://api.example.test/api/jev',
+      expect.objectContaining({
+        method: 'POST',
+        headers: expect.objectContaining({ Authorization: 'Bearer member-jwt' }),
+      })
+    );
+    expect(JSON.parse(String(fetcher.mock.calls[0][1].body))).toEqual({
+      action: 'analyze',
+      text: 'MRI reconstruction study',
+      conference: 'ISMRM',
+    });
+  });
+
   it('lists and runs managed research capabilities through one member endpoint', async () => {
     const fetcher = vi
       .fn()

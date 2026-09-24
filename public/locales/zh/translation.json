@@ -60,6 +60,12 @@
     "credit_history": "学分明细",
     "credit_history_recent": "最近50笔",
     "credit_history_empty": "暂无学分变动记录。",
+    "jev_title": "TypeSafe Jev 分析",
+    "jev_consent_help": "启用后，必要的稿件正文可能会发送至 TypeSafe，用于结构化分类和生成结果核查。仅会员模式可用，且需要有余额。",
+    "jev_enable": "启用 Jev 分析",
+    "jev_disable": "撤回 Jev 同意",
+    "jev_enabled": "TypeSafe Jev 分析已启用。",
+    "jev_disabled": "已撤回 TypeSafe Jev 同意。",
     "credit_reasons": {
       "signup": "认证会员赠送",
       "daily_checkin": "每日签到",

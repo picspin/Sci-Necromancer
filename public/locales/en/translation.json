@@ -60,6 +60,12 @@
     "credit_history": "Credit history",
     "credit_history_recent": "Latest 50 entries",
     "credit_history_empty": "No credit changes yet.",
+    "jev_title": "TypeSafe Jev analysis",
+    "jev_consent_help": "When enabled, the necessary manuscript text may be sent to TypeSafe for structured classification and analysis checks. This is available only for member mode and requires a positive credit balance.",
+    "jev_enable": "Enable Jev analysis",
+    "jev_disable": "Withdraw Jev consent",
+    "jev_enabled": "TypeSafe Jev analysis is enabled.",
+    "jev_disabled": "TypeSafe Jev consent withdrawn.",
     "credit_reasons": {
       "signup": "Verified account bonus",
       "daily_checkin": "Daily check-in",

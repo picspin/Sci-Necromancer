@@ -46,6 +46,39 @@ export interface ManagedCapabilityDescriptor {
   bonusCost: 0 | 1;
 }
 
+export interface JevAnalysisInput {
+  text: string;
+  conference: string;
+}
+
+export interface JevConsent {
+  accepted: boolean;
+  version: string;
+}
+
+export interface JevAnalysisResponse {
+  analysis: {
+    categories: Array<{
+      name: string;
+      type: 'main' | 'sub' | 'secondary';
+      probability: number;
+    }>;
+    keywords: string[];
+  };
+  preflight: {
+    isScientificSubmission: number;
+    hasObjective: number;
+    hasMethods: number;
+    hasResults: number;
+    hasConclusion: number;
+    needsReview: boolean;
+    reviewReason?: string;
+  };
+  provider: 'typesafe';
+  model: string;
+  policyVersion: 'jev-analysis-v1';
+}
+
 interface MemberApiClientOptions {
   baseUrl: string;
   fallbackBaseUrls?: string[];
@@ -185,6 +218,25 @@ export function createMemberApiClient(options: MemberApiClientOptions) {
         },
         { 'Idempotency-Key': input.idempotencyKey },
         LONG_MEMBER_REQUEST_TIMEOUT_MS
+      ),
+    getJevConsent: () =>
+      request<JevConsent>('/api/jev?action=consent', { method: 'GET' }, {}, 15_000),
+    setJevConsent: (accepted: boolean) =>
+      request<JevConsent>(
+        '/api/jev',
+        { method: 'POST', body: JSON.stringify({ action: 'consent', accepted }) },
+        {},
+        15_000
+      ),
+    jevAnalyze: (input: JevAnalysisInput) =>
+      request<JevAnalysisResponse>(
+        '/api/jev',
+        {
+          method: 'POST',
+          body: JSON.stringify({ action: 'analyze', ...input }),
+        },
+        {},
+        20_000
       ),
     bootstrap: () =>
       request<{ bonus_balance: number; awarded: boolean }>('/api/member/bootstrap', {
