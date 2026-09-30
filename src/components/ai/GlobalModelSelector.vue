@@ -39,11 +39,11 @@
           <option value="byok" :disabled="!byokAvailable && selection !== 'byok'">
             {{ byokLabel }}
           </option>
-          <option value="managed:glm-5.2">
-            {{ t('model_selector.member_glm') }}
+          <option value="managed:deepseek-v4.1-flash">
+            {{ t('model_selector.member_deepseek') }}
           </option>
-          <option value="managed:gpt-5.6-luna">
-            {{ t('model_selector.member_luna') }}
+          <option value="managed:gpt-5.6-terra">
+            {{ t('model_selector.member_terra') }}
           </option>
         </select>
         <svg aria-hidden="true" viewBox="0 0 20 20" class="model-select-chevron" fill="none">
@@ -100,6 +100,7 @@ import { useSettings } from '@/composables/useSettings';
 import { hasTextByok, selectedByokTextModel } from '@/lib/llm/capabilityRouting';
 import { BYOK_TEXT_FAILURE_EVENT } from '@/lib/llm/modelEvents';
 import { releaseTextModelWorkflow } from '@/lib/llm/textModelWorkflow';
+import { DEFAULT_MEMBER_TEXT_MODEL, normalizeMemberTextModel } from '@/lib/llm/memberTextModels';
 
 const emit = defineEmits<{
   'open-member': [];
@@ -121,11 +122,11 @@ const byokLabel = computed(() =>
 );
 const selection = computed(() => {
   if (settings.value.textGenerationSource === 'managed') {
-    return `managed:${settings.value.memberManagedTextModel || 'glm-5.2'}`;
+    return `managed:${normalizeMemberTextModel(settings.value.memberManagedTextModel)}`;
   }
   if (settings.value.textGenerationSource === 'byok') return 'byok';
   if (byokAvailable.value) return 'byok';
-  return isAuthenticated.value ? 'managed:glm-5.2' : 'byok';
+  return isAuthenticated.value ? `managed:${DEFAULT_MEMBER_TEXT_MODEL}` : 'byok';
 });
 const helperText = computed(() => {
   if (selection.value === 'byok') return t('model_selector.byok_help');
@@ -143,7 +144,7 @@ function selectModel(value: string) {
     emit('open-member');
     return;
   }
-  const model = value === 'managed:gpt-5.6-luna' ? 'gpt-5.6-luna' : 'glm-5.2';
+  const model = value === 'managed:gpt-5.6-terra' ? 'gpt-5.6-terra' : DEFAULT_MEMBER_TEXT_MODEL;
   updateSettings({
     textGenerationSource: 'managed',
     memberManagedTextEnabled: true,
@@ -152,7 +153,7 @@ function selectModel(value: string) {
 }
 
 function switchToMemberAfterFailure() {
-  selectModel(`managed:${settings.value.memberManagedTextModel || 'glm-5.2'}`);
+  selectModel(`managed:${normalizeMemberTextModel(settings.value.memberManagedTextModel)}`);
   if (failedWorkflowContext.value) releaseTextModelWorkflow(failedWorkflowContext.value);
   failedWorkflowContext.value = null;
   byokFailed.value = false;
@@ -173,7 +174,7 @@ watch(
     updateSettings({
       textGenerationSource: 'managed',
       memberManagedTextEnabled: true,
-      memberManagedTextModel: 'glm-5.2',
+      memberManagedTextModel: DEFAULT_MEMBER_TEXT_MODEL,
     });
   },
   { immediate: true }

@@ -23,7 +23,8 @@ export interface BlindReviewRequest {
 interface BlindReviewDependencies {
   modelReview: (
     prompt: string,
-    target: 'generated-abstract' | 'manuscript'
+    target: 'generated-abstract' | 'manuscript',
+    context: { sourceText: string; conference: BlindReviewRequest['conference'] }
   ) => Promise<BlindReviewModelAssessment>;
   externalReview: (
     payload: Pick<BlindReviewRequest, 'conference'> & {
@@ -49,8 +50,8 @@ function serializeAbstract(abstract: AbstractData): string {
 }
 
 const defaultDependencies: BlindReviewDependencies = {
-  modelReview: (prompt, target) =>
-    reviewAbstractBlind(prompt, target === 'manuscript' ? 'manuscript' : 'abstract'),
+  modelReview: (prompt, target, context) =>
+    reviewAbstractBlind(prompt, target === 'manuscript' ? 'manuscript' : 'abstract', context),
   externalReview: async (payload) => {
     const response = await fetch('/api/blind-review', {
       method: 'POST',
@@ -86,7 +87,10 @@ export async function runBlindReview(
     (reviewer) => request.settings.reviewers[reviewer]
   );
   const [modelAssessment, externalVerification] = await Promise.all([
-    dependencies.modelReview(prompt, target),
+    dependencies.modelReview(prompt, target, {
+      sourceText: generatedText,
+      conference: request.conference,
+    }),
     (selectedReviewers.length
       ? dependencies.externalReview({
           conference: request.conference,

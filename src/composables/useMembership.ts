@@ -2,6 +2,8 @@ import { computed, ref } from 'vue';
 import { createClient, type Session, type SupabaseClient, type User } from '@supabase/supabase-js';
 import {
   createMemberApiClient,
+  type JevConsent,
+  type JevReviewSummary,
   type MemberStatus,
   type ManagedImageInput,
 } from '@/src/services/memberApiClient';
@@ -9,6 +11,7 @@ import {
   hasEnabledMGAResearchAgent,
   MGA_RESEARCH_AGENT_ID,
 } from '@/lib/capabilities/managedResearchCapabilities';
+import { normalizeMemberTextModel, type AcceptedMemberTextModel } from '@/lib/llm/memberTextModels';
 
 const directSupabaseUrl = import.meta.env.VITE_SUPABASE_URL?.trim() || '';
 const productionSupabaseProxyPath = ['rad-sci.org', 'www.rad-sci.org'].includes(
@@ -40,6 +43,7 @@ const supabase: SupabaseClient | null = isConfigured
 
 const session = ref<Session | null>(null);
 const memberStatus = ref<MemberStatus | null>(null);
+const jevConsent = ref<JevConsent | null>(null);
 const initialized = ref(false);
 const isLoading = ref(false);
 const isStatusLoading = ref(false);
@@ -62,6 +66,7 @@ const api = createMemberApiClient({
   getAccessToken: async () => session.value?.access_token || null,
   refreshAccessToken,
 });
+const typesafeJevEnabled = import.meta.env.VITE_TYPESAFE_JEV_ENABLED?.trim() === 'true';
 
 async function refreshStatus(): Promise<void> {
   if (!session.value) {
@@ -84,6 +89,19 @@ async function refreshStatus(): Promise<void> {
   return statusRefreshPromise;
 }
 
+async function refreshJevConsent(): Promise<void> {
+  if (!typesafeJevEnabled || !session.value) {
+    jevConsent.value = null;
+    return;
+  }
+  try {
+    jevConsent.value = await api.getJevConsent();
+  } catch {
+    // Consent is fail-closed: an unavailable route never enables Jev.
+    jevConsent.value = null;
+  }
+}
+
 function readManagedTextPreference(): boolean {
   try {
     const settings = JSON.parse(localStorage.getItem('app-settings') || '{}') as {
@@ -95,17 +113,28 @@ function readManagedTextPreference(): boolean {
   }
 }
 
-function readManagedTextModel(): 'glm-5.2' | 'gpt-5.6-luna' {
+function readManagedTextModel(): AcceptedMemberTextModel {
   try {
     const model = JSON.parse(localStorage.getItem('app-settings') || '{}')?.memberManagedTextModel;
-    return model === 'gpt-5.6-luna' ? model : 'glm-5.2';
+    return normalizeMemberTextModel(model);
   } catch {
-    return 'glm-5.2';
+    return normalizeMemberTextModel(undefined);
   }
 }
 
 export function canUseManagedText(): boolean {
   return Boolean(session.value && memberStatus.value && readManagedTextPreference());
+}
+
+export function canUseJev(): boolean {
+  return Boolean(
+    typesafeJevEnabled &&
+    session.value &&
+    jevConsent.value?.accepted &&
+    memberStatus.value &&
+    memberStatus.value.bonusBalance > 0 &&
+    readManagedTextPreference()
+  );
 }
 
 export function hasManagedCredits(required: number): boolean {
@@ -127,12 +156,17 @@ export async function generateManagedText(input: {
   idempotencyKey: string;
   operation: 'analysis' | 'generation' | 'regeneration' | 'deep_update' | 'blind_review';
   workflowId?: string;
-  model?: 'glm-5.2' | 'gpt-5.6-luna';
+  model?: AcceptedMemberTextModel;
+  sourceText?: string;
+  conference?: string;
+  blindReviewContext?: import('@/src/services/memberApiClient').MemberBlindReviewContext;
 }): Promise<{
   text: string;
   provider?: 'mga' | 'google' | 'openai';
   model?: string;
   modelType?: 'large-language-model' | 'research-agent' | 'image-generation-model';
+  jevReview?: JevReviewSummary;
+  jevPreflight?: import('@/src/services/memberApiClient').MemberBlindPreflight;
   workflowId: string;
   workflow: {
     analysisCount: number;
@@ -156,6 +190,8 @@ export async function generateManagedText(input: {
       provider: result.output.provider,
       model: result.output.model,
       modelType: result.output.modelType,
+      jevReview: result.output.jevReview,
+      jevPreflight: result.output.jevPreflight,
       workflowId: result.workflowId,
       workflow: result.workflow,
     };
@@ -169,11 +205,13 @@ export async function generateManagedResearchVerification(input: {
   prompt: string;
   idempotencyKey: string;
   enabledCapabilityIds: string[];
+  blindReviewContext?: import('@/src/services/memberApiClient').MemberBlindReviewContext;
 }): Promise<{
   text: string;
   provider?: 'mga' | 'google' | 'openai';
   model?: string;
   modelType?: 'large-language-model' | 'research-agent' | 'image-generation-model';
+  jevPreflight?: import('@/src/services/memberApiClient').MemberBlindPreflight;
   workflowId: string;
 }> {
   try {
@@ -190,6 +228,7 @@ export async function generateManagedResearchVerification(input: {
       provider: result.output.provider,
       model: result.output.model,
       modelType: result.output.modelType,
+      jevPreflight: result.output.jevPreflight,
       workflowId: result.workflowId,
     };
   } catch (verificationError) {
@@ -209,11 +248,14 @@ export function useMembership() {
       supabase.auth.onAuthStateChange((event, nextSession) => {
         session.value = nextSession;
         passwordRecovery.value = event === 'PASSWORD_RECOVERY';
+        if (!nextSession) jevConsent.value = null;
         window.setTimeout(() => void refreshStatus(), 0);
+        window.setTimeout(() => void refreshJevConsent(), 0);
       });
       const { data } = await supabase.auth.getSession();
       session.value = data.session;
       await refreshStatus();
+      await refreshJevConsent();
       initialized.value = true;
     })();
     return initializePromise;
@@ -277,6 +319,13 @@ export function useMembership() {
     await supabase.auth.signOut();
     session.value = null;
     memberStatus.value = null;
+    jevConsent.value = null;
+  }
+
+  async function setJevConsent(accepted: boolean) {
+    if (!typesafeJevEnabled || !session.value) throw new Error('member_service_unavailable');
+    jevConsent.value = await api.setJevConsent(accepted);
+    return jevConsent.value;
   }
 
   async function bootstrap() {
@@ -313,7 +362,7 @@ export function useMembership() {
   async function managedGenerate(input: {
     idempotencyKey: string;
     provider: 'gemini-3.6-flash' | 'nano-banana-pro' | 'gpt-image-2';
-    model?: 'glm-5.2' | 'gpt-5.6-luna' | 'gemini-3.1-flash-image' | 'gemini-3-pro-image';
+    model?: AcceptedMemberTextModel | 'gemini-3.1-flash-image' | 'gemini-3-pro-image';
     operation:
       | 'analysis'
       | 'generation'
@@ -346,10 +395,13 @@ export function useMembership() {
     passwordRecovery: computed(() => passwordRecovery.value),
     user: computed<User | null>(() => session.value?.user || null),
     status: computed(() => memberStatus.value),
+    jevEnabled: computed(() => typesafeJevEnabled),
+    jevConsent: computed(() => jevConsent.value),
     error: computed(() => error.value),
     getAccessToken: async () => session.value?.access_token || null,
     initialize,
     refreshStatus,
+    refreshJevConsent,
     signInWithGitHub,
     signInWithEmail,
     signUpWithEmail,
@@ -357,6 +409,7 @@ export function useMembership() {
     updatePassword,
     updateProfile,
     signOut,
+    setJevConsent,
     bootstrap,
     checkIn,
     createCheckout,

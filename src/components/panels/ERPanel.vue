@@ -247,6 +247,7 @@ import {
   managedConferenceContext,
   prepareManagedTextReentry,
 } from '@/lib/llm/managedTextWorkflow';
+import { canUseJevForConference } from '@/lib/llm/jevAnalysis';
 import { useAbstract } from '@/composables/useAbstract';
 import { useI18n } from 'vue-i18n';
 import { getMemeTranslation } from '@/lib/i18n';
@@ -380,6 +381,7 @@ const handleAnalyze = async () => {
     return;
   }
   if (
+    !canUseJevForConference('ER') &&
     getManagedAnalysisRetryNotice(workflowContext()) === 'one_free_remaining' &&
     !window.confirm(t('membership.analysis_retry_warning'))
   )
@@ -537,6 +539,9 @@ const handleDeepUpdate = async () => {
 3. Better flow and coherence
 4. More specific technical details where appropriate
 5. Ensure British English spelling (tumour, centre, analyse, randomised)
+6. Follow ECR 2027: keep the abstract body within 280 words and in the four core sections; do not add references, acknowledgements, graphics, tables or figures
+7. Preserve only supported participants, methods, results and statistics; never invent missing details. Keep any [author to verify] placeholders until the author supplies evidence
+8. Treat limitations, ethics committee approval and funding as conditional submission fields, not mandatory extra body headings
 
 Current Abstract:
 ${generatedAbstract.value.abstract}

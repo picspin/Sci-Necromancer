@@ -4,6 +4,7 @@ import { render } from '@testing-library/vue';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import en from '../../public/locales/en/translation.json';
 import { useImageGeneration } from './useImageGeneration';
+import { MemberApiError } from '@/src/services/memberApiClient';
 
 const { generateImageForProvider, managedGenerate, membershipState, settingsState } = vi.hoisted(
   () => ({
@@ -101,6 +102,91 @@ describe('useImageGeneration managed result provenance', () => {
       actualModel: 'imagen-4',
       fallbackPath: ['gemini-3.1-flash-image', 'gemini-3-pro-image', 'imagen-4'],
     });
+  });
+
+  it('sends a confirmed illustration family and records only successfully used routing models', async () => {
+    managedGenerate.mockResolvedValue({
+      type: 'image',
+      base64: 'aW1hZ2U=',
+      mimeType: 'image/png',
+      requestedModel: 'gemini-3.1-flash-image',
+      model: 'gemini-3.1-flash-image',
+      provider: 'mga',
+      fallbackPath: ['gemini-3.1-flash-image'],
+    });
+    let imageGeneration!: ReturnType<typeof useImageGeneration>;
+    const Harness = defineComponent({
+      setup() {
+        imageGeneration = useImageGeneration();
+        return () => h('div');
+      },
+    });
+    render(Harness, { global: { plugins: [i18n] } });
+    imageGeneration.resetAll();
+    imageGeneration.setMode('text-to-image');
+    imageGeneration.updateSpecs('A schematic of a clinical workflow', 34);
+
+    await imageGeneration.generateImage({
+      illustrationCategory: 'clinical-workflow',
+      routingModels: ['jev-1.13.0', 'jev-1.13.0'],
+    });
+
+    expect(managedGenerate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        prompt: expect.stringContaining('Scientific illustration category: clinical-workflow.'),
+      })
+    );
+    expect(imageGeneration.state.value.provenance).toEqual(
+      expect.objectContaining({
+        actualModel: 'gemini-3.1-flash-image',
+        routingModels: ['jev-1.13.0'],
+      })
+    );
+  });
+
+  it('records only an eligible failed member image request and never retries automatically', async () => {
+    managedGenerate.mockRejectedValueOnce(new MemberApiError('managed_provider_empty_output', 502));
+    let imageGeneration!: ReturnType<typeof useImageGeneration>;
+    const Harness = defineComponent({
+      setup() {
+        imageGeneration = useImageGeneration();
+        return () => h('div');
+      },
+    });
+    render(Harness, { global: { plugins: [i18n] } });
+    imageGeneration.resetAll();
+    imageGeneration.setMode('text-to-image');
+    imageGeneration.updateSpecs('Synthetic study schematic', 25);
+
+    await imageGeneration.generateImage({ illustrationCategory: 'study-design' });
+
+    expect(managedGenerate).toHaveBeenCalledOnce();
+    expect(imageGeneration.state.value.generatedImage).toBeNull();
+    expect(imageGeneration.state.value.lastManagedFailure).toEqual({
+      errorCode: 'managed_provider_empty_output',
+      prompt: expect.stringContaining('Scientific illustration category: study-design.'),
+      requestedModel: 'gemini-3.1-flash-image',
+      referenceImageIds: [],
+    });
+    imageGeneration.setImageProvider('gpt-image-2');
+    expect(imageGeneration.state.value.lastManagedFailure).toBeNull();
+  });
+
+  it('does not request retry advice for an auth or balance failure', async () => {
+    managedGenerate.mockRejectedValueOnce(new MemberApiError('insufficient_bonus', 402));
+    let imageGeneration!: ReturnType<typeof useImageGeneration>;
+    const Harness = defineComponent({
+      setup() {
+        imageGeneration = useImageGeneration();
+        return () => h('div');
+      },
+    });
+    render(Harness, { global: { plugins: [i18n] } });
+    imageGeneration.resetAll();
+    imageGeneration.setMode('text-to-image');
+    imageGeneration.updateSpecs('Synthetic study schematic', 25);
+    await imageGeneration.generateImage({ illustrationCategory: 'study-design' });
+    expect(imageGeneration.state.value.lastManagedFailure).toBeNull();
   });
 
   it('never switches a failed BYOK image request to member credits without an explicit retry', async () => {

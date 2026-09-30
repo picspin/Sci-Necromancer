@@ -120,7 +120,7 @@ describe('BlindReviewControl', () => {
       screen.getByText('自动审核不能证明研究数据真实，也不能替代作者、机构或会议的正式审核。')
     ).toBeTruthy();
     const emittedAssistance = view.emitted()['ai-assistance'] as unknown[][];
-    expect(emittedAssistance?.[0]?.[0]).toMatchObject({
+    expect((emittedAssistance?.[0]?.[0] as unknown[])?.[0]).toMatchObject({
       provider: 'mga',
       model: 'glm-5',
       modelType: 'research-agent',
@@ -136,7 +136,7 @@ describe('BlindReviewControl', () => {
         synopsis: '概要',
         abstract: '摘要',
         keywords: [],
-        aiAssistanceRecords: [emittedAssistance[0][0]],
+        aiAssistanceRecords: emittedAssistance[0][0],
       },
     });
     expect(screen.getByText('独立盲审报告')).toBeTruthy();

@@ -119,6 +119,8 @@ export function mergeBlindReviewReport(
         : 'verified-with-limitations',
     modelAssessment,
     aiAssistance: modelAssessment.aiAssistance,
+    aiAssistanceRecords: modelAssessment.aiAssistanceRecords,
+    jevPreflight: modelAssessment.jevPreflight,
     externalVerification,
     disclaimer: 'blind_review.disclaimer',
   };

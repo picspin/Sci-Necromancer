@@ -1,4 +1,10 @@
+import { createHash } from 'node:crypto';
 import type { VercelRequest, VercelResponse } from '../backend/_types/vercel.js';
+import { createJevGenerationWorkflow } from '../backend/_jev/generationWorkflow.js';
+import { createJevMemberPolicy } from '../backend/_jev/memberPolicy.js';
+import { runJevPostCheckPipeline } from '../backend/_jev/postCheckPipeline.js';
+import { prepareMemberBlindReview } from '../backend/_jev/blindPreflightWorkflow.js';
+import { createJevVersionStore } from '../backend/_jev/versionStore.js';
 import { callManagedProvider, type ProviderImageInput } from '../backend/_generation/providers.js';
 import {
   runManagedGeneration,
@@ -23,9 +29,9 @@ import {
 } from '../backend/_help/documentationAssistant.js';
 import { reserveHelpUsage, settleHelpUsage } from '../backend/_help/helpUsage.js';
 import { relayAnthropicRequest } from '../backend/_generation/anthropicByok.js';
+import { isAcceptedMemberTextModel } from '../lib/llm/memberTextModels.js';
 
 const PROVIDERS = new Set<ManagedProvider>(['gemini-3.6-flash', 'nano-banana-pro', 'gpt-image-2']);
-const TEXT_MODELS = new Set(['glm-5.2', 'gpt-5.6-luna']);
 const NANO_BANANA_MODELS = new Set(['gemini-3.1-flash-image', 'gemini-3-pro-image']);
 const TASK_KINDS = new Set<ManagedTaskKind>([
   'analysis_generation',
@@ -199,7 +205,7 @@ export default async function handler(request: VercelRequest, response: VercelRe
       throw new MemberServiceError('invalid_generation_request', 400);
     }
     if (
-      (provider === 'gemini-3.6-flash' && model && !TEXT_MODELS.has(model)) ||
+      (provider === 'gemini-3.6-flash' && model && !isAcceptedMemberTextModel(model)) ||
       (provider === 'nano-banana-pro' && model && !NANO_BANANA_MODELS.has(model)) ||
       (provider === 'gpt-image-2' && model)
     ) {
@@ -227,20 +233,121 @@ export default async function handler(request: VercelRequest, response: VercelRe
     const images = parseImages(request.body?.images);
     const admin = createAdminSupabaseClient();
     const user = await requireAuthenticatedUser(request, admin);
-    const member = createMemberService(createScopedMemberRpcClient(admin, user.id));
+    const scopedClient = createScopedMemberRpcClient(admin, user.id);
+    const member = createMemberService(scopedClient);
+    let providerPrompt = prompt;
+    let isJevWorkflow = false;
+    let jevSourceText = '';
+    let jevConference = '';
+    if (workflowId && workflowOperation) {
+      const sourceText =
+        typeof request.body?.sourceText === 'string' ? request.body.sourceText.trim() : '';
+      if (sourceText.length > 80_000)
+        throw new MemberServiceError('invalid_generation_request', 400);
+      const conference =
+        typeof request.body?.conference === 'string' ? request.body.conference : '';
+      isJevWorkflow = await createJevGenerationWorkflow(scopedClient).assertContext(
+        workflowId,
+        {
+          sourceHash: sourceText
+            ? createHash('sha256').update(sourceText, 'utf8').digest('hex')
+            : '',
+          conference,
+          model: model ?? '',
+        },
+        workflowOperation
+      );
+      if (isJevWorkflow && !prompt.includes(sourceText)) {
+        providerPrompt = `${prompt}\n\nAUTHOR SOURCE — preserve its facts:\n${sourceText}`;
+      }
+      if (isJevWorkflow) {
+        jevSourceText = sourceText;
+        jevConference = conference;
+      }
+    }
+    const postCheckDeadline = Date.now() + 110_000;
+    const remainingPostCheckMs = () => postCheckDeadline - Date.now();
     const result = await runManagedGeneration(
       { idempotencyKey, taskKind, provider, completeWorkflow, workflowId, workflowOperation },
       member,
-      () =>
-        callManagedProvider({
+      async () => {
+        const blindReview =
+          operation === 'blind_review'
+            ? await prepareMemberBlindReview({
+                prompt: providerPrompt,
+                context: request.body?.blindReviewContext,
+                client: scopedClient,
+                maxPromptBytes: 100_000,
+              })
+            : { prompt: providerPrompt, preflight: undefined };
+        const draft = await callManagedProvider({
           provider,
           model,
           requestId: providerRequestId,
-          prompt,
+          prompt: blindReview.prompt,
           images,
           size: request.body?.size,
           reasoning: operation === 'deep_update' ? 'high' : 'default',
-        })
+        });
+        if (operation === 'blind_review') {
+          return blindReview.preflight ? { ...draft, jevPreflight: blindReview.preflight } : draft;
+        }
+        if (
+          process.env.TYPESAFE_JEV_POST_CHECK_ENABLED !== 'true' ||
+          !isJevWorkflow ||
+          !workflowId ||
+          (workflowOperation !== 'generation' && workflowOperation !== 'deep_update') ||
+          draft.type !== 'text' ||
+          !draft.text
+        )
+          return draft;
+
+        let skipReason:
+          'consent_revoked' | 'consent_unavailable' | 'time_budget_exhausted' | undefined;
+        try {
+          const consent = await createJevMemberPolicy(scopedClient).getConsent();
+          if (!consent.accepted) skipReason = 'consent_revoked';
+        } catch {
+          skipReason = 'consent_unavailable';
+        }
+        if (!skipReason && remainingPostCheckMs() < 15_000) skipReason = 'time_budget_exhausted';
+        const { output, version } = await runJevPostCheckPipeline({
+          sourceText: jevSourceText,
+          conference: jevConference,
+          draft: { ...draft, type: 'text', text: draft.text },
+          skipReason,
+          remainingMs: remainingPostCheckMs,
+          revise: (correctionPrompt) =>
+            callManagedProvider({
+              provider,
+              model,
+              requestId: `${providerRequestId}-jev-revision`,
+              prompt: correctionPrompt,
+              images: [],
+              reasoning: 'high',
+              timeoutMs: Math.min(50_000, remainingPostCheckMs() - 18_000),
+            }),
+        });
+        await createJevVersionStore(scopedClient).persistVersion({
+          ...version,
+          taskId: workflowId,
+          operation: workflowOperation,
+          userId: user.id,
+        });
+        return {
+          ...output,
+          jevReview: {
+            versionId: version.id,
+            status: version.status,
+            ...(version.unavailableReason ? { unavailableReason: version.unavailableReason } : {}),
+            generationModels: version.generationModels,
+            generationCalls: version.generationCalls,
+            ...(version.initialCheck || version.finalCheck
+              ? { checkerModel: (version.finalCheck ?? version.initialCheck)!.model }
+              : {}),
+          },
+        };
+      }
     );
     return response.status(200).json(result);
   } catch (error) {

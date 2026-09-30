@@ -52,6 +52,14 @@
         </svg>
         {{ t('image_generation.mode_text_to_image') }}
       </button>
+      <button
+        type="button"
+        disabled
+        class="flex-1 rounded-md px-4 py-2 text-text-secondary opacity-60"
+        :title="t('image_generation.data_chart_unavailable')"
+      >
+        {{ t('image_generation.data_chart_mode') }}
+      </button>
     </div>
 
     <!-- Main Content Grid -->
@@ -125,9 +133,146 @@
           :layouts="schematicLayouts"
           :selected-style="state.specsState.selectedJournalStyle"
           :selected-layout="state.specsState.selectedSchematicLayout"
-          @select-style="selectJournalStyle"
+          @select-style="handleSelectJournalStyle"
           @select-layout="selectSchematicLayout"
         />
+
+        <section
+          v-if="illustrationRoutingActive"
+          class="space-y-3 rounded-lg border border-cyan-500/30 bg-base-100 p-4"
+        >
+          <h3 class="text-sm font-semibold text-text-primary">
+            {{ t('image_generation.jev_routing.title') }}
+          </h3>
+          <p class="text-xs text-text-secondary">
+            {{ t('image_generation.jev_routing.advisory') }}
+          </p>
+          <label class="block text-sm text-text-secondary">
+            {{ t('image_generation.jev_routing.category') }}
+            <select
+              :value="selectedCategory ?? ''"
+              :disabled="isRouting || state.isLoading"
+              @change="handleCategoryChange"
+              class="mt-1 w-full rounded-lg border border-base-300 bg-base-200 px-3 py-2 text-text-primary"
+            >
+              <option value="">{{ t('image_generation.jev_routing.select_category') }}</option>
+              <option v-for="category in illustrationCategories" :key="category" :value="category">
+                {{ t(`image_generation.jev_routing.categories.${category}`) }}
+              </option>
+            </select>
+          </label>
+          <button
+            type="button"
+            class="rounded border border-brand-primary px-3 py-2 text-xs text-brand-primary disabled:opacity-50"
+            :disabled="
+              isRouting ||
+              !researchIntent ||
+              researchIntent.length > 1000 ||
+              Boolean(selectedCategory)
+            "
+            @click="recommendCategory"
+          >
+            {{ t('image_generation.jev_routing.recommend_category') }}
+          </button>
+          <div v-if="categorySuggestion" class="text-xs text-text-secondary">
+            <p v-if="categorySuggestion.selected === 'unknown' || categorySuggestion.needsReview">
+              {{ t('image_generation.jev_routing.uncertain') }}
+            </p>
+            <p v-if="categorySuggestion.selected !== 'unknown'">
+              {{ t('image_generation.jev_routing.recommended') }}:
+              {{ t(`image_generation.jev_routing.categories.${categorySuggestion.selected}`) }}
+              <button
+                type="button"
+                class="ml-2 text-brand-primary underline"
+                @click="confirmCategorySuggestion"
+              >
+                {{ t('image_generation.jev_routing.confirm') }}
+              </button>
+            </p>
+          </div>
+          <div
+            v-if="selectedCategory"
+            class="space-y-2 border-t border-base-300 pt-3 text-xs text-text-secondary"
+          >
+            <p>
+              {{ t('image_generation.jev_routing.confirmed_category') }}:
+              {{ t(`image_generation.jev_routing.categories.${selectedCategory}`) }}
+            </p>
+            <button
+              v-if="!journalConfirmed"
+              type="button"
+              class="rounded border border-brand-primary px-3 py-2 text-brand-primary disabled:opacity-50"
+              :disabled="isRouting || !researchIntent || researchIntent.length > 1000"
+              @click="recommendJournal"
+            >
+              {{ t('image_generation.jev_routing.recommend_journal') }}
+            </button>
+            <div v-if="journalSuggestion && !journalConfirmed">
+              <p v-if="journalSuggestion.selected === 'unknown' || journalSuggestion.needsReview">
+                {{ t('image_generation.jev_routing.uncertain') }}
+              </p>
+              <p v-if="journalSuggestion.selected !== 'unknown'">
+                {{ t('image_generation.jev_routing.recommended') }}:
+                {{ journalSuggestion.selected }}
+                <button
+                  type="button"
+                  class="ml-2 text-brand-primary underline"
+                  @click="confirmJournalSuggestion"
+                >
+                  {{ t('image_generation.jev_routing.confirm') }}
+                </button>
+              </p>
+            </div>
+            <button
+              v-if="!journalConfirmed"
+              type="button"
+              class="text-brand-primary underline"
+              @click="confirmCurrentJournal"
+            >
+              {{ t('image_generation.jev_routing.confirm_current_journal') }}
+            </button>
+            <p v-else>
+              {{ t('image_generation.jev_routing.confirmed_journal') }}:
+              {{ state.specsState.selectedJournalStyle }}
+            </p>
+          </div>
+          <div
+            v-if="selectedCategory && journalConfirmed"
+            class="space-y-2 border-t border-base-300 pt-3 text-xs text-text-secondary"
+          >
+            <button
+              type="button"
+              class="rounded border border-brand-primary px-3 py-2 text-brand-primary disabled:opacity-50"
+              :disabled="isRouting || state.isLoading || promptForCheck.length > 6000"
+              @click="checkPromptCompleteness"
+            >
+              {{ t('image_generation.jev_routing.check_prompt') }}
+            </button>
+            <p v-if="promptForCheck.length > 6000">
+              {{ t('image_generation.jev_routing.prompt_too_long') }}
+            </p>
+            <div v-if="promptCheck" role="status">
+              <p>{{ t(`image_generation.jev_routing.prompt_${promptCheck.selected}`) }}</p>
+              <p v-if="promptCheck.missing.length">
+                {{ t('image_generation.jev_routing.missing_fields') }}:
+                {{
+                  promptCheck.missing
+                    .map((field) => t(`image_generation.jev_routing.dimensions.${field}`))
+                    .join('、')
+                }}
+              </p>
+              <p v-if="promptCheck.uncertain.length">
+                {{ t('image_generation.jev_routing.uncertain_fields') }}:
+                {{
+                  promptCheck.uncertain
+                    .map((field) => t(`image_generation.jev_routing.dimensions.${field}`))
+                    .join('、')
+                }}
+              </p>
+            </div>
+          </div>
+          <p v-if="routingError" role="alert" class="text-xs text-amber-200">{{ routingError }}</p>
+        </section>
 
         <!-- Image Specs Form -->
         <ImageSpecsForm
@@ -151,8 +296,13 @@
             @update:model-value="setImageProvider($event as ImageGenerationProvider)"
           />
           <button
-            @click="generateImage"
-            :disabled="!canGenerate || state.isLoading || !managedImageAvailable"
+            @click="handleGenerateImage"
+            :disabled="
+              !canGenerate ||
+              state.isLoading ||
+              !managedImageAvailable ||
+              (illustrationRoutingActive && (!selectedCategory || !journalConfirmed))
+            "
             class="mt-auto h-12 w-full flex items-center justify-center gap-2 bg-brand-primary hover:bg-brand-secondary text-white font-bold px-4 rounded-lg transition-all duration-300 disabled:bg-base-300/50 disabled:cursor-not-allowed"
           >
             <svg
@@ -188,6 +338,45 @@
             {{ t('image_generation.retry_with_member') }}
           </button>
         </div>
+
+        <div
+          v-if="retryFailureEligible"
+          class="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-text-primary"
+        >
+          <p>{{ t('image_generation.jev_routing.retry_failure_evidence') }}</p>
+          <button
+            type="button"
+            class="mt-2 rounded border border-brand-primary px-3 py-2 text-brand-primary disabled:opacity-50"
+            :disabled="isRouting || state.isLoading"
+            @click="askRetryAdvice"
+          >
+            {{ t('image_generation.jev_routing.ask_retry_advice') }}
+          </button>
+          <p v-if="retryAdvice" role="status" class="mt-2">
+            {{ t(`image_generation.jev_routing.retry_${retryAdvice.selected}`) }}
+            <span v-if="retryAdvice.needsReview">{{
+              t('image_generation.jev_routing.retry_uncertain')
+            }}</span>
+          </p>
+          <button
+            v-if="retryAdvice?.selected === 'retry_once' && !retryAdvice.needsReview"
+            type="button"
+            class="mt-2 rounded-md bg-brand-primary px-3 py-2 font-semibold text-white disabled:opacity-50"
+            :disabled="state.isLoading || isRouting || !canGenerate"
+            @click="confirmOneRetry"
+          >
+            {{ t('image_generation.jev_routing.retry_new_task') }}
+          </button>
+          <p v-if="retryAdviceError" role="alert" class="mt-2 text-xs text-amber-200">
+            {{ retryAdviceError }}
+          </p>
+        </div>
+        <p
+          v-else-if="retryFailureMatchesState && retryAdviceUsedFor === retryFailureSignature"
+          class="text-xs text-amber-200"
+        >
+          {{ t('image_generation.jev_routing.retry_already_used') }}
+        </p>
 
         <div
           v-if="!nanoBananaAvailable && !gptImageAvailable"
@@ -247,7 +436,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import type { CompletionSuggestion } from '@/types';
 import type { ImageGenerationProvider } from '@/types';
@@ -259,19 +448,46 @@ import TemplateButtons from './TemplateButtons.vue';
 import StackedImagePreview from './StackedImagePreview.vue';
 import FloatingSelect, { type FloatingSelectOption } from '@/components/ui/FloatingSelect.vue';
 import { openMemberPanel } from '@/src/services/memberCta';
+import { useMembership } from '@/src/composables/useMembership';
+import {
+  ILLUSTRATION_CATEGORY_IDS,
+  type IllustrationCategoryId,
+} from '@/lib/figure/illustrationCategories';
+import type {
+  FigureRoutingDecision,
+  PromptCompletenessDecision,
+} from '@/backend/_jev/figureRouting';
+import type { JournalStyleId } from '@/src/services/imageTemplateRegistry';
 
 const { t } = useI18n();
+const membership = useMembership();
+const illustrationCategories = ILLUSTRATION_CATEGORY_IDS;
+const illustrationRoutingFlag =
+  import.meta.env.VITE_TYPESAFE_JEV_ILLUSTRATION_ROUTING_ENABLED?.trim() === 'true';
+const selectedCategory = ref<IllustrationCategoryId | null>(null);
+const journalConfirmed = ref(false);
+const categorySuggestion = ref<FigureRoutingDecision<string> | null>(null);
+const journalSuggestion = ref<FigureRoutingDecision<string> | null>(null);
+const promptCheck = ref<PromptCompletenessDecision | null>(null);
+const retryAdvice = ref<FigureRoutingDecision<string> | null>(null);
+const retryAdviceError = ref('');
+const retryAdviceUsedFor = ref<string | null>(null);
+const routingModels = ref<string[]>([]);
+const isRouting = ref(false);
+const routingError = ref('');
 
 const fileInputRef = ref<HTMLInputElement | null>(null);
 
 const {
   state,
+  finalPrompt,
   canGenerate,
   journalStyles,
   schematicLayouts,
   uploadedImagesCount,
   canUploadMore,
   managedImageAvailable,
+  selectedImageRoute,
   googleByokAvailable,
   openAIByokAvailable,
   nanoBananaAvailable,
@@ -302,6 +518,243 @@ const {
   downloadImage,
   resetAll,
 } = useImageGeneration();
+
+const illustrationRoutingActive = computed(
+  () =>
+    illustrationRoutingFlag &&
+    membership.jevEnabled.value &&
+    membership.jevConsent.value?.accepted === true &&
+    selectedImageRoute.value === 'managed'
+);
+const researchIntent = computed(() =>
+  [
+    state.value.abstractIntent?.title,
+    state.value.abstractIntent?.abstractData.impact,
+    state.value.abstractIntent?.abstractData.synopsis,
+    state.value.specsState.customInstructions,
+  ]
+    .filter(Boolean)
+    .join('\n')
+    .trim()
+);
+const promptForCheck = computed(() =>
+  selectedCategory.value
+    ? `${finalPrompt.value}\nScientific illustration category: ${selectedCategory.value}.`
+    : ''
+);
+const retryFailureSignature = computed(() => {
+  const failure = state.value.lastManagedFailure;
+  return failure
+    ? JSON.stringify([failure.prompt, failure.requestedModel, failure.referenceImageIds])
+    : null;
+});
+const retryFailureMatchesState = computed(() => {
+  const failure = state.value.lastManagedFailure;
+  return Boolean(
+    illustrationRoutingActive.value &&
+    selectedCategory.value &&
+    journalConfirmed.value &&
+    failure &&
+    failure.prompt === promptForCheck.value &&
+    promptForCheck.value.length <= 6000 &&
+    failure.referenceImageIds.length === state.value.uploadedImages.length &&
+    failure.referenceImageIds.every((id, index) => id === state.value.uploadedImages[index]?.id)
+  );
+});
+const retryFailureEligible = computed(
+  () => retryFailureMatchesState.value && retryAdviceUsedFor.value !== retryFailureSignature.value
+);
+
+watch([() => state.value.abstractIntent, () => state.value.mode], () => {
+  selectedCategory.value = null;
+  journalConfirmed.value = false;
+  categorySuggestion.value = null;
+  journalSuggestion.value = null;
+  routingModels.value = [];
+  routingError.value = '';
+});
+watch(researchIntent, () => {
+  categorySuggestion.value = null;
+  journalSuggestion.value = null;
+  routingError.value = '';
+});
+watch([finalPrompt, selectedCategory], () => {
+  promptCheck.value = null;
+});
+watch([promptForCheck, () => state.value.lastManagedFailure], () => {
+  retryAdvice.value = null;
+  retryAdviceError.value = '';
+});
+
+const handleCategoryChange = (event: Event) => {
+  const value = (event.target as HTMLSelectElement).value;
+  selectedCategory.value = illustrationCategories.includes(value as IllustrationCategoryId)
+    ? (value as IllustrationCategoryId)
+    : null;
+  categorySuggestion.value = null;
+  journalSuggestion.value = null;
+  journalConfirmed.value = false;
+};
+const handleSelectJournalStyle = (style: JournalStyleId) => {
+  selectJournalStyle(style);
+  journalConfirmed.value = true;
+  journalSuggestion.value = null;
+};
+const confirmCurrentJournal = () => {
+  journalConfirmed.value = true;
+};
+const recommendCategory = async () => {
+  if (!illustrationRoutingActive.value || !researchIntent.value || selectedCategory.value) return;
+  const intent = researchIntent.value;
+  isRouting.value = true;
+  routingError.value = '';
+  try {
+    const response = await membership.memberApi.figureRoute({
+      kind: 'illustration-category',
+      input: { researchIntent: intent },
+    });
+    if (researchIntent.value !== intent || !illustrationRoutingActive.value) return;
+    if (response.kind !== 'illustration-category' || !('probability' in response.decision)) return;
+    categorySuggestion.value = response.decision;
+    routingModels.value = [...new Set([...routingModels.value, response.decision.model])];
+  } catch {
+    routingError.value = t('image_generation.jev_routing.unavailable');
+  } finally {
+    isRouting.value = false;
+  }
+};
+const confirmCategorySuggestion = () => {
+  const candidate = categorySuggestion.value?.selected;
+  if (candidate && illustrationCategories.includes(candidate as IllustrationCategoryId)) {
+    selectedCategory.value = candidate as IllustrationCategoryId;
+    categorySuggestion.value = null;
+  }
+};
+const recommendJournal = async () => {
+  if (
+    !illustrationRoutingActive.value ||
+    !selectedCategory.value ||
+    journalConfirmed.value ||
+    !researchIntent.value
+  )
+    return;
+  const intent = researchIntent.value;
+  const category = selectedCategory.value;
+  isRouting.value = true;
+  routingError.value = '';
+  try {
+    const response = await membership.memberApi.figureRoute({
+      kind: 'illustration-journal',
+      input: { researchIntent: intent, category },
+    });
+    if (
+      researchIntent.value !== intent ||
+      selectedCategory.value !== category ||
+      !illustrationRoutingActive.value
+    )
+      return;
+    if (response.kind !== 'illustration-journal' || !('probability' in response.decision)) return;
+    journalSuggestion.value = response.decision;
+    routingModels.value = [...new Set([...routingModels.value, response.decision.model])];
+  } catch {
+    routingError.value = t('image_generation.jev_routing.unavailable');
+  } finally {
+    isRouting.value = false;
+  }
+};
+const confirmJournalSuggestion = () => {
+  const candidate = journalSuggestion.value?.selected;
+  if (candidate && journalStyles.some(({ id }) => id === candidate)) {
+    selectJournalStyle(candidate as JournalStyleId);
+    journalConfirmed.value = true;
+    journalSuggestion.value = null;
+  }
+};
+const checkPromptCompleteness = async () => {
+  if (
+    !illustrationRoutingActive.value ||
+    !selectedCategory.value ||
+    !journalConfirmed.value ||
+    isRouting.value ||
+    promptForCheck.value.length > 6000
+  )
+    return;
+  const category = selectedCategory.value;
+  const prompt = promptForCheck.value;
+  isRouting.value = true;
+  routingError.value = '';
+  try {
+    const response = await membership.memberApi.figureRoute({
+      kind: 'illustration-prompt',
+      input: { prompt, category },
+    });
+    if (
+      promptForCheck.value !== prompt ||
+      selectedCategory.value !== category ||
+      !illustrationRoutingActive.value
+    )
+      return;
+    if (response.kind !== 'illustration-prompt' || !('missing' in response.decision)) return;
+    promptCheck.value = response.decision;
+    routingModels.value = [...new Set([...routingModels.value, response.decision.model])];
+  } catch {
+    routingError.value = t('image_generation.jev_routing.unavailable');
+  } finally {
+    isRouting.value = false;
+  }
+};
+const askRetryAdvice = async () => {
+  const failure = state.value.lastManagedFailure;
+  const category = selectedCategory.value;
+  if (!retryFailureEligible.value || !failure || !category || isRouting.value) return;
+  isRouting.value = true;
+  retryAdviceError.value = '';
+  try {
+    const response = await membership.memberApi.figureRoute({
+      kind: 'illustration-retry',
+      input: {
+        prompt: failure.prompt,
+        category,
+        requestedModel: failure.requestedModel,
+        errorCode: failure.errorCode,
+      },
+    });
+    if (
+      !retryFailureEligible.value ||
+      state.value.lastManagedFailure !== failure ||
+      response.kind !== 'illustration-retry' ||
+      !('probability' in response.decision)
+    )
+      return;
+    retryAdvice.value = response.decision;
+    routingModels.value = [...new Set([...routingModels.value, response.decision.model])];
+  } catch {
+    if (retryFailureEligible.value)
+      retryAdviceError.value = t('image_generation.jev_routing.retry_unavailable');
+  } finally {
+    isRouting.value = false;
+  }
+};
+const confirmOneRetry = () => {
+  if (
+    !retryFailureEligible.value ||
+    retryAdvice.value?.selected !== 'retry_once' ||
+    retryAdvice.value.needsReview
+  )
+    return;
+  retryAdviceUsedFor.value = retryFailureSignature.value;
+  handleGenerateImage();
+};
+const handleGenerateImage = () => {
+  if (illustrationRoutingActive.value) {
+    if (!selectedCategory.value || !journalConfirmed.value) return;
+    return generateImage({
+      illustrationCategory: selectedCategory.value,
+      routingModels: routingModels.value,
+    });
+  }
+  return generateImage();
+};
 
 const canRetryWithMember = computed(() =>
   state.value.byokFailureProvider === 'google-byok'

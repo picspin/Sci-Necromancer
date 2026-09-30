@@ -77,7 +77,7 @@ export const ECR_RESEARCH_TYPES: ResearchTypeGuideline[] = [
 export class ERModule extends BaseConferenceModule {
   readonly id: Conference = 'ER';
   readonly name: string = 'ECR';
-  readonly submissionUrl: string = 'https://www.myesr.org/abstractsubmission';
+  readonly submissionUrl: string = 'https://www.myesr.org/congress/submit/abstract-submission/';
 
   readonly guidelines: ConferenceGuidelines = {
     abstractTypes: [
@@ -91,19 +91,16 @@ export class ERModule extends BaseConferenceModule {
       abstract: 280,
       impact: 50,
       synopsis: 100,
-      title: 200, // characters
     },
     requiredSections: [
       'PURPOSE or LEARNING OBJECTIVE',
       'METHODS or BACKGROUND',
       'RESULTS or FINDINGS',
       'CONCLUSIONS',
-      'LIMITATIONS',
-      'FUNDING for this study',
     ],
     formattingRules: [
       'Maximum 280 words for abstract body',
-      'Title: no full stop at end, no trade names or special symbols',
+      'Title: sentence case, no full stop at end, no trade names or special symbols',
       'Use British English spelling throughout (tumour, centre, analyse, colour, randomised)',
       'Numbers < 10 spelled out; numbers >= 10 written numerically',
       'Each section must be a complete paragraph ending with full stop',
@@ -111,8 +108,9 @@ export class ERModule extends BaseConferenceModule {
       'Up to 3 keywords per column; one per category mandatory',
       'Declare conflicts of interest for all authors',
       'Include ethics approval information where applicable',
-      'LIMITATIONS section mandatory for research abstracts',
-      'FUNDING section mandatory - state "No funding was received" if none',
+      'Limitations, ethics committee approval, and funding are conditional ESR submission fields',
+      'Do not include references, acknowledgements, graphics, tables, or figures in the abstract body',
+      'Disclose AI-assisted writing or editing via the ESR submission checkbox; describe AI-generated research results in Methods',
     ],
   };
 
@@ -156,15 +154,21 @@ export class ERModule extends BaseConferenceModule {
    * Get embedded guideline as fallback
    */
   private getEmbeddedGuideline(): string {
-    return `ECR Abstract Submission Guidelines:
+    return `ECR 2027 Abstract Submission Guidelines (ESR official call checked 2026-09-29):
 - Maximum 280 words for abstract body
-- Structured format: Purpose/Objectives, Methods/Materials, Results, Conclusions
+- First four fields: Purpose/Objectives, Methods/Materials, Results, Conclusions
+- Limitations, ethics committee approval, and funding: complete where applicable in their portal fields
 - British English spelling required
-- Title: max 200 characters, no full stop at end, no trade names
+- Title: sentence case, no full stop at end, no trade names
 - Numbers < 10 spelled out; >= 10 written numerically
 - Dates in British format (day.month.year)
-- Maximum 9 authors; up to 10 images for posters
+- Maximum 9 authors; up to 10 images for posters only
+- No references, acknowledgements, graphics, tables, or figures in the body
+- AI writing/editing: use the submission checkbox; AI used to generate results: describe in Methods
 - Include ethics approval and funding information where applicable
+- Research Presentation: 9-minute oral presentation and discussion; final format is assigned by ESR
+- CTiR: multicentre any design (design/baseline/results), or randomised single-centre with results
+- Source: https://www.myesr.org/congress/submit/abstract-submission/
 - Consult EQUATOR Network guidelines for your study type (STROBE, STARD, ARRIVE, CONSORT)`;
   }
 
@@ -393,48 +397,25 @@ export class ERModule extends BaseConferenceModule {
       }
     }
 
-    // Check for prohibited content (trade names, symbols)
-    if (abstract.abstract) {
-      if (
-        abstract.abstract.includes('®') ||
-        abstract.abstract.includes('™') ||
-        abstract.abstract.includes('©')
-      ) {
-        errors.push('Trade symbols (®, ™, ©) are not allowed in ECR abstracts');
-      }
-    }
-
     // Check title formatting
     if (abstract.title) {
       if (abstract.title.endsWith('.')) {
         errors.push('Title should not end with a full stop');
       }
-      if (abstract.title.length > 200) {
-        errors.push(`Title exceeds character limit: ${abstract.title.length}/200 characters`);
+      if (/[®™©]/.test(abstract.title)) {
+        errors.push('Trade symbols (®, ™, ©) are not allowed in ECR titles');
       }
     }
 
-    // Check for ethics/funding information mention
+    // These are separate conditional portal fields, not unconditional body requirements.
     if (abstract.abstract) {
       const content = abstract.abstract.toLowerCase();
-      const hasEthicsInfo =
-        content.includes('ethics') ||
-        content.includes('ethical') ||
-        content.includes('irb') ||
-        content.includes('institutional review');
-      const hasFundingInfo =
-        content.includes('funding') ||
-        content.includes('grant') ||
-        content.includes('supported by');
-
-      if (!hasEthicsInfo) {
-        warnings.push(
-          'Consider including ethics approval information (required for clinical studies)'
-        );
+      if (/\b(acknowledg(?:e)?ments?|references)\s*:/i.test(abstract.abstract)) {
+        warnings.push('ECR 2027 excludes acknowledgements and references from the abstract body');
       }
-      if (!hasFundingInfo) {
+      if (content.includes('case report')) {
         warnings.push(
-          'Consider including funding information or stating "No funding was received"'
+          'ECR 2027 does not accept case reports; verify eligibility against the ESR definition'
         );
       }
     }

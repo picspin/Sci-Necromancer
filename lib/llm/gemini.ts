@@ -10,6 +10,7 @@ import {
   AbstractTypeSuggestion,
   BlindReviewModelAssessment,
   ISMRMAnalysisBundle,
+  Conference,
 } from '../../types';
 import * as prompts from './prompts/ismrmPrompts';
 import {
@@ -311,9 +312,10 @@ export const generateFinalAbstract = async (
 
 export const generateCreativeAbstract = async (
   coreIdea: string,
-  _apiKey?: string
+  _apiKey?: string,
+  conference?: Conference
 ): Promise<AbstractData> => {
-  const prompt = await prompts.getCreativeAbstractPrompt(coreIdea);
+  const prompt = await prompts.getCreativeAbstractPrompt(coreIdea, conference);
   // The output schema is the same as the final abstract
   return await callGeminiAPI<AbstractData>(prompt, finalAbstractSchema);
 };

@@ -134,6 +134,11 @@
           })
         }}
       </p>
+      <p v-if="provenance.routingModels?.length" class="mt-1">
+        {{
+          t('image_generation.jev_routing_models', { models: provenance.routingModels.join(', ') })
+        }}
+      </p>
     </div>
 
     <!-- Download button -->

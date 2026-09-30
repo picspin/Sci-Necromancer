@@ -1,4 +1,5 @@
-import { Category, AbstractTypeSuggestion } from '../../../types';
+import { Category, AbstractType, AbstractTypeSuggestion, Conference } from '../../../types';
+import { getCreativeECRAbstractPrompt, getECRAbstractByTypePrompt } from './ecrPrompts';
 
 /**
  * ISMRM Prompt System and Guideline Router
@@ -448,12 +449,15 @@ Be specific, concrete, and highlight the novelty and significance of the work.
  */
 export const getFinalAbstractPrompt = async (
   text: string,
-  type: string,
+  type: AbstractType,
   categories: Category[],
   keywords: string[],
   impact: string,
   synopsis: string
 ): Promise<string> => {
+  if (type.startsWith('ECR ')) {
+    return getECRAbstractByTypePrompt(text, impact, synopsis, type, categories, keywords);
+  }
   const categoryNames = categories.map((c) => c.name).join(', ');
   const keywordList = keywords.join(', ');
 
@@ -531,7 +535,13 @@ Ensure the abstract is:
 /**
  * Generate prompt for creative abstract generation from a core idea
  */
-export const getCreativeAbstractPrompt = async (coreIdea: string): Promise<string> => {
+export const getCreativeAbstractPrompt = async (
+  coreIdea: string,
+  conference?: Conference
+): Promise<string> => {
+  if (conference === 'ER') {
+    return getCreativeECRAbstractPrompt(coreIdea);
+  }
   const globalGuidance = await loadGuidelineFile('call for abstracts global guidance.md');
   const impactGuidance = await loadGuidelineFile('impact & synopsis sections.md');
 

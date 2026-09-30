@@ -71,7 +71,7 @@ npm run lint
 npm run build
 ```
 
-可将 `dist/` 部署至 Cloudflare、Vercel 或 Netlify，并配置 SPA 回退到 `index.html`；`api/` 单独部署到 Vercel，[vercel.json](vercel.json) 将 Functions 固定在美国 `iad1`。按 [.env.example](.env.example) 配置 Supabase、Turnstile、模型供应商和 Stripe 服务端密钥，再通过 `VITE_API_BASE_URL` 让各静态站点连接该后端，并执行 `supabase/migrations/` 下两份 SQL。服务端凭据不得写入 `VITE_*`；海外节点也不得用于绕过供应商地区限制或条款。
+当前生产前端须以 [wrangler.jsonc](wrangler.jsonc) 配置的 Cloudflare Worker 部署，不能只上传 `dist/`：Worker 负责 `/api/*` 与 `/supabase/*` 同源代理。`api/` 后端部署到 Vercel；数据库变更按 `supabase/migrations/` 的待执行清单迁移。按 [.env.example](.env.example) 配置公开构建变量与服务端密钥，后者不得写入 `VITE_*`；海外节点也不得用于绕过供应商地区限制或条款。每次功能上线请按[部署清单](docs/DEPLOYMENT_RUNBOOK.md)判断是否需要 Supabase、Vercel、Wrangler 重部署及其顺序和验收项。
 
 Stripe webhook 地址设为 `/api/stripe-webhook`，API 版本固定为 `2026-02-25.clover`，并显式订阅 `checkout.session.completed`、`refund.created`、`refund.updated`、`charge.dispute.created` 和需单独选择的 `charge.dispute.funds_reinstated`。上线真实支付前，须用 Stripe CLI 测试购买、成功退款、重复投递、争议和争议资金恢复。
 

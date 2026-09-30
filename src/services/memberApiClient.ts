@@ -1,4 +1,20 @@
 import type { MGAResearchAgentId } from '@/lib/capabilities/managedResearchCapabilities';
+import type { AcceptedMemberTextModel } from '@/lib/llm/memberTextModels';
+import type {
+  MemberBlindPreflight,
+  MemberBlindReviewContext,
+} from '@/backend/_jev/blindPreflightWorkflow';
+import type {
+  DataFigureRoutingInput,
+  FigureRoutingDecision,
+  IllustrationCategoryRoutingInput,
+  IllustrationJournalRoutingInput,
+  IllustrationRetryInput,
+  PromptCompletenessDecision,
+  PromptCompletenessInput,
+} from '@/backend/_jev/figureRouting';
+
+export type { MemberBlindPreflight, MemberBlindReviewContext };
 
 export class MemberApiError extends Error {
   constructor(
@@ -44,6 +60,97 @@ export interface ManagedCapabilityDescriptor {
   readOnly: true;
   memberOnly: true;
   bonusCost: 0 | 1;
+}
+
+export interface JevAnalysisInput {
+  text: string;
+  conference: string;
+  idempotencyKey: string;
+  model: AcceptedMemberTextModel;
+}
+
+export interface JevConsent {
+  accepted: boolean;
+  version: string;
+}
+
+export interface JevReviewSummary {
+  versionId: string;
+  status: 'check_complete' | 'needs_author_review' | 'review_unavailable';
+  unavailableReason?: string;
+  generationModels: string[];
+  generationCalls: Array<{
+    stage: 'draft' | 'revision';
+    provider: 'mga' | 'google' | 'openai';
+    model: string;
+  }>;
+  checkerModel?: string;
+}
+
+export interface JevGenerationVersion {
+  id: string;
+  taskId: string;
+  createdAt: string;
+  operation: 'generation' | 'deep_update';
+  sourceHash: string;
+  draftText: string;
+  finalText: string;
+  draftHash: string;
+  finalHash: string;
+  conference: string;
+  generationModels: string[];
+  generationCalls: JevReviewSummary['generationCalls'];
+  initialCheck: Record<string, unknown> | null;
+  finalCheck: Record<string, unknown> | null;
+  status: JevReviewSummary['status'];
+  unavailableReason?: string;
+}
+
+export interface JevAnalysisResponse {
+  analysis: {
+    categories: Array<{
+      name: string;
+      type: 'main' | 'sub' | 'secondary';
+      probability: number;
+    }>;
+    keywords: string[];
+  };
+  preflight: {
+    isScientificSubmission: number;
+    hasObjective: number;
+    hasMethods: number;
+    hasResults: number;
+    hasConclusion: number;
+    needsReview: boolean;
+    reviewReason?: string;
+  };
+  provider: 'typesafe';
+  model: string;
+  policyVersion: 'jev-analysis-v1';
+  workflowId: string;
+  bonusBalance: number;
+  workflow: {
+    analysisCount: number;
+    generationCount: number;
+    deepUpdateCount: number;
+    callCount: number;
+  };
+  cached: boolean;
+  remaining: number;
+}
+
+export type FigureRouteRequest =
+  | { kind: 'data-template'; input: DataFigureRoutingInput }
+  | { kind: 'illustration-category'; input: IllustrationCategoryRoutingInput }
+  | { kind: 'illustration-journal'; input: IllustrationJournalRoutingInput }
+  | { kind: 'illustration-prompt'; input: PromptCompletenessInput }
+  | { kind: 'illustration-retry'; input: IllustrationRetryInput };
+
+export interface FigureRouteResponse {
+  kind: FigureRouteRequest['kind'];
+  decision: FigureRoutingDecision<string> | PromptCompletenessDecision;
+  remaining: number;
+  cached: boolean;
 }
 
 interface MemberApiClientOptions {
@@ -157,11 +264,22 @@ export function createMemberApiClient(options: MemberApiClientOptions) {
     getStatus: () => request<MemberStatus>('/api/member/status'),
     getCapabilities: () =>
       request<{ capabilities: ManagedCapabilityDescriptor[] }>('/api/member/capabilities'),
+    figureRoute: async (input: FigureRouteRequest): Promise<FigureRouteResponse> => {
+      const result = await request<FigureRouteResponse | { error: string }>(
+        '/api/jev',
+        { method: 'POST', body: JSON.stringify({ action: 'figure-route', ...input }) },
+        {},
+        20_000
+      );
+      if ('error' in result) throw new MemberApiError(result.error, 202);
+      return result;
+    },
     runCapability: (input: {
       idempotencyKey: string;
       capabilityId: MGAResearchAgentId;
       enabledCapabilityIds: string[];
       prompt: string;
+      blindReviewContext?: MemberBlindReviewContext;
     }) =>
       request<{
         output: {
@@ -170,6 +288,7 @@ export function createMemberApiClient(options: MemberApiClientOptions) {
           provider?: 'mga' | 'google' | 'openai';
           model?: string;
           modelType?: 'large-language-model' | 'research-agent' | 'image-generation-model';
+          jevPreflight?: MemberBlindPreflight;
         };
         bonusBalance: number;
         workflowId: string;
@@ -181,11 +300,81 @@ export function createMemberApiClient(options: MemberApiClientOptions) {
             capabilityId: input.capabilityId,
             enabledCapabilityIds: input.enabledCapabilityIds,
             prompt: input.prompt,
+            blindReviewContext: input.blindReviewContext,
           }),
         },
         { 'Idempotency-Key': input.idempotencyKey },
         LONG_MEMBER_REQUEST_TIMEOUT_MS
       ),
+    getJevConsent: () =>
+      request<JevConsent>('/api/jev?action=consent', { method: 'GET' }, {}, 15_000),
+    listJevGenerationVersions: (limit = 10) =>
+      request<{ versions: JevGenerationVersion[] }>(
+        `/api/jev?action=versions&limit=${encodeURIComponent(limit)}`,
+        { method: 'GET' },
+        {},
+        15_000
+      ),
+    setJevConsent: (accepted: boolean) =>
+      request<JevConsent>(
+        '/api/jev',
+        { method: 'POST', body: JSON.stringify({ action: 'consent', accepted }) },
+        {},
+        15_000
+      ),
+    jevAnalyze: async (input: JevAnalysisInput) => {
+      const result = await request<JevAnalysisResponse | { error: string }>(
+        '/api/jev',
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            action: 'analyze',
+            text: input.text,
+            conference: input.conference,
+            model: input.model,
+          }),
+        },
+        { 'Idempotency-Key': input.idempotencyKey },
+        20_000
+      );
+      if ('error' in result) throw new MemberApiError(result.error, 202);
+      const preflight = result.preflight;
+      const workflow = result.workflow;
+      const probabilities = preflight && [
+        preflight.isScientificSubmission,
+        preflight.hasObjective,
+        preflight.hasMethods,
+        preflight.hasResults,
+        preflight.hasConclusion,
+      ];
+      if (
+        !result.workflowId ||
+        result.provider !== 'typesafe' ||
+        !result.model ||
+        result.policyVersion !== 'jev-analysis-v1' ||
+        !result.analysis ||
+        !Array.isArray(result.analysis.categories) ||
+        !Array.isArray(result.analysis.keywords) ||
+        !probabilities?.every((value) => typeof value === 'number' && value >= 0 && value <= 1) ||
+        typeof preflight?.needsReview !== 'boolean' ||
+        !Number.isInteger(result.bonusBalance) ||
+        result.bonusBalance <= 0 ||
+        !Number.isInteger(result.remaining) ||
+        result.remaining < 0 ||
+        !workflow ||
+        !Number.isInteger(workflow.analysisCount) ||
+        workflow.analysisCount < 1 ||
+        !Number.isInteger(workflow.callCount) ||
+        workflow.callCount < 1 ||
+        !Number.isInteger(workflow.generationCount) ||
+        workflow.generationCount < 0 ||
+        !Number.isInteger(workflow.deepUpdateCount) ||
+        workflow.deepUpdateCount < 0
+      ) {
+        throw new MemberApiError('invalid_jev_analysis_response', 502);
+      }
+      return result;
+    },
     bootstrap: () =>
       request<{ bonus_balance: number; awarded: boolean }>('/api/member/bootstrap', {
         method: 'POST',
@@ -197,7 +386,7 @@ export function createMemberApiClient(options: MemberApiClientOptions) {
     generate: (input: {
       idempotencyKey: string;
       provider: 'gemini-3.6-flash' | 'nano-banana-pro' | 'gpt-image-2';
-      model?: 'glm-5.2' | 'gpt-5.6-luna' | 'gemini-3.1-flash-image' | 'gemini-3-pro-image';
+      model?: AcceptedMemberTextModel | 'gemini-3.1-flash-image' | 'gemini-3-pro-image';
       operation:
         | 'analysis'
         | 'generation'
@@ -207,6 +396,9 @@ export function createMemberApiClient(options: MemberApiClientOptions) {
         | 'blind_review';
       workflowId?: string;
       prompt: string;
+      blindReviewContext?: MemberBlindReviewContext;
+      sourceText?: string;
+      conference?: string;
       images?: ManagedImageInput[];
       size?: '1024x1024' | '1024x1536' | '1536x1024';
     }) =>
@@ -221,6 +413,8 @@ export function createMemberApiClient(options: MemberApiClientOptions) {
           requestedModel?: string;
           fallbackPath?: string[];
           modelType?: 'large-language-model' | 'research-agent' | 'image-generation-model';
+          jevReview?: JevReviewSummary;
+          jevPreflight?: MemberBlindPreflight;
         };
         bonusBalance: number;
         workflowId: string;
@@ -240,6 +434,9 @@ export function createMemberApiClient(options: MemberApiClientOptions) {
             operation: input.operation,
             workflowId: input.workflowId,
             prompt: input.prompt,
+            blindReviewContext: input.blindReviewContext,
+            sourceText: input.sourceText,
+            conference: input.conference,
             images: input.images,
             size: input.size,
           }),

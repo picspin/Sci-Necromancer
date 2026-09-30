@@ -7,6 +7,10 @@ describe('conference blind-review rule context', () => {
 
     expect(rules).toContain('impact statement: 50 words');
     expect(rules).toContain('synopsis: 100 words');
+    expect(rules).toContain('ECR 2027 ESR rule set');
+    expect(rules).toContain('conditional portal fields');
+    expect(rules).toContain('writing/editing AI');
+    expect(rules).not.toContain('title: maximum 200 characters');
     expect(rules).toContain('Maximum 9 authors');
     expect(rules).toContain('up to 10 images for posters');
     expect(rules).toContain('no full stop, trade names, or special symbols');

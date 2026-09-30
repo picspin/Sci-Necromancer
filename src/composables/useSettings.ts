@@ -5,6 +5,7 @@ import { CloudSyncedDatabaseService } from '@/services/cloudSyncedDatabaseServic
 import { useMembership } from '@/src/composables/useMembership';
 import { normalizeBlindReviewSettings } from '@/lib/review/reviewSettings';
 import { normalizeCapabilitySettings } from '@/lib/capabilities/capabilityRegistry';
+import { normalizeMemberTextModel } from '@/lib/llm/memberTextModels';
 
 // Local storage service
 const STORAGE_KEY = 'app-settings';
@@ -14,11 +15,17 @@ const loadSettingsFromStorage = (): Settings => {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored) {
       const parsed = JSON.parse(stored) as Settings;
-      return {
+      const normalized = {
         ...parsed,
+        ...(parsed.memberManagedTextModel
+          ? { memberManagedTextModel: normalizeMemberTextModel(parsed.memberManagedTextModel) }
+          : {}),
         blindReview: normalizeBlindReviewSettings(parsed.blindReview),
         capabilities: normalizeCapabilitySettings(parsed.capabilities),
       };
+      if (normalized.memberManagedTextModel !== parsed.memberManagedTextModel)
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(normalized));
+      return normalized;
     }
   } catch (error) {
     console.error('Failed to load settings from localStorage:', error);

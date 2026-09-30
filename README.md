@@ -95,6 +95,9 @@ After both deployments, this command must return JSON (not the SPA HTML) and inc
 curl -i https://www.rad-sci.org/api/health
 ```
 
+For each release, use the [deployment runbook](docs/DEPLOYMENT_RUNBOOK.md) to decide which of
+Supabase, Vercel, and Cloudflare must be updated, in what order, and how to verify the live version.
+
 Create the Stripe webhook at `/api/stripe-webhook`, pin it to API version `2026-02-25.clover`, and explicitly enable `checkout.session.completed`, `refund.created`, `refund.updated`, `charge.dispute.created`, and the selection-required `charge.dispute.funds_reinstated` event. Verify purchase, successful refund, duplicate delivery, dispute, and funds reinstatement with Stripe CLI in test mode before enabling live payments.
 
 For privileged CiteCheck/DOI MCP review, also configure the HTTPS facade variables and trusted edge token described in [the backend guide](docs/BLIND_REVIEW_BACKEND.md).

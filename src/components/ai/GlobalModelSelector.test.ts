@@ -59,14 +59,14 @@ describe('GlobalModelSelector', () => {
     expect(screen.getByTestId('glass-model-selector')).toBeTruthy();
     expect(screen.getByTestId('model-selector-magic-icon')).toBeTruthy();
     expect(screen.getByRole('option', { name: 'Personal API · custom-text-model' })).toBeTruthy();
-    expect(screen.getByRole('option', { name: 'Member · GLM-5.2' })).toBeTruthy();
-    expect(screen.getByRole('option', { name: 'Member · GPT-5.6 Luna' })).toBeTruthy();
+    expect(screen.getByRole('option', { name: 'Member · DeepSeek V4.1 Flash' })).toBeTruthy();
+    expect(screen.getByRole('option', { name: 'Member · GPT-5.6 Terra' })).toBeTruthy();
 
-    await fireEvent.update(screen.getByRole('combobox'), 'managed:gpt-5.6-luna');
+    await fireEvent.update(screen.getByRole('combobox'), 'managed:gpt-5.6-terra');
     expect(updateSettings).toHaveBeenCalledWith({
       textGenerationSource: 'managed',
       memberManagedTextEnabled: true,
-      memberManagedTextModel: 'gpt-5.6-luna',
+      memberManagedTextModel: 'gpt-5.6-terra',
     });
   });
 
@@ -82,13 +82,13 @@ describe('GlobalModelSelector', () => {
     state.authenticated = false;
     const { emitted } = render(GlobalModelSelector, { global: { plugins: [i18n] } });
 
-    await fireEvent.update(screen.getByRole('combobox'), 'managed:glm-5.2');
+    await fireEvent.update(screen.getByRole('combobox'), 'managed:deepseek-v4.1-flash');
 
     expect(emitted()['open-member']).toHaveLength(1);
     expect(updateSettings).not.toHaveBeenCalled();
   });
 
-  it('makes GLM-5.2 the persisted default for a signed-in member without BYOK', async () => {
+  it('makes DeepSeek the persisted default for a signed-in member without BYOK', async () => {
     state.settings = {
       provider: 'openai',
       openAIApiKey: '',
@@ -99,12 +99,14 @@ describe('GlobalModelSelector', () => {
 
     render(GlobalModelSelector, { global: { plugins: [i18n] } });
 
-    expect(screen.getByRole<HTMLSelectElement>('combobox').value).toBe('managed:glm-5.2');
+    expect(screen.getByRole<HTMLSelectElement>('combobox').value).toBe(
+      'managed:deepseek-v4.1-flash'
+    );
     await waitFor(() => {
       expect(updateSettings).toHaveBeenCalledWith({
         textGenerationSource: 'managed',
         memberManagedTextEnabled: true,
-        memberManagedTextModel: 'glm-5.2',
+        memberManagedTextModel: 'deepseek-v4.1-flash',
       });
     });
   });
@@ -128,7 +130,7 @@ describe('GlobalModelSelector', () => {
     expect(updateSettings).toHaveBeenCalledWith({
       textGenerationSource: 'managed',
       memberManagedTextEnabled: true,
-      memberManagedTextModel: 'glm-5.2',
+      memberManagedTextModel: 'deepseek-v4.1-flash',
     });
     expect(getLockedTextModel('ER:failed-paper')).toBeNull();
   });

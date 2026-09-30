@@ -23,6 +23,7 @@ import { useMembership } from '@/composables/useMembership';
 import { openMemberPanel } from '@/src/services/memberCta';
 import { selectedByokTextModel } from '@/lib/llm/capabilityRouting';
 import { getLockedTextModel, TEXT_MODEL_WORKFLOW_EVENT } from '@/lib/llm/textModelWorkflow';
+import { normalizeMemberTextModel } from '@/lib/llm/memberTextModels';
 
 const props = defineProps<{ workflowContext: string }>();
 const { t } = useI18n();
@@ -37,7 +38,7 @@ const currentModel = computed(() => {
   if (settings.value.textGenerationSource === 'managed') {
     return {
       source: 'managed' as const,
-      model: settings.value.memberManagedTextModel || 'glm-5.2',
+      model: normalizeMemberTextModel(settings.value.memberManagedTextModel),
       locked: false,
     };
   }

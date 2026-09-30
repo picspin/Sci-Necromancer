@@ -31,6 +31,6 @@ describe('Vercel Node ESM imports', () => {
   });
 
   it('keeps Hobby deployments within the Serverless Function limit', () => {
-    expect(productionTypeScriptFiles(join(process.cwd(), 'api'))).toHaveLength(11);
+    expect(productionTypeScriptFiles(join(process.cwd(), 'api'))).toHaveLength(12);
   });
 });

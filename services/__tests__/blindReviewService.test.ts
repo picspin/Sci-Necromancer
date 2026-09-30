@@ -26,6 +26,10 @@ describe('runBlindReview', () => {
 
     expect(modelReview.mock.calls[0][0]).toContain('MANUSCRIPT TO REVIEW');
     expect(modelReview.mock.calls[0][1]).toBe('manuscript');
+    expect(modelReview.mock.calls[0][2]).toEqual({
+      sourceText: 'Complete manuscript body',
+      conference: 'ASCO',
+    });
     expect(modelReview.mock.calls[0][0]).toContain('ASCO Annual Meeting 2026');
     expect(modelReview.mock.calls[0][0]).toContain('2600 characters excluding spaces');
     expect(externalReview).toHaveBeenCalledWith(
@@ -131,6 +135,10 @@ describe('runBlindReview', () => {
     );
 
     expect(modelReview.mock.calls[0][0]).toContain('Original source with 80 participants.');
+    expect(modelReview.mock.calls[0][2]).toMatchObject({
+      conference: 'ER',
+      sourceText: expect.stringContaining('Generated abstract with 80 participants.'),
+    });
     expect(externalReview.mock.calls[0][0].reviewers.pubmed).toBe(true);
     expect(report.conference).toBe('ER');
     expect(report.externalVerification[0].reviewer).toBe('pubmed');

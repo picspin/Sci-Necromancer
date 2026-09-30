@@ -25,6 +25,7 @@ import {
   collectAIAssistanceRecords,
   createAIAssistanceRecord,
   getTrustedAIAssistance,
+  markTrustedAIAssistance,
   requireAIDisclosureAcceptance,
 } from '../compliance/aiDisclosure';
 import {
@@ -37,11 +38,17 @@ import {
 import { assertBlindReviewAssessment } from '../review/blindReview';
 import { resolveTextRoute, selectedByokTextModel } from './capabilityRouting';
 import {
+  DEFAULT_MEMBER_TEXT_MODEL,
+  isAcceptedMemberTextModel,
+  normalizeMemberTextModel,
+} from './memberTextModels';
+import {
   enabledMGAResearchToolIds,
   hasEnabledMGAResearchAgent,
 } from '../capabilities/managedResearchCapabilities';
 import { getManagedAnalysisRetryNotice, managedConferenceContext } from './managedTextWorkflow';
 import { announceByokTextFailure } from './modelEvents';
+import { analyzeJevContent, canUseJevForConference } from './jevAnalysis';
 import { openMemberPanel } from '../../src/services/memberCta';
 import {
   completeTextModelGeneration,
@@ -83,8 +90,14 @@ const getTextRoute = (workflowContext?: string) => {
   if (locked?.source === 'managed') {
     settings.textGenerationSource = 'managed';
     settings.memberManagedTextEnabled = true;
-    settings.memberManagedTextModel = locked.model === 'gpt-5.6-luna' ? 'gpt-5.6-luna' : 'glm-5.2';
-  } else if (locked?.source === 'byok' && locked.provider !== 'mga') {
+    settings.memberManagedTextModel = isAcceptedMemberTextModel(locked.model)
+      ? locked.model
+      : DEFAULT_MEMBER_TEXT_MODEL;
+  } else if (
+    locked?.source === 'byok' &&
+    locked.provider !== 'mga' &&
+    locked.provider !== 'typesafe'
+  ) {
     settings.textGenerationSource = 'byok';
     settings.provider = locked.provider;
     if (locked.provider === 'google') settings.model = locked.model;
@@ -132,7 +145,7 @@ const currentTextModel = (
     return {
       provider: 'mga',
       providerDisplayName: 'MGA',
-      model: settings.memberManagedTextModel || 'glm-5.2',
+      model: normalizeMemberTextModel(settings.memberManagedTextModel),
     };
   }
   if (settings.provider === 'anthropic') {
@@ -198,9 +211,10 @@ const requireAnalysisCredits = (workflowContext: string): void => {
 const runAndRecordAnalysis = async <T>(
   workflowContext: string,
   operations: string[],
-  run: () => Promise<T>
+  run: () => Promise<T>,
+  skipLegacyRetryCharge = false
 ): Promise<T> => {
-  requireAnalysisCredits(workflowContext);
+  if (!skipLegacyRetryCharge) requireAnalysisCredits(workflowContext);
   const result = await run();
   const trustedRecord =
     result && typeof result === 'object' ? getTrustedAIAssistance(result as object) : undefined;
@@ -230,6 +244,7 @@ const withAIAssistance = (
   const {
     aiAssistance: _untrustedAssistance,
     aiAssistanceRecords: _untrustedRecords,
+    jevReview: _untrustedJevReview,
     ...safeResult
   } = result;
   const currentRecord = createAIAssistanceRecord({
@@ -238,13 +253,14 @@ const withAIAssistance = (
     model: identity.model,
     modelType: trustedManagedRecord?.modelType,
     mode,
-    operations,
+    operations: trustedManagedRecord?.operations ?? operations,
     methodsDisclosureRequired: trustedManagedRecord?.methodsDisclosureRequired,
     generatedAt: trustedManagedRecord?.generatedAt,
   });
   const priorRecords = workflowContext ? getTextWorkflowAssistance(workflowContext) : [];
   return {
     ...safeResult,
+    ...(trustedManagedRecord && result.jevReview ? { jevReview: result.jevReview } : {}),
     aiAssistance: currentRecord,
     aiAssistanceRecords: collectAIAssistanceRecords({
       aiAssistanceRecords: [...priorRecords, currentRecord],
@@ -294,6 +310,24 @@ export const analyzeISMRMBundle = async (text: string): Promise<ISMRMAnalysisBun
   lockCurrentTextModel(workflowContext);
   const apiKey = getApiKey(workflowContext);
   const service = getService(true, workflowContext);
+  if (canUseJevForConference('ISMRM')) {
+    return runAndRecordAnalysis(
+      workflowContext,
+      ['ISMRM content analysis'],
+      async () => {
+        const analysis = await analyzeJevContent(text, 'ISMRM', workflowContext);
+        const bundle: ISMRMAnalysisBundle = {
+          ...analysis,
+          impact: '',
+          synopsis: '',
+          typeSuggestions: [],
+        };
+        const identity = getTrustedAIAssistance(analysis);
+        return identity ? markTrustedAIAssistance(bundle, identity) : bundle;
+      },
+      true
+    );
+  }
   return runAndRecordAnalysis(workflowContext, ['ISMRM content analysis'], () =>
     !apiKey
       ? openai.analyzeISMRMBundle(text, undefined, workflowContext, true)
@@ -309,7 +343,8 @@ const getAuxiliaryLocale = (): 'en' | 'zh' =>
 
 export async function reviewAbstractBlind(
   prompt: string,
-  reviewTarget: 'abstract' | 'manuscript' = 'abstract'
+  reviewTarget: 'abstract' | 'manuscript' = 'abstract',
+  context?: { sourceText: string; conference: 'ISMRM' | 'RSNA' | 'ER' | 'ASCO' | 'ESMO' }
 ): Promise<BlindReviewModelAssessment> {
   requireAIDisclosureAcceptance();
   const apiKey = getApiKey();
@@ -327,12 +362,13 @@ export async function reviewAbstractBlind(
       };
     });
   }
-  return runManagedBlindReview(prompt, reviewTarget);
+  return runManagedBlindReview(prompt, reviewTarget, context);
 }
 
 async function runManagedBlindReview(
   prompt: string,
-  reviewTarget: 'abstract' | 'manuscript'
+  reviewTarget: 'abstract' | 'manuscript',
+  context?: { sourceText: string; conference: 'ISMRM' | 'RSNA' | 'ER' | 'ASCO' | 'ESMO' }
 ): Promise<BlindReviewModelAssessment> {
   const idempotencyKey =
     globalThis.crypto?.randomUUID?.() ?? `blind-review-${Date.now()}-${Math.random()}`;
@@ -357,24 +393,45 @@ async function runManagedBlindReview(
         prompt,
         idempotencyKey,
         enabledCapabilityIds: researchToolIds,
+        blindReviewContext: context && { ...context, target: reviewTarget },
       })
-    : await generateManagedText({ prompt, idempotencyKey, operation: 'blind_review' });
+    : await generateManagedText({
+        prompt,
+        idempotencyKey,
+        operation: 'blind_review',
+        blindReviewContext: context && { ...context, target: reviewTarget },
+      });
   try {
     const assessment = assertBlindReviewAssessment(JSON.parse(result.text));
     const fallbackIdentity = currentTextModel();
+    const aiAssistance = createAIAssistanceRecord({
+      provider: result.provider ?? fallbackIdentity.provider,
+      model: result.model ?? fallbackIdentity.model,
+      modelType: result.modelType ?? (useResearchAgent ? 'research-agent' : 'large-language-model'),
+      mode: 'standard',
+      operations: useResearchAgent
+        ? [`independent ${reviewTarget} review`, 'read-only literature verification']
+        : [`independent ${reviewTarget} review`],
+      methodsDisclosureRequired: useResearchAgent,
+    });
+    const jevPreflight = result.jevPreflight;
     return {
       ...assessment,
-      aiAssistance: createAIAssistanceRecord({
-        provider: result.provider ?? fallbackIdentity.provider,
-        model: result.model ?? fallbackIdentity.model,
-        modelType:
-          result.modelType ?? (useResearchAgent ? 'research-agent' : 'large-language-model'),
-        mode: 'standard',
-        operations: useResearchAgent
-          ? [`independent ${reviewTarget} review`, 'read-only literature verification']
-          : [`independent ${reviewTarget} review`],
-        methodsDisclosureRequired: useResearchAgent,
-      }),
+      aiAssistance,
+      ...(jevPreflight ? { jevPreflight } : {}),
+      ...(jevPreflight?.status === 'completed'
+        ? {
+            aiAssistanceRecords: [
+              createAIAssistanceRecord({
+                provider: 'typesafe',
+                model: jevPreflight.model,
+                mode: 'standard',
+                operations: [`advisory ${reviewTarget} prescreen`],
+              }),
+              aiAssistance,
+            ],
+          }
+        : { aiAssistanceRecords: [aiAssistance] }),
     };
   } catch {
     throw new Error('blind_review.invalid_model_response');
@@ -518,6 +575,20 @@ export const analyzeContentForConference = async (
   lockCurrentTextModel(managedContext);
   const apiKey = getApiKey(managedContext);
   const service = getService(true, managedContext);
+  if (canUseJevForConference(conference)) {
+    return runAndRecordAnalysis(
+      managedContext,
+      [`${conference} content analysis and classification`],
+      async () => {
+        const analysis = await analyzeJevContent(text, conference, managedContext);
+        if (conference !== 'RSNA') return analysis;
+        const normalized = normalizeRSNAAnalysis(analysis, text, getAuxiliaryLocale());
+        const identity = getTrustedAIAssistance(analysis);
+        return identity ? markTrustedAIAssistance(normalized, identity) : normalized;
+      },
+      true
+    );
+  }
   return runAndRecordAnalysis(
     managedContext,
     [`${conference} content analysis and classification`],
@@ -775,6 +846,21 @@ export const generateCreativeAbstractForConference = async (
     const result = !apiKey
       ? await execute(openai, true)
       : await runSelectedByok(() => execute(service));
+    return finalize(result);
+  }
+  if (conference === 'ER') {
+    const run = () => {
+      if (service === openai) {
+        return openai.generateCreativeAbstract(coreIdea, apiKey, false, 'ER');
+      }
+      if (service === anthropic) {
+        return anthropic.generateCreativeAbstract(coreIdea, apiKey, 'ER');
+      }
+      return gemini.generateCreativeAbstract(coreIdea, apiKey, 'ER');
+    };
+    const result = !apiKey
+      ? await openai.generateCreativeAbstract(coreIdea, undefined, true, 'ER')
+      : await runSelectedByok(run);
     return finalize(result);
   }
   if ('generateCreativeAbstractForConference' in service) {
