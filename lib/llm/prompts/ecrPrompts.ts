@@ -3,7 +3,7 @@ import { generateWritingStylePrompt, DEFAULT_WRITING_STYLE } from '../writingSty
 
 /**
  * ECR (European Congress of Radiology) specific prompts
- * Following ESR guidelines for abstract submission
+ * Following the ESR ECR 2027 call, verified 2026-09-29.
  */
 
 // EQUATOR Network research type guidelines
@@ -47,6 +47,9 @@ export const EQUATOR_GUIDELINES = {
 
 // Load ECR guidance file content
 const loadECRGuidanceFile = async (): Promise<string> => {
+  if (typeof process !== 'undefined' && process.env.NODE_ENV === 'test') {
+    return '';
+  }
   try {
     const response = await fetch('/ECR-abstract-submission-guidelines.md');
     return await response.text();
@@ -77,7 +80,7 @@ export const getECRImpactSynopsisPrompt = (
 
   return `
 You are an expert academic writer specialising in ECR (European Congress of Radiology) submissions.
-Your task is to generate an Impact statement and Synopsis from the provided research text.
+Your task is to generate platform drafting aids, an Impact statement and Synopsis, from the provided research text. These are not separate ESR submission fields.
 
 **Task:**
 Generate two sections:
@@ -132,10 +135,10 @@ export const getECRAbstractByTypePrompt = async (
 
   let specificInstructions = '';
 
-  // ECR Unified Structure - Required for all abstract types
+  // ESR's first four abstract fields apply to all formats; the other fields are conditional.
   const ecrStructure = `
-**ECR ABSTRACT STRUCTURE (REQUIRED):**
-Your abstract MUST include ALL of the following sections with headers in uppercase:
+**ECR 2027 ABSTRACT STRUCTURE:**
+Use these first four sections with uppercase headers:
 
 1. **PURPOSE or LEARNING OBJECTIVE**: State the aim of the study / What the viewer will learn (1-2 sentences)
 
@@ -145,9 +148,7 @@ Your abstract MUST include ALL of the following sections with headers in upperca
 
 4. **CONCLUSIONS**: Summarise implications for radiological practice OR summary of learning points (1-2 sentences)
 
-5. **LIMITATIONS**: State limitations of the study (1 sentence, mandatory for research, optional for educational)
-
-6. **FUNDING for this study**: Declare funding sources. If none, state "No funding was received for this study." (1 sentence, mandatory)
+Limitations, ethics committee approval and funding are separate conditional fields in the ESR submission process. Supply truthful information where applicable; do not force their headings into the four-section abstract body. If a no-limitations or no-funding response is needed, ESR suggests "No limitations were identified." and "No funding was received for this study."
 
 **ECR WORD LIMIT:** STRICTLY MAXIMUM 280 WORDS (abstract body only, excluding title and keywords)
 
@@ -155,7 +156,11 @@ Your abstract MUST include ALL of the following sections with headers in upperca
 
 **NUMBERS:** Spell out numbers less than 10; use numerals for 10 and above
 
-**TITLE REQUIREMENTS:** Maximum 200 characters, no full stop at end, no trade names or special symbols (®, ™, ©)
+**TITLE REQUIREMENTS:** Sentence case, no full stop at end, no trade names or special symbols (®, ™, ©). Spell out Greek/scientific characters.
+
+**BODY EXCLUSIONS:** No references, acknowledgements, graphics, tables or figures. AI-assisted writing/editing is disclosed using the ESR submission checkbox; AI-generated research results must be described in Methods.
+
+Only report participants, methods, results, statistics and ethics approval supported by the source. Mark missing evidence for author verification; never invent it.
 `;
 
   switch (type) {
@@ -166,8 +171,8 @@ Your abstract MUST include ALL of the following sections with headers in upperca
 ${ecrStructure}
 
 **Presentation Format:**
-- 5-minute oral presentation followed by 2-minute discussion
-- May be considered for poster if not accepted for oral
+- ESR describes a 9-minute oral presentation and discussion for RP.
+- This is a preferred format; the committee may assign a poster instead.
 `;
       break;
 
@@ -178,8 +183,9 @@ ${ecrStructure}
 ${ecrStructure}
 
 **Clinical Trial Requirements:**
-- Emphasise trial design, randomisation, and statistical methodology
-- Report primary and secondary outcomes with statistical significance
+- Multicentre studies of any design may report design, baseline data or results.
+- Single-centre studies qualify only when randomised and results are available.
+- Report primary/secondary outcomes and statistics only if provided in the source.
 
 **Presentation Format:**
 - 8-minute presentation followed by 4-minute discussion
@@ -209,7 +215,7 @@ ${ecrStructure}
 - Emphasise LEARNING OBJECTIVES and CONCLUSIONS for teaching
 - BACKGROUND provides context and importance
 - FINDINGS/PROCEDURE DETAILS for key educational content
-- LIMITATIONS and FUNDING still required
+- Do not force limitations or funding into the abstract body; use the appropriate portal fields where applicable.
 
 **Suitable Topics:**
 - Teaching cases and pictorial reviews
@@ -241,7 +247,7 @@ ${ecrStructure}
   }
 
   return `
-You are an expert academic writer tasked with generating a publication-ready abstract for the European Congress of Radiology (ECR).
+You are an expert academic writer tasked with generating a source-grounded ECR 2027 submission draft. The author must verify it against the live ESR portal.
 
 **Context:**
 - **Abstract Type:** ${type}
@@ -249,6 +255,7 @@ You are an expert academic writer tasked with generating a publication-ready abs
 - **Keywords:** ${keywordList}
 - **Impact Statement (already generated):** ${impact}
 - **Synopsis (already generated):** ${synopsis}
+  (Impact and Synopsis are platform drafting aids, not separate ESR fields.)
 ${equatorGuidance ? `- **Research Type:** Following ${equatorGuidance.checklist} guidelines` : ''}
 
 ${specificInstructions}
@@ -259,6 +266,8 @@ ${specificInstructions}
 - Each section must be a complete paragraph ending with a full stop
 - No trade symbols (®, ™, ©) or company names
 - Include quantitative results where possible
+- Do not place references, acknowledgements, tables, figures or graphics in the abstract body
+- Do not fabricate scientific data; flag missing facts for author verification
 
 **Reference: ECR Submission Guidelines**
 ---
@@ -281,9 +290,9 @@ Return a JSON object with:
 - "impact": use the provided impact statement
 - "synopsis": use the provided synopsis
 - "keywords": array of ${keywords.length} keywords
-- "title": a concise title (max 200 characters, no full stop at end, lowercase except first word and proper nouns)
+- "title": a concise sentence-case title with no full stop at end; spell out Greek/scientific characters
 
-The abstract should be publication-ready and strictly adhere to ECR word limits and British English spelling.
+The abstract is a draft for author verification; follow ECR 2027 word limits and British English spelling.
 `;
 };
 
@@ -306,23 +315,23 @@ export const getCreativeECRAbstractPrompt = async (
 
   let typeInstructions = '';
 
-  // ECR Unified Structure - Required for all abstract types
+  // Keep a core-idea draft visibly provisional until the author supplies study evidence.
   const ecrStructure = `
-**ECR ABSTRACT STRUCTURE (REQUIRED):**
-Your abstract MUST include ALL of the following sections with headers in uppercase:
+**ECR 2027 ABSTRACT STRUCTURE:**
+Use the first four sections with uppercase headers:
 
 1. **PURPOSE or LEARNING OBJECTIVE**
 2. **METHODS or BACKGROUND**
 3. **RESULTS or FINDINGS**
 4. **CONCLUSIONS**
-5. **LIMITATIONS** (mandatory for research)
-6. **FUNDING for this study** (mandatory, e.g., "No funding was received for this study.")
+Limitations, ethics committee approval and funding are conditional submission fields. Do not force their headings into the abstract body or assume their contents.
 
 **STRICT WORD LIMIT:** 280 words maximum
 
 **BRITISH ENGLISH:** tumour, centre, analyse, colour, randomised
 **NUMBERS:** <10 spelled out; >=10 numerals
-**TITLE:** max 200 characters, no full stop, no trade symbols
+**TITLE:** sentence case, no full stop, no trade symbols; spell out Greek/scientific characters
+**BODY:** no references, acknowledgements, tables, graphics or figures
 `;
 
   switch (type) {
@@ -332,7 +341,7 @@ Your abstract MUST include ALL of the following sections with headers in upperca
 
 ${ecrStructure}
 
-Focus: 5-minute oral presentation suitable content
+Focus: a concise research presentation draft; the final presentation format is assigned by the ESR committee.
 `;
       break;
     case 'ECR Clinical Trials in Radiology':
@@ -341,7 +350,7 @@ Focus: 5-minute oral presentation suitable content
 
 ${ecrStructure}
 
-Focus: Trial design, randomisation, primary/secondary outcomes
+Focus: trial design and outcomes supported by source facts. Single-centre CTiR studies require randomisation and available results.
 `;
       break;
     case 'ECR EPOS Scientific Poster':
@@ -393,6 +402,9 @@ ${typeInstructions}
 - Numbers < 10 spelled out; >= 10 written numerically
 - No trade symbols or company names
 - Each section ends with a full stop
+- Do not fabricate research methods, participants, results, statistics or ethics approval
+- A core idea alone cannot support a submission-ready abstract; use explicit [author to verify] placeholders for missing evidence
+- AI-assisted writing/editing requires the ESR portal AI-use checkbox; AI-generated research results belong in Methods, not a body acknowledgement
 
 ${equatorGuidance ? `**EQUATOR Network Guidance:**\nFollow ${equatorGuidance.checklist} checklist: ${equatorGuidance.url}` : ''}
 
@@ -404,10 +416,10 @@ ${guidanceContent}
 ${generateWritingStylePrompt(writingStyle)}
 
 **Task:**
-1. Expand the core idea into a complete, scientifically plausible ECR abstract
-2. Invent realistic imaging protocols, patient numbers, and statistical findings
-3. Generate Impact (50 words), Synopsis (100 words), and Keywords (3-5)
-4. Create a title (max 200 characters, no full stop, lowercase except first word)
+1. Expand the core idea into a provisional ECR 2027 draft grounded only in supplied facts
+2. For absent protocols, patient numbers, results or statistics, use explicit [author to verify] placeholders rather than inventing data
+3. Generate platform-only Impact (50 words), Synopsis (100 words), and candidate Keywords (3-5); these are not separate ESR submission fields
+4. Create a sentence-case title with no full stop
 
 Return a JSON object with:
 - "abstract": full abstract text (max 280 words)
@@ -415,6 +427,8 @@ Return a JSON object with:
 - "synopsis": 100-word synopsis
 - "keywords": array of 3-5 keywords
 - "title": concise title following ECR format
+
+The author must replace and verify every placeholder before submission.
 `;
 };
 
@@ -432,7 +446,7 @@ Analyze the following research text and extract:
    - Modalities: CT, MRI, Ultrasound, Conventional Radiography, Mammography, Fluoroscopy, Hybrid Imaging
    - Applications: AI/Machine Learning, Contrast Media, Emergency Radiology, Interventional, Radiation Protection, Radiomics, Sustainability
 
-2. **Keywords**: Extract 3-5 relevant keywords for the abstract
+2. **Keywords**: Suggest 3-5 candidate terms. ESR's portal requires a choice from each keyword column (up to three per column); do not present free-text suggestions as validated portal selections.
 
 3. **Research Type**: Classify the study design:
    - Case-control study (use STROBE)
@@ -443,8 +457,8 @@ Analyze the following research text and extract:
    - Randomised controlled trial (use CONSORT)
 
 4. **Suggested Abstract Type**:
-   - ECR Research Presentation (5-min oral)
-   - ECR Clinical Trials in Radiology (8-min oral, for trials)
+   - ECR Research Presentation (9-minute oral presentation and discussion)
+   - ECR Clinical Trials in Radiology (8-minute oral plus 4-minute discussion; multicentre any design or randomised single-centre with results)
    - ECR EPOS Scientific Poster
    - ECR EPOS Educational Poster
    - ECR Student Presentation

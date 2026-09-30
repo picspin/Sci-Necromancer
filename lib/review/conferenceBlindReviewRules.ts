@@ -28,14 +28,15 @@ export function getConferenceBlindReviewRules(conference: ReviewConference): str
 
   if (conference === 'ER') {
     return [
-      'ECR platform-configured rule set (no verified rule version is stored; authors must recheck the official call):',
-      '- Source: https://www.myesr.org/abstractsubmission',
-      '- Abstract body: maximum 280 words; title: maximum 200 characters; impact statement: 50 words; synopsis: 100 words.',
+      'ECR 2027 ESR rule set (checked 2026-09-29; authors must recheck the official call):',
+      '- Source: https://www.myesr.org/congress/submit/abstract-submission/ and https://www.myesr.org/congress/submit/abstract-submission/writing-tips/',
+      '- Abstract body: maximum 280 words. The platform impact statement: 50 words and synopsis: 100 words are drafting aids, not separate ESR fields.',
       '- Title: no full stop, trade names, or special symbols.',
-      '- Required content includes purpose/learning objective, methods/background, results/findings, conclusions, limitations, and funding.',
+      '- The first four ESR fields cover purpose/learning objective, methods/background, results/findings, and conclusions; limitations, ethics approval, and funding are conditional portal fields.',
       '- Use British English; spell out numbers below 10; each section must be a complete paragraph ending with a full stop.',
-      '- Maximum 9 authors; up to 10 images for posters; up to 3 keywords per column with one keyword per category mandatory.',
-      '- Declare conflicts of interest for every author; assess anonymity, ethics approval, mandatory limitations/funding, and study-specific reporting requirements.',
+      '- Maximum 9 authors; up to 10 images for posters only; up to 3 keywords per column with one keyword per category mandatory.',
+      '- No references, acknowledgements, graphics, tables, or figures in the abstract body; writing/editing AI is disclosed via the portal checkbox, while AI-generated research results belong in Methods.',
+      '- Case reports are ineligible. Assess patient privacy, ethics, conflicts of interest, conditional funding/limitations, and study-specific reporting requirements.',
     ].join('\n');
   }
 

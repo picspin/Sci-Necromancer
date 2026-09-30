@@ -42,6 +42,18 @@
           <p class="mt-1">{{ t('ai_disclosure.output_body') }}</p>
         </div>
 
+        <div
+          v-if="abstract?.jevReview"
+          data-testid="jev-post-check-status"
+          class="rounded-lg border border-brand-primary/30 bg-base-100 p-3 text-xs text-text-secondary"
+          role="status"
+        >
+          <p class="font-semibold text-text-primary">
+            {{ t(`membership.jev_version_${abstract.jevReview.status}`) }}
+          </p>
+          <p class="mt-1">{{ t('membership.jev_versions_help') }}</p>
+        </div>
+
         <p
           v-if="abstract && creativeMode"
           data-testid="creative-output-warning"
@@ -184,7 +196,11 @@
             <AbstractBody :content="abstract.abstract" />
           </div>
           <p class="mt-2 text-xs text-amber-300">
-            {{ t('ai_disclosure.copy_reminder') }}
+            {{
+              conference === 'ER'
+                ? t('ai_disclosure.ecr_copy_reminder')
+                : t('ai_disclosure.copy_reminder')
+            }}
           </p>
         </div>
 
@@ -217,7 +233,11 @@
             </div>
           </div>
           <p class="mt-2 text-xs text-emerald-200">
-            {{ t('ai_disclosure.acknowledgement_guidance') }}
+            {{
+              conference === 'ER'
+                ? t('ai_disclosure.ecr_acknowledgement_guidance')
+                : t('ai_disclosure.acknowledgement_guidance')
+            }}
           </p>
         </section>
 
@@ -372,6 +392,11 @@ const liveRegionMessage = computed(() => {
 
 const copyToClipboard = () => {
   if (!props.abstract) return;
+  if (props.conference === 'ER') {
+    navigator.clipboard.writeText(props.abstract.abstract ?? '');
+    alert(t('output.copy_success'));
+    return;
+  }
   const acknowledgement = acknowledgementText.value
     ? `\n\nAI USE ACKNOWLEDGMENT:\n${acknowledgementText.value}`
     : '';
@@ -386,14 +411,14 @@ const copyAcknowledgement = () => {
   alert(t('output.copy_success'));
 };
 
-const handleReviewAssistance = (record: AIAssistanceRecord | null) => {
-  if (!record || !props.abstract) return;
+const handleReviewAssistance = (recordsFromReview: AIAssistanceRecord[] | null) => {
+  if (!recordsFromReview?.length || !props.abstract) return;
   const records = collectAIAssistanceRecords({
     aiAssistance: props.abstract.aiAssistance,
     aiAssistanceRecords: [
       ...(props.abstract.aiAssistanceRecords ?? []),
       ...reviewAssistanceRecords.value,
-      record,
+      ...recordsFromReview,
     ],
   });
   const additionalRecords = records.filter((item) => item !== props.abstract?.aiAssistance);

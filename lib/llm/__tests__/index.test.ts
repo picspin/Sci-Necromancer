@@ -184,6 +184,8 @@ describe('LLM Index - Provider Selection', () => {
 
     expect(generateContentMock.mock.calls[0][0].model).toBe('gemini-at-analysis');
     expect(generateContentMock.mock.calls[1][0].model).toBe('gemini-at-analysis');
+    expect(generateContentMock.mock.calls[1][0].contents).toContain('ECR 2027');
+    expect(generateContentMock.mock.calls[1][0].contents).not.toContain('ISMRM');
   });
 
   it('records the backend actual model for managed analysis fallback', async () => {
@@ -228,6 +230,68 @@ describe('LLM Index - Provider Selection', () => {
         expect.objectContaining({ provider: 'google', model: 'gemini-3.6-flash' }),
       ])
     );
+  });
+
+  it('discloses draft, revision and Jev post-check models from actual member calls', async () => {
+    localStorage.setItem(
+      'app-settings',
+      JSON.stringify({
+        provider: 'openai',
+        memberManagedTextEnabled: true,
+        textGenerationSource: 'managed',
+        memberManagedTextModel: 'glm-5.2',
+      })
+    );
+    generateManagedTextMock
+      .mockResolvedValueOnce({
+        text: '{"categories":[],"keywords":[]}',
+        provider: 'mga',
+        model: 'glm-5.2',
+        workflowId: '77777777-7777-4777-8777-777777777777',
+        workflow: { analysisCount: 1, callCount: 1, generationCount: 0, deepUpdateCount: 0 },
+      })
+      .mockResolvedValueOnce({
+        text: '{"abstract":"Revised","impact":"","synopsis":"","keywords":[]}',
+        provider: 'google',
+        model: 'gemini-3.6-flash',
+        jevReview: {
+          versionId: '550e8400-e29b-41d4-a716-446655440099',
+          status: 'check_complete',
+          generationModels: ['glm-5.2', 'gemini-3.6-flash'],
+          generationCalls: [
+            { stage: 'draft', provider: 'mga', model: 'glm-5.2' },
+            { stage: 'revision', provider: 'google', model: 'gemini-3.6-flash' },
+          ],
+          checkerModel: 'jev-1.13.0',
+        },
+        workflowId: '77777777-7777-4777-8777-777777777777',
+        workflow: { analysisCount: 1, callCount: 2, generationCount: 1, deepUpdateCount: 0 },
+      });
+    const { analyzeContentForConference, generateAbstractForConference } =
+      await import('@/lib/llm/index');
+    const analysis = await analyzeContentForConference('Synthetic MRI source', 'ER');
+    const generated = await generateAbstractForConference(
+      'Synthetic MRI source',
+      'ECR Research Presentation',
+      analysis.categories,
+      analysis.keywords,
+      'ER'
+    );
+    expect(generated.aiAssistanceRecords).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          provider: 'mga',
+          model: 'glm-5.2',
+          operations: ['abstract drafting'],
+        }),
+        expect.objectContaining({ provider: 'google', model: 'gemini-3.6-flash' }),
+        expect.objectContaining({ provider: 'typesafe', model: 'jev-1.13.0' }),
+      ])
+    );
+    expect(generated.jevReview).toMatchObject({
+      versionId: '550e8400-e29b-41d4-a716-446655440099',
+      status: 'check_complete',
+    });
   });
 
   it('requires both a key and text model before selecting BYOK', async () => {
@@ -392,6 +456,7 @@ describe('LLM Index - Provider Selection', () => {
             generatedAt: '1999-01-01T00:00:00.000Z',
           },
         ],
+        jevReview: { versionId: 'fake-version', status: 'check_complete' },
       }),
     });
     const { generateFinalAbstract } = await import('@/lib/llm/index');
@@ -427,6 +492,7 @@ describe('LLM Index - Provider Selection', () => {
     );
     expect(result.aiAssistanceRecords).toHaveLength(1);
     expect(result.aiAssistanceRecords?.[0].model).toBe('gemini-2.5-flash');
+    expect(result.jevReview).toBeUndefined();
     expect(
       result.aiAssistanceRecords?.some((record) => record.model === 'prompt-injected-model')
     ).toBe(false);
@@ -457,6 +523,83 @@ describe('LLM Index - Provider Selection', () => {
     expect(result.aiAssistance?.operations).toContain(
       'content generation from an author-supplied concept'
     );
+  });
+
+  it('uses the ECR 2027 source-grounded creative prompt for Google BYOK', async () => {
+    localStorage.setItem(
+      'app-settings',
+      JSON.stringify({ provider: 'google', googleApiKey: 'test-key', model: 'gemini-2.5-flash' })
+    );
+    generateContentMock.mockResolvedValueOnce({
+      text: JSON.stringify({
+        abstract: 'Provisional ECR draft',
+        impact: '',
+        synopsis: '',
+        keywords: [],
+      }),
+    });
+    const { generateCreativeAbstractForConference } = await import('@/lib/llm/index');
+
+    await generateCreativeAbstractForConference('Author-supplied ECR concept', 'ER');
+
+    const prompt = generateContentMock.mock.calls[0][0].contents;
+    expect(prompt).toContain('ECR 2027');
+    expect(prompt).toContain('author to verify');
+    expect(prompt).not.toContain('ISMRM');
+  });
+
+  it.each([
+    ['openai', { openAIApiKey: 'test-key', openAITextModel: 'gpt-test' }],
+    ['anthropic', { anthropicApiKey: 'test-key', anthropicTextModel: 'claude-test' }],
+  ] as const)('uses the ECR creative prompt for %s BYOK', async (provider, credentials) => {
+    localStorage.setItem('app-settings', JSON.stringify({ provider, ...credentials }));
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        choices: [{ message: { content: '{"abstract":"ECR draft","keywords":[]}' } }],
+        content: [{ type: 'text', text: '{"abstract":"ECR draft","keywords":[]}' }],
+      }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    const { generateCreativeAbstractForConference } = await import('@/lib/llm/index');
+
+    await generateCreativeAbstractForConference('Author-supplied ECR concept', 'ER');
+
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    const prompt = body.messages[body.messages.length - 1].content;
+    expect(prompt).toContain('ECR 2027');
+    expect(prompt).toContain('author to verify');
+    expect(prompt).not.toContain('ISMRM');
+  });
+
+  it('uses the ECR 2027 creative prompt for member generation without changing billing', async () => {
+    localStorage.setItem(
+      'app-settings',
+      JSON.stringify({
+        provider: 'openai',
+        memberManagedTextEnabled: true,
+        textGenerationSource: 'managed',
+      })
+    );
+    generateManagedTextMock.mockResolvedValueOnce({
+      text: JSON.stringify({
+        abstract: 'Provisional ECR draft',
+        impact: '',
+        synopsis: '',
+        keywords: [],
+      }),
+      workflowId: '11111111-1111-4111-8111-111111111111',
+      workflow: { analysisCount: 0, callCount: 1, generationCount: 1, deepUpdateCount: 0 },
+    });
+    const { generateCreativeAbstractForConference } = await import('@/lib/llm/index');
+
+    await generateCreativeAbstractForConference('Author-supplied ECR concept', 'ER');
+
+    expect(generateManagedTextMock).toHaveBeenCalledOnce();
+    expect(generateManagedTextMock.mock.calls[0][0]).toMatchObject({
+      operation: 'regeneration',
+      prompt: expect.stringContaining('ECR 2027'),
+    });
   });
 
   it('keeps fenced MGA analysis and ER generation in one managed workflow', async () => {
@@ -509,7 +652,9 @@ describe('LLM Index - Provider Selection', () => {
     expect(generateManagedTextMock.mock.calls[1][0]).toMatchObject({
       operation: 'generation',
       workflowId: '11111111-1111-4111-8111-111111111111',
+      prompt: expect.stringContaining('ECR 2027'),
     });
+    expect(generateManagedTextMock.mock.calls[1][0].prompt).not.toContain('ISMRM');
     expect(result.aiAssistance).toMatchObject({
       provider: 'mga',
       model: 'glm-5.2',
@@ -794,7 +939,10 @@ describe('LLM Index - Provider Selection', () => {
     const { reviewAbstractBlind } = await import('@/lib/llm/index');
 
     await expect(
-      reviewAbstractBlind('Verify the manuscript.', 'manuscript')
+      reviewAbstractBlind('Verify the manuscript.', 'manuscript', {
+        sourceText: 'the manuscript',
+        conference: 'ISMRM',
+      })
     ).resolves.toMatchObject({
       recommendation: 'minor-revision',
       aiAssistance: {
@@ -810,9 +958,53 @@ describe('LLM Index - Provider Selection', () => {
       expect.objectContaining({
         prompt: 'Verify the manuscript.',
         enabledCapabilityIds: ['mga-pubmed'],
+        blindReviewContext: {
+          sourceText: 'the manuscript',
+          conference: 'ISMRM',
+          target: 'manuscript',
+        },
       })
     );
     expect(generateManagedTextMock).not.toHaveBeenCalled();
+  });
+
+  it('records both actually used models for an ordinary member blind review', async () => {
+    localStorage.setItem('app-settings', JSON.stringify({ memberManagedTextEnabled: true }));
+    generateManagedTextMock.mockResolvedValueOnce({
+      text: JSON.stringify({
+        recommendation: 'minor-revision',
+        summary: 'Review complete.',
+        findings: [],
+      }),
+      provider: 'mga',
+      model: 'glm-5.2',
+      modelType: 'large-language-model',
+      jevPreflight: {
+        status: 'completed',
+        provider: 'typesafe',
+        model: 'jev-1.13.0',
+        flags: { methodology: 'possible' },
+      },
+    });
+    const { reviewAbstractBlind } = await import('@/lib/llm/index');
+    const result = await reviewAbstractBlind('Review synthetic manuscript.', 'manuscript', {
+      sourceText: 'synthetic manuscript',
+      conference: 'RSNA',
+    });
+    expect(generateManagedTextMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        blindReviewContext: {
+          sourceText: 'synthetic manuscript',
+          conference: 'RSNA',
+          target: 'manuscript',
+        },
+      })
+    );
+    expect(result.aiAssistanceRecords?.map((record) => [record.provider, record.model])).toEqual([
+      ['typesafe', 'jev-1.13.0'],
+      ['mga', 'glm-5.2'],
+    ]);
+    expect(result.jevPreflight?.status).toBe('completed');
   });
 
   it('does not spend research-agent credits when blind-review BYOK fails', async () => {

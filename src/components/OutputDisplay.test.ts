@@ -131,6 +131,36 @@ describe('OutputDisplay blind-review entry', () => {
     expect(screen.queryByTestId('creative-output-warning')).toBeNull();
   });
 
+  it('shows the Jev status only when the generated version carries trusted metadata', () => {
+    render(OutputDisplay, {
+      props: {
+        abstract: {
+          impact: '',
+          synopsis: '',
+          abstract: 'Generated abstract',
+          keywords: [],
+          jevReview: { versionId: 'version-1', status: 'needs_author_review' },
+        },
+        conference: 'ISMRM',
+        isLoading: false,
+        error: null,
+      },
+      global: {
+        plugins: [i18n],
+        stubs: {
+          BlindReviewControl: true,
+          ExportButtons: true,
+          LiveRegion: true,
+          AbstractBody: true,
+          SvgIcon: true,
+        },
+      },
+    });
+    expect(screen.getByTestId('jev-post-check-status').textContent).toContain(
+      'Author review needed'
+    );
+  });
+
   it('shows and copies the journal-ready AI use acknowledgment after the abstract', async () => {
     const writeText = vi.fn();
     Object.defineProperty(navigator, 'clipboard', {
@@ -193,6 +223,62 @@ describe('OutputDisplay blind-review entry', () => {
     );
   });
 
+  it('copies only the ECR 2027 body and explains portal AI disclosure', async () => {
+    const writeText = vi.fn();
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText },
+    });
+    vi.stubGlobal('alert', vi.fn());
+    render(OutputDisplay, {
+      props: {
+        abstract: {
+          impact: 'Platform-only impact',
+          synopsis: 'Platform-only synopsis',
+          abstract:
+            'PURPOSE: Evaluate MRI. METHODS: Review data. RESULTS: Findings. CONCLUSIONS: Useful.',
+          keywords: ['MRI'],
+          aiAssistance: {
+            disclosureVersion: 'jama-2026-v1',
+            platform: {
+              name: 'Sci-Necromancer',
+              project: 'picspin/Sci-Necromancer',
+              url: 'https://www.rad-sci.org',
+            },
+            generatedAt: '2026-09-29T00:00:00.000Z',
+            provider: 'mga',
+            model: 'glm-5.2',
+            modelType: 'large-language-model',
+            mode: 'standard',
+            operations: ['abstract drafting'],
+            boundaries: ['source data'],
+            methodsDisclosureRequired: false,
+            authorVerificationRequired: true,
+          },
+        },
+        conference: 'ER',
+        isLoading: false,
+        error: null,
+      },
+      global: {
+        plugins: [i18n],
+        stubs: {
+          BlindReviewControl: true,
+          ExportButtons: true,
+          LiveRegion: true,
+          AbstractBody: true,
+          SvgIcon: true,
+        },
+      },
+    });
+
+    expect(screen.getByText(/ESR submission checkbox/)).toBeTruthy();
+    await fireEvent.click(screen.getByRole('button', { name: 'Copy' }));
+    expect(writeText).toHaveBeenCalledWith(
+      'PURPOSE: Evaluate MRI. METHODS: Review data. RESULTS: Findings. CONCLUSIONS: Useful.'
+    );
+  });
+
   it('adds a completed research-agent disclosure to the main copy and export payload', async () => {
     const writeText = vi.fn();
     Object.defineProperty(navigator, 'clipboard', {
@@ -229,10 +315,12 @@ describe('OutputDisplay blind-review entry', () => {
               'data-testid': 'complete-agent-review',
               onClick: () => {
                 reviewCount += 1;
-                emit('ai-assistance', {
-                  ...agentRecord,
-                  generatedAt: `2026-08-22T${String(8 + reviewCount).padStart(2, '0')}:00:00.000Z`,
-                });
+                emit('ai-assistance', [
+                  {
+                    ...agentRecord,
+                    generatedAt: `2026-08-22T${String(8 + reviewCount).padStart(2, '0')}:00:00.000Z`,
+                  },
+                ]);
               },
             },
             'Complete Agent Review'
