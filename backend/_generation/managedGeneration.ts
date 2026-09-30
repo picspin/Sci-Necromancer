@@ -53,6 +53,19 @@ export interface ManagedGenerationOutput {
   requestedModel?: string;
   fallbackPath?: string[];
   modelType?: 'large-language-model' | 'research-agent' | 'image-generation-model';
+  jevPreflight?: import('../_jev/blindPreflightWorkflow.js').MemberBlindPreflight;
+  jevReview?: {
+    versionId: string;
+    status: 'check_complete' | 'needs_author_review' | 'review_unavailable';
+    unavailableReason?: string;
+    generationModels: string[];
+    generationCalls: Array<{
+      stage: 'draft' | 'revision';
+      provider: 'mga' | 'google' | 'openai';
+      model: string;
+    }>;
+    checkerModel?: string;
+  };
 }
 
 function assertDeliverableOutput(output: ManagedGenerationOutput, taskKind: ManagedTaskKind): void {

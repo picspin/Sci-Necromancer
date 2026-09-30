@@ -5,6 +5,7 @@ import {
   resolveResearchToolKeys,
 } from '../../backend/_capabilities/capabilityRegistry.js';
 import { callMGAResearchAgent } from '../../backend/_generation/providers.js';
+import { prepareMemberBlindReview } from '../../backend/_jev/blindPreflightWorkflow.js';
 import { runManagedGeneration } from '../../backend/_generation/managedGeneration.js';
 import { createMemberService, MemberServiceError } from '../../backend/_member/memberService.js';
 import { prepareMemberApi, sendApiError } from '../../backend/_member/http.js';
@@ -55,7 +56,8 @@ export default async function handler(request: VercelRequest, response: VercelRe
     assertResearchAgent(capabilityId);
     resolveResearchToolKeys(enabledCapabilityIds);
 
-    const member = createMemberService(createScopedMemberRpcClient(admin, user.id));
+    const scopedClient = createScopedMemberRpcClient(admin, user.id);
+    const member = createMemberService(scopedClient);
     const result = await runManagedGeneration(
       {
         idempotencyKey,
@@ -64,7 +66,19 @@ export default async function handler(request: VercelRequest, response: VercelRe
         completeWorkflow: true,
       },
       member,
-      () => callMGAResearchAgent({ prompt, enabledCapabilityIds })
+      async () => {
+        const blindReview = await prepareMemberBlindReview({
+          prompt,
+          context: request.body?.blindReviewContext,
+          client: scopedClient,
+          maxPromptBytes: MAX_PROMPT_BYTES,
+        });
+        const draft = await callMGAResearchAgent({
+          prompt: blindReview.prompt,
+          enabledCapabilityIds,
+        });
+        return blindReview.preflight ? { ...draft, jevPreflight: blindReview.preflight } : draft;
+      }
     );
     return response.status(200).json(result);
   } catch (error) {

@@ -240,6 +240,59 @@
         </button>
       </section>
 
+      <details v-if="jevEnabled" class="rounded-lg bg-base-100 p-4" @toggle="loadJevVersionsOnOpen">
+        <summary class="cursor-pointer text-sm font-semibold text-text-primary">
+          {{ t('membership.jev_versions_title') }}
+        </summary>
+        <p class="mt-2 text-xs text-text-secondary">{{ t('membership.jev_versions_help') }}</p>
+        <p v-if="versionsLoading" class="mt-3 text-sm text-text-secondary" role="status">
+          {{ t('common.loading') }}
+        </p>
+        <p
+          v-else-if="versionsLoaded && !jevVersions.length"
+          class="mt-3 text-sm text-text-secondary"
+        >
+          {{ t('membership.jev_versions_empty') }}
+        </p>
+        <ul v-else-if="versionsLoaded" class="mt-3 max-h-96 space-y-2 overflow-y-auto">
+          <li v-for="version in jevVersions" :key="version.id">
+            <details class="rounded-md border border-base-300 bg-base-200 p-3">
+              <summary class="cursor-pointer text-xs text-text-primary">
+                {{ version.conference }} · {{ t(`membership.jev_version_${version.operation}`) }} ·
+                {{ t(`membership.jev_version_${version.status}`) }}
+                <span class="block text-text-secondary">
+                  {{ formatCreditDate(version.createdAt) }} ·
+                  {{
+                    version.generationCalls
+                      .map((call) => `${call.provider}/${call.model}`)
+                      .join(', ') || '—'
+                  }}
+                </span>
+              </summary>
+              <p v-if="version.unavailableReason" class="mt-2 text-xs text-amber-300">
+                {{ t('membership.jev_version_unavailable') }}: {{ version.unavailableReason }}
+              </p>
+              <div v-if="version.draftText !== version.finalText" class="mt-3">
+                <p class="text-xs font-semibold text-text-secondary">
+                  {{ t('membership.jev_version_draft') }}
+                </p>
+                <pre
+                  class="mt-1 max-h-40 overflow-auto whitespace-pre-wrap break-words text-xs text-text-primary"
+                  >{{ version.draftText }}</pre>
+              </div>
+              <div class="mt-3">
+                <p class="text-xs font-semibold text-text-secondary">
+                  {{ t('membership.jev_version_final') }}
+                </p>
+                <pre
+                  class="mt-1 max-h-40 overflow-auto whitespace-pre-wrap break-words text-xs text-text-primary"
+                  >{{ version.finalText }}</pre>
+              </div>
+            </details>
+          </li>
+        </ul>
+      </details>
+
       <details class="rounded-lg bg-base-100 p-4">
         <summary class="cursor-pointer text-sm font-medium text-text-primary">
           {{ t('membership.account_management') }}
@@ -320,6 +373,7 @@ import { useMembership } from '@/composables/useMembership';
 import { localizeError } from '@/lib/i18n/errorMessages';
 import JumpingInput from '@/components/ui/JumpingInput.vue';
 import GitHubRepoLink from '@/components/ui/GitHubRepoLink.vue';
+import type { JevGenerationVersion } from '@/services/memberApiClient';
 
 type AuthMode = 'login' | 'register' | 'reset';
 const { t } = useI18n();
@@ -364,6 +418,10 @@ const newPassword = ref('');
 const rechargeBonus = ref(10);
 const localError = ref('');
 const notice = ref('');
+const jevVersions = ref<JevGenerationVersion[]>([]);
+const versionsLoading = ref(false);
+const versionsLoaded = ref(false);
+let versionsEpoch = 0;
 
 const displayName = computed(
   () =>
@@ -419,7 +477,46 @@ onBeforeUnmount(() => window.removeEventListener('focus', refreshOnFocus));
 
 watch(isAuthenticated, (authenticated) => {
   if (authenticated) void refreshStatus();
+  else {
+    versionsEpoch += 1;
+    jevVersions.value = [];
+    versionsLoaded.value = false;
+    versionsLoading.value = false;
+  }
 });
+
+watch(
+  () => user.value?.id,
+  () => {
+    versionsEpoch += 1;
+    jevVersions.value = [];
+    versionsLoaded.value = false;
+    versionsLoading.value = false;
+  }
+);
+
+async function loadJevVersionsOnOpen(event: Event) {
+  if (
+    !(event.target instanceof HTMLDetailsElement) ||
+    !event.target.open ||
+    versionsLoaded.value ||
+    versionsLoading.value
+  )
+    return;
+  const epoch = versionsEpoch;
+  versionsLoading.value = true;
+  try {
+    const result = await membership.memberApi.listJevGenerationVersions(10);
+    if (epoch !== versionsEpoch) return;
+    jevVersions.value = result.versions;
+    versionsLoaded.value = true;
+  } catch (caught) {
+    if (epoch !== versionsEpoch) return;
+    localError.value = localizeError(caught, t, 'errors.member_action_failed');
+  } finally {
+    if (epoch === versionsEpoch) versionsLoading.value = false;
+  }
+}
 
 async function run(action: () => Promise<unknown>) {
   try {

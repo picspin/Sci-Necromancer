@@ -59,6 +59,26 @@
         <p class="mt-1 text-text-secondary">{{ report.modelAssessment.summary }}</p>
       </div>
 
+      <div
+        v-if="report.jevPreflight"
+        class="rounded border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-100"
+      >
+        <p class="font-semibold">{{ t('blind_review.jev_prescreen.title') }}</p>
+        <p class="mt-1">{{ t(`blind_review.jev_prescreen.${report.jevPreflight.status}`) }}</p>
+        <ul
+          v-if="report.jevPreflight.status === 'completed'"
+          class="mt-2 grid gap-1 sm:grid-cols-2"
+        >
+          <li
+            v-for="[dimension, verdict] in Object.entries(report.jevPreflight.flags)"
+            :key="dimension"
+          >
+            {{ t(`blind_review.jev_prescreen.dimension.${dimension}`) }}:
+            {{ t(`blind_review.jev_prescreen.verdict.${verdict}`) }}
+          </li>
+        </ul>
+      </div>
+
       <div>
         <h5 class="text-sm font-semibold text-text-primary">
           {{ t('blind_review.finding_title') }}
@@ -134,11 +154,13 @@
         {{ t(report.disclaimer) }}
       </p>
       <div
-        v-if="reviewAcknowledgement"
+        v-if="reviewAcknowledgements.length"
         class="rounded border border-emerald-500/30 bg-emerald-500/10 p-3 text-xs text-emerald-100"
       >
         <p class="font-semibold">{{ t('blind_review.ai_acknowledgement') }}</p>
-        <p class="mt-1">{{ reviewAcknowledgement }}</p>
+        <p v-for="acknowledgement in reviewAcknowledgements" :key="acknowledgement" class="mt-1">
+          {{ acknowledgement }}
+        </p>
       </div>
     </article>
   </section>
@@ -166,7 +188,7 @@ const props = defineProps<{
   abstract?: AbstractData | null;
 }>();
 const emit = defineEmits<{
-  'ai-assistance': [record: AIAssistanceRecord | null];
+  'ai-assistance': [records: AIAssistanceRecord[] | null];
 }>();
 
 const { t, locale } = useI18n();
@@ -189,8 +211,11 @@ const reviewRoute = computed(() =>
 );
 const usesManagedReview = computed(() => reviewRoute.value === 'managed');
 const hasSourceText = computed(() => Boolean(props.sourceText.trim()));
-const reviewAcknowledgement = computed(() =>
-  report.value?.aiAssistance ? buildAIAcknowledgement(report.value.aiAssistance) : ''
+const reviewAcknowledgements = computed(() =>
+  (
+    report.value?.aiAssistanceRecords ??
+    (report.value?.aiAssistance ? [report.value.aiAssistance] : [])
+  ).map(buildAIAcknowledgement)
 );
 const reviewedAbstractFingerprint = computed(() =>
   JSON.stringify({
@@ -241,7 +266,11 @@ const handleReview = async () => {
     });
     if (revision === reviewRevision) {
       report.value = nextReport;
-      emit('ai-assistance', nextReport.aiAssistance ?? null);
+      emit(
+        'ai-assistance',
+        nextReport.aiAssistanceRecords ??
+          (nextReport.aiAssistance ? [nextReport.aiAssistance] : null)
+      );
     }
   } catch (caught) {
     if (revision === reviewRevision) {

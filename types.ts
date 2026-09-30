@@ -117,6 +117,8 @@ export interface BlindReviewModelAssessment {
   summary: string;
   findings: BlindReviewFinding[];
   aiAssistance?: AIAssistanceRecord;
+  aiAssistanceRecords?: AIAssistanceRecord[];
+  jevPreflight?: import('./backend/_jev/blindPreflightWorkflow').MemberBlindPreflight;
 }
 
 export interface ExternalVerificationRecord {
@@ -144,6 +146,8 @@ export interface BlindReviewReport {
   overallStatus: 'verified-with-limitations' | 'action-required';
   modelAssessment: BlindReviewModelAssessment;
   aiAssistance?: AIAssistanceRecord;
+  aiAssistanceRecords?: AIAssistanceRecord[];
+  jevPreflight?: import('./backend/_jev/blindPreflightWorkflow').MemberBlindPreflight;
   externalVerification: ExternalVerificationResult[];
   disclaimer: 'blind_review.disclaimer';
 }
@@ -191,6 +195,11 @@ export interface AbstractData {
   complianceWarnings?: string[];
   aiAssistance?: AIAssistanceRecord;
   aiAssistanceRecords?: AIAssistanceRecord[];
+  jevReview?: {
+    versionId: string;
+    status: 'check_complete' | 'needs_author_review' | 'review_unavailable';
+    unavailableReason?: string;
+  };
   oncology?: OncologyClassification;
 }
 
@@ -511,6 +520,12 @@ export interface ImageGenerationState {
   generatedImage: string | null;
   provenance: ImageGenerationProvenance | null;
   byokFailureProvider: 'google-byok' | 'openai-byok' | null;
+  lastManagedFailure: {
+    errorCode: 'managed_provider_empty_output';
+    prompt: string;
+    requestedModel: 'gemini-3.1-flash-image' | 'gemini-3-pro-image' | 'gpt-image-2';
+    referenceImageIds: string[];
+  } | null;
   isLoading: boolean;
   loadingMessage: string;
   error: string | null;
@@ -521,6 +536,7 @@ export interface ImageGenerationProvenance {
   requestedModel: string;
   actualModel: string;
   fallbackPath: string[];
+  routingModels?: string[];
 }
 
 // Autocomplete suggestion item

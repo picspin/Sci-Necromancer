@@ -237,6 +237,7 @@ const withAIAssistance = (
   const {
     aiAssistance: _untrustedAssistance,
     aiAssistanceRecords: _untrustedRecords,
+    jevReview: _untrustedJevReview,
     ...safeResult
   } = result;
   const currentRecord = createAIAssistanceRecord({
@@ -245,13 +246,14 @@ const withAIAssistance = (
     model: identity.model,
     modelType: trustedManagedRecord?.modelType,
     mode,
-    operations,
+    operations: trustedManagedRecord?.operations ?? operations,
     methodsDisclosureRequired: trustedManagedRecord?.methodsDisclosureRequired,
     generatedAt: trustedManagedRecord?.generatedAt,
   });
   const priorRecords = workflowContext ? getTextWorkflowAssistance(workflowContext) : [];
   return {
     ...safeResult,
+    ...(trustedManagedRecord && result.jevReview ? { jevReview: result.jevReview } : {}),
     aiAssistance: currentRecord,
     aiAssistanceRecords: collectAIAssistanceRecords({
       aiAssistanceRecords: [...priorRecords, currentRecord],
@@ -334,7 +336,8 @@ const getAuxiliaryLocale = (): 'en' | 'zh' =>
 
 export async function reviewAbstractBlind(
   prompt: string,
-  reviewTarget: 'abstract' | 'manuscript' = 'abstract'
+  reviewTarget: 'abstract' | 'manuscript' = 'abstract',
+  context?: { sourceText: string; conference: 'ISMRM' | 'RSNA' | 'ER' | 'ASCO' | 'ESMO' }
 ): Promise<BlindReviewModelAssessment> {
   requireAIDisclosureAcceptance();
   const apiKey = getApiKey();
@@ -352,12 +355,13 @@ export async function reviewAbstractBlind(
       };
     });
   }
-  return runManagedBlindReview(prompt, reviewTarget);
+  return runManagedBlindReview(prompt, reviewTarget, context);
 }
 
 async function runManagedBlindReview(
   prompt: string,
-  reviewTarget: 'abstract' | 'manuscript'
+  reviewTarget: 'abstract' | 'manuscript',
+  context?: { sourceText: string; conference: 'ISMRM' | 'RSNA' | 'ER' | 'ASCO' | 'ESMO' }
 ): Promise<BlindReviewModelAssessment> {
   const idempotencyKey =
     globalThis.crypto?.randomUUID?.() ?? `blind-review-${Date.now()}-${Math.random()}`;
@@ -382,24 +386,45 @@ async function runManagedBlindReview(
         prompt,
         idempotencyKey,
         enabledCapabilityIds: researchToolIds,
+        blindReviewContext: context && { ...context, target: reviewTarget },
       })
-    : await generateManagedText({ prompt, idempotencyKey, operation: 'blind_review' });
+    : await generateManagedText({
+        prompt,
+        idempotencyKey,
+        operation: 'blind_review',
+        blindReviewContext: context && { ...context, target: reviewTarget },
+      });
   try {
     const assessment = assertBlindReviewAssessment(JSON.parse(result.text));
     const fallbackIdentity = currentTextModel();
+    const aiAssistance = createAIAssistanceRecord({
+      provider: result.provider ?? fallbackIdentity.provider,
+      model: result.model ?? fallbackIdentity.model,
+      modelType: result.modelType ?? (useResearchAgent ? 'research-agent' : 'large-language-model'),
+      mode: 'standard',
+      operations: useResearchAgent
+        ? [`independent ${reviewTarget} review`, 'read-only literature verification']
+        : [`independent ${reviewTarget} review`],
+      methodsDisclosureRequired: useResearchAgent,
+    });
+    const jevPreflight = result.jevPreflight;
     return {
       ...assessment,
-      aiAssistance: createAIAssistanceRecord({
-        provider: result.provider ?? fallbackIdentity.provider,
-        model: result.model ?? fallbackIdentity.model,
-        modelType:
-          result.modelType ?? (useResearchAgent ? 'research-agent' : 'large-language-model'),
-        mode: 'standard',
-        operations: useResearchAgent
-          ? [`independent ${reviewTarget} review`, 'read-only literature verification']
-          : [`independent ${reviewTarget} review`],
-        methodsDisclosureRequired: useResearchAgent,
-      }),
+      aiAssistance,
+      ...(jevPreflight ? { jevPreflight } : {}),
+      ...(jevPreflight?.status === 'completed'
+        ? {
+            aiAssistanceRecords: [
+              createAIAssistanceRecord({
+                provider: 'typesafe',
+                model: jevPreflight.model,
+                mode: 'standard',
+                operations: [`advisory ${reviewTarget} prescreen`],
+              }),
+              aiAssistance,
+            ],
+          }
+        : { aiAssistanceRecords: [aiAssistance] }),
     };
   } catch {
     throw new Error('blind_review.invalid_model_response');
@@ -814,6 +839,21 @@ export const generateCreativeAbstractForConference = async (
     const result = !apiKey
       ? await execute(openai, true)
       : await runSelectedByok(() => execute(service));
+    return finalize(result);
+  }
+  if (conference === 'ER') {
+    const run = () => {
+      if (service === openai) {
+        return openai.generateCreativeAbstract(coreIdea, apiKey, false, 'ER');
+      }
+      if (service === anthropic) {
+        return anthropic.generateCreativeAbstract(coreIdea, apiKey, 'ER');
+      }
+      return gemini.generateCreativeAbstract(coreIdea, apiKey, 'ER');
+    };
+    const result = !apiKey
+      ? await openai.generateCreativeAbstract(coreIdea, undefined, true, 'ER')
+      : await runSelectedByok(run);
     return finalize(result);
   }
   if ('generateCreativeAbstractForConference' in service) {

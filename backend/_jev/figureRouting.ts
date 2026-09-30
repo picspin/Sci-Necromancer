@@ -1,9 +1,16 @@
 import { TypesafeJevError } from './typesafe.js';
+import {
+  ILLUSTRATION_CATEGORY_IDS,
+  type IllustrationCategoryId,
+} from '../../lib/figure/illustrationCategories.js';
+export { ILLUSTRATION_CATEGORY_IDS };
+export type { IllustrationCategoryId };
 
 const TYPESAFE_ENDPOINT = 'https://api.typesafe.ai/v1/systemone';
 const TYPESAFE_MODEL = 'jev-1.13.0';
 export const FIGURE_ROUTING_POLICY_VERSION = 'jev-figure-routing-v1' as const;
 const MAX_GOAL_LENGTH = 1_000;
+const MAX_PROMPT_LENGTH = 6_000;
 const MAX_ALIAS_LENGTH = 120;
 const MAX_UNIT_LENGTH = 48;
 const MAX_FIELDS = 32;
@@ -27,18 +34,6 @@ export const DATA_CHART_TEMPLATE_IDS = [
   'dot-whisker',
 ] as const;
 export type DataChartTemplateId = (typeof DATA_CHART_TEMPLATE_IDS)[number];
-
-/** The seven illustration families already supported by the product. */
-export const ILLUSTRATION_CATEGORY_IDS = [
-  'graphical-abstract',
-  'mechanism-pathway',
-  'clinical-workflow',
-  'study-design',
-  'molecular-cellular',
-  'imaging-anatomy',
-  'ai-model-pipeline',
-] as const;
-export type IllustrationCategoryId = (typeof ILLUSTRATION_CATEGORY_IDS)[number];
 
 export const JOURNAL_STYLE_IDS = [
   'lancet',
@@ -80,6 +75,15 @@ export interface PromptCompletenessInput {
   category: IllustrationCategoryId;
 }
 
+export const ILLUSTRATION_RETRY_CHOICES = ['retry_once', 'revise_prompt', 'do_not_retry'] as const;
+export type IllustrationRetryChoice = (typeof ILLUSTRATION_RETRY_CHOICES)[number];
+export interface IllustrationRetryInput {
+  prompt: string;
+  category: IllustrationCategoryId;
+  requestedModel: 'gemini-3.1-flash-image' | 'gemini-3-pro-image' | 'gpt-image-2';
+  errorCode: 'managed_provider_empty_output';
+}
+
 export type FigureRoutingAnswer = {
   type: 'choice';
   choice: string;
@@ -99,6 +103,7 @@ export interface FigureRoutingDecision<T extends string> {
 export interface PromptCompletenessDecision {
   selected: 'complete' | 'needs_revision' | 'unknown';
   missing: Array<'subject' | 'layout' | 'relationships' | 'style' | 'constraints'>;
+  uncertain: Array<'subject' | 'layout' | 'relationships' | 'style' | 'constraints'>;
   needsReview: boolean;
   policyVersion: typeof FIGURE_ROUTING_POLICY_VERSION;
   provider: 'typesafe';
@@ -191,7 +196,7 @@ export function sanitizeDataFigureRoutingInput(value: unknown): DataFigureRoutin
       throw new TypesafeJevError('invalid_jev_data_figure_summaries', 400);
     }
     if (
-      !Object.hasOwn(summary, 'value') ||
+      !Object.prototype.hasOwnProperty.call(summary, 'value') ||
       (typeof summary.value !== 'number' &&
         typeof summary.value !== 'boolean' &&
         summary.value !== null)
@@ -300,17 +305,132 @@ export function buildPromptCompletenessRequest(input: PromptCompletenessInput) {
   if (!isRecord(input) || !isOneOf(input.category, ILLUSTRATION_CATEGORY_IDS)) {
     throw new TypesafeJevError('invalid_jev_prompt_request', 400);
   }
-  const prompt = sanitizeCommonGoal(input.prompt);
-  return {
+  const prompt = typeof input.prompt === 'string' ? input.prompt.trim() : '';
+  if (
+    !prompt ||
+    prompt.length > MAX_PROMPT_LENGTH ||
+    Object.keys(input).some((key) => !['prompt', 'category'].includes(key))
+  ) {
+    throw new TypesafeJevError('invalid_jev_prompt_request', 400);
+  }
+  const dimensions = ['subject', 'layout', 'relationships', 'style', 'constraints'] as const;
+  const request = {
     model: TYPESAFE_MODEL,
     state: { prompt, confirmedCategory: input.category },
+    questions: Object.fromEntries(
+      dimensions.map((dimension) => [
+        `missing_${dimension}`,
+        {
+          type: 'noul',
+          instructions: `Is ${dimension} necessary for the confirmed scientific illustration category but absent or too vague in the prompt? Judge only supplied text; do not invent facts or inspect a reference image.`,
+          criteria: {
+            true: `${dimension} is needed for this category and the prompt lacks enough detail.`,
+            false: `${dimension} is adequately specified, or is not applicable to this category.`,
+          },
+        },
+      ])
+    ),
+  };
+  ensureRequestSize(request);
+  return request;
+}
+
+export function parsePromptCompletenessResponse(payload: unknown): PromptCompletenessDecision {
+  const dimensions = ['subject', 'layout', 'relationships', 'style', 'constraints'] as const;
+  if (
+    !isRecord(payload) ||
+    payload.model !== TYPESAFE_MODEL ||
+    !isRecord(payload.answers) ||
+    Object.keys(payload.answers).length !== dimensions.length
+  ) {
+    throw new TypesafeJevError('invalid_jev_prompt_response', 502);
+  }
+  const missing: PromptCompletenessDecision['missing'] = [];
+  const uncertain: PromptCompletenessDecision['uncertain'] = [];
+  for (const dimension of dimensions) {
+    const answer = payload.answers[`missing_${dimension}`];
+    if (
+      !isRecord(answer) ||
+      answer.type !== 'noul' ||
+      typeof answer.noul !== 'number' ||
+      !Number.isFinite(answer.noul) ||
+      answer.noul < 0 ||
+      answer.noul > 1
+    ) {
+      throw new TypesafeJevError('invalid_jev_prompt_response', 502);
+    }
+    if (answer.noul >= 0.8) missing.push(dimension);
+    else if (answer.noul > 0.2) uncertain.push(dimension);
+  }
+  return {
+    selected: missing.length ? 'needs_revision' : uncertain.length ? 'unknown' : 'complete',
+    missing,
+    uncertain,
+    needsReview: missing.length > 0 || uncertain.length > 0,
+    policyVersion: FIGURE_ROUTING_POLICY_VERSION,
+    provider: 'typesafe',
+    model: TYPESAFE_MODEL,
+  };
+}
+
+export function buildIllustrationRetryRequest(input: IllustrationRetryInput) {
+  if (
+    !isRecord(input) ||
+    !isOneOf(input.category, ILLUSTRATION_CATEGORY_IDS) ||
+    !isOneOf(input.requestedModel, [
+      'gemini-3.1-flash-image',
+      'gemini-3-pro-image',
+      'gpt-image-2',
+    ] as const) ||
+    input.errorCode !== 'managed_provider_empty_output' ||
+    Object.keys(input).some(
+      (key) => !['prompt', 'category', 'requestedModel', 'errorCode'].includes(key)
+    )
+  ) {
+    throw new TypesafeJevError('invalid_jev_retry_request', 400);
+  }
+  const prompt = typeof input.prompt === 'string' ? input.prompt.trim() : '';
+  if (!prompt || prompt.length > MAX_PROMPT_LENGTH)
+    throw new TypesafeJevError('invalid_jev_retry_request', 400);
+  const request = {
+    model: TYPESAFE_MODEL,
+    state: {
+      prompt,
+      confirmedCategory: input.category,
+      requestedModel: input.requestedModel,
+      observedErrorCode: input.errorCode,
+      evidenceLimit:
+        'The configured image-generation path returned no usable image. No raw provider response, upstream health signal, or reference-image interpretation is available.',
+    },
     questions: {
-      prompt_completeness: choiceQuestion(
-        'Assess whether prompt contains enough information for the chosen illustration category. Do not invent facts; choose unknown when evidence is insufficient.',
-        ['complete', 'needs_revision']
-      ),
+      retry_advice: {
+        type: 'choice',
+        instructions:
+          'Based only on the supplied prompt and observed empty-image failure, choose one advisory next step. Do not claim to know provider health, safety status, or whether a new call will succeed.',
+        criteria: {
+          retry_once:
+            'The prompt is suitable for a scientific schematic and sufficiently specific; a user may consider one new manual attempt, without any guarantee of success.',
+          revise_prompt:
+            'The prompt is vague, contradictory, or missing important visual relations; the user should edit it before another image request.',
+          do_not_retry:
+            'The request is unsuitable for an illustrative image model, such as requiring numerically exact statistical charts or claiming that an image can verify scientific facts.',
+          unknown:
+            'The observed error and prompt do not support a useful recommendation; ask the user to inspect the request or wait.',
+        },
+      },
     },
   };
+  ensureRequestSize(request);
+  return request;
+}
+
+export function parseIllustrationRetryResponse(
+  payload: unknown
+): FigureRoutingDecision<IllustrationRetryChoice> {
+  return toDecision(
+    parseChoice(payload, 'retry_advice', ILLUSTRATION_RETRY_CHOICES),
+    ILLUSTRATION_RETRY_CHOICES
+  );
 }
 
 function parseChoice(
@@ -318,7 +438,13 @@ function parseChoice(
   questionId: string,
   allowed: readonly string[]
 ): FigureRoutingAnswer {
-  if (!isRecord(payload) || !isRecord(payload.answers) || !isRecord(payload.answers[questionId])) {
+  if (
+    !isRecord(payload) ||
+    payload.model !== TYPESAFE_MODEL ||
+    !isRecord(payload.answers) ||
+    Object.keys(payload.answers).length !== 1 ||
+    !isRecord(payload.answers[questionId])
+  ) {
     throw new TypesafeJevError('invalid_jev_figure_response', 502);
   }
   const answer = payload.answers[questionId] as Record<string, unknown>;

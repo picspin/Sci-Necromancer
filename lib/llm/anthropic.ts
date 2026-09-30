@@ -6,6 +6,7 @@ import type {
   BlindReviewModelAssessment,
   Category,
   ISMRMAnalysisBundle,
+  Conference,
 } from '../../types';
 import * as prompts from './prompts/ismrmPrompts';
 import {
@@ -172,8 +173,12 @@ export async function generateFinalAbstract(
   );
 }
 
-export async function generateCreativeAbstract(coreIdea: string, apiKey?: string) {
-  return callAnthropic(await prompts.getCreativeAbstractPrompt(coreIdea), apiKey);
+export async function generateCreativeAbstract(
+  coreIdea: string,
+  apiKey?: string,
+  conference?: Conference
+) {
+  return callAnthropic(await prompts.getCreativeAbstractPrompt(coreIdea, conference), apiKey);
 }
 
 export async function analyzeRSNAContent(

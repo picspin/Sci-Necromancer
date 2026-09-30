@@ -2,6 +2,47 @@ import { describe, expect, it, vi } from 'vitest';
 import { createMemberApiClient, MemberApiError } from './memberApiClient';
 
 describe('member API client', () => {
+  it('uses the existing authenticated Jev function for figure advice without a second image request', async () => {
+    const fetcher = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          kind: 'illustration-category',
+          decision: {
+            selected: 'study-design',
+            needsReview: false,
+            probability: 0.93,
+            policyVersion: 'jev-figure-routing-v1',
+            provider: 'typesafe',
+            model: 'jev-1.13.0',
+          },
+          remaining: 29,
+          cached: false,
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      )
+    );
+    const client = createMemberApiClient({
+      baseUrl: 'https://api.example.test',
+      getAccessToken: async () => 'member-jwt',
+      fetcher,
+    });
+    await expect(
+      client.figureRoute({
+        kind: 'illustration-category',
+        input: {
+          researchIntent: 'Synthetic study schematic',
+        },
+      })
+    ).resolves.toMatchObject({ decision: { selected: 'study-design' } });
+    expect(fetcher).toHaveBeenCalledOnce();
+    expect(fetcher.mock.calls[0][0]).toBe('https://api.example.test/api/jev');
+    expect(JSON.parse(String(fetcher.mock.calls[0][1].body))).toEqual({
+      action: 'figure-route',
+      kind: 'illustration-category',
+      input: { researchIntent: 'Synthetic study schematic' },
+    });
+  });
+
   it('reads and updates versioned Jev consent through the authenticated API route', async () => {
     const fetcher = vi
       .fn()

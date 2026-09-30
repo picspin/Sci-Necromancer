@@ -2,6 +2,8 @@ import { createHash } from 'node:crypto';
 import type { VercelRequest, VercelResponse } from '../backend/_types/vercel.js';
 import { createJevMemberPolicy } from '../backend/_jev/memberPolicy.js';
 import { createJevGenerationWorkflow } from '../backend/_jev/generationWorkflow.js';
+import { createJevVersionStore } from '../backend/_jev/versionStore.js';
+import { handleFigureRoute } from '../backend/_jev/figureRouteHandler.js';
 import {
   buildJevAnalysisRequest,
   requestTypesafeJev,
@@ -264,10 +266,13 @@ function providerError(error: unknown): { error: string } {
 }
 
 export default async function handler(request: VercelRequest, response: VercelResponse) {
+  if (request.method === 'POST' && request.body?.action === 'figure-route')
+    return handleFigureRoute(request, response);
   if (!prepareMemberApi(request, response))
     return response.status(403).json({ error: 'origin_not_allowed' });
   if (request.method === 'OPTIONS') return response.status(204).send('');
-  if (process.env.TYPESAFE_JEV_ENABLED !== 'true')
+  const versionsRequest = request.method === 'GET' && request.query?.action === 'versions';
+  if (!versionsRequest && process.env.TYPESAFE_JEV_ENABLED !== 'true')
     return response.status(404).json({ error: 'typesafe_jev_disabled' });
   if (request.method !== 'GET' && request.method !== 'POST')
     return response.status(405).json({ error: 'method_not_allowed' });
@@ -276,6 +281,15 @@ export default async function handler(request: VercelRequest, response: VercelRe
     const admin = createAdminSupabaseClient();
     const user = await requireAuthenticatedUser(request, admin);
     const memberClient = createScopedMemberRpcClient(admin, user.id);
+    if (versionsRequest) {
+      const rawLimit = request.query?.limit;
+      const limit = rawLimit === undefined ? 10 : Number(rawLimit);
+      if (!Number.isInteger(limit) || limit < 1 || limit > 10)
+        throw new MemberServiceError('invalid_jev_generation_version_query', 400);
+      return response.status(200).json({
+        versions: await createJevVersionStore(memberClient).listVersions(user.id, limit),
+      });
+    }
     const policy = createJevMemberPolicy(memberClient);
     if (request.method === 'GET') return response.status(200).json(await policy.getConsent());
 

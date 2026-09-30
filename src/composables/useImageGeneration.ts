@@ -27,6 +27,7 @@ import {
 } from '@/src/services/imageTemplateRegistry';
 import * as llm from '@/lib/llm';
 import { useMembership } from '@/src/composables/useMembership';
+import { MemberApiError } from '@/src/services/memberApiClient';
 import { requireAIDisclosureAcceptance } from '@/lib/compliance/aiDisclosure';
 import { useSettings } from '@/src/composables/useSettings';
 import { useI18n } from 'vue-i18n';
@@ -62,6 +63,7 @@ const createInitialState = (): ImageGenerationState => ({
   generatedImage: null,
   provenance: null,
   byokFailureProvider: null,
+  lastManagedFailure: null,
   isLoading: false,
   loadingMessage: '',
   error: null,
@@ -193,6 +195,7 @@ export function useImageGeneration() {
 
   const setMode = (mode: ImageGenerationMode) => {
     state.value.mode = mode;
+    state.value.lastManagedFailure = null;
     // Clear mode-specific state when switching
     if (mode === 'standard') {
       state.value.abstractIntent = null;
@@ -204,6 +207,7 @@ export function useImageGeneration() {
 
   const setImageProvider = (provider: ImageGenerationProvider) => {
     state.value.imageProvider = provider;
+    state.value.lastManagedFailure = null;
   };
 
   // ============================================================================
@@ -447,7 +451,10 @@ export function useImageGeneration() {
   // GENERATION ACTIONS
   // ============================================================================
 
-  const generateImage = async () => {
+  const generateImage = async (routing?: {
+    illustrationCategory?: string;
+    routingModels?: string[];
+  }) => {
     if (!canGenerate.value) return;
 
     state.value.isLoading = true;
@@ -456,13 +463,21 @@ export function useImageGeneration() {
     state.value.generatedImage = null;
     state.value.provenance = null;
     state.value.byokFailureProvider = null;
+    state.value.lastManagedFailure = null;
+    let promptForRequest = '';
+    let requestedManagedModel:
+      'gemini-3.1-flash-image' | 'gemini-3-pro-image' | 'gpt-image-2' | null = null;
+    const referenceImageIds = state.value.uploadedImages.map((image) => image.id);
 
     try {
       requireAIDisclosureAcceptance();
+      promptForRequest = routing?.illustrationCategory
+        ? `${finalPrompt.value}\nScientific illustration category: ${routing.illustrationCategory}.`
+        : finalPrompt.value;
       // Build image state for API
       const imageState = {
         file: state.value.imageFile,
-        specs: finalPrompt.value,
+        specs: promptForRequest,
         base64: state.value.imageBase64,
         // Pass all uploaded images for multi-image support
         uploadedImages: state.value.uploadedImages,
@@ -496,6 +511,8 @@ export function useImageGeneration() {
               state.value.imageProvider === 'google-byok'
             ? 'gemini-3.1-flash-image'
             : undefined;
+      if (selectedImageRoute.value === 'managed')
+        requestedManagedModel = managedModel ?? 'gpt-image-2';
       const runManagedImage = async () => {
         if (!managedProvider) throw new Error('member_generation_locked');
         if (
@@ -512,7 +529,7 @@ export function useImageGeneration() {
           provider: managedProvider,
           model: managedModel,
           operation: 'image_generation',
-          prompt: finalPrompt.value,
+          prompt: promptForRequest,
           images: state.value.uploadedImages.map((image) => ({
             data: image.base64,
             mimeType: image.file.type,
@@ -527,6 +544,9 @@ export function useImageGeneration() {
           requestedModel,
           actualModel,
           fallbackPath: output.fallbackPath?.length ? output.fallbackPath : [actualModel],
+          ...(routing?.routingModels?.length
+            ? { routingModels: [...new Set(routing.routingModels)] }
+            : {}),
         };
       };
       if (selectedImageRoute.value === 'byok') {
@@ -550,6 +570,19 @@ export function useImageGeneration() {
         await runManagedImage();
       }
     } catch (err) {
+      if (
+        err instanceof MemberApiError &&
+        err.code === 'managed_provider_empty_output' &&
+        requestedManagedModel &&
+        promptForRequest
+      ) {
+        state.value.lastManagedFailure = {
+          errorCode: 'managed_provider_empty_output',
+          prompt: promptForRequest,
+          requestedModel: requestedManagedModel,
+          referenceImageIds,
+        };
+      }
       state.value.error = localizeError(err, t, 'errors.generation_failed');
       console.error('Image generation error:', err);
     } finally {

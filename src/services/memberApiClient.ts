@@ -1,4 +1,19 @@
 import type { MGAResearchAgentId } from '@/lib/capabilities/managedResearchCapabilities';
+import type {
+  MemberBlindPreflight,
+  MemberBlindReviewContext,
+} from '@/backend/_jev/blindPreflightWorkflow';
+import type {
+  DataFigureRoutingInput,
+  FigureRoutingDecision,
+  IllustrationCategoryRoutingInput,
+  IllustrationJournalRoutingInput,
+  IllustrationRetryInput,
+  PromptCompletenessDecision,
+  PromptCompletenessInput,
+} from '@/backend/_jev/figureRouting';
+
+export type { MemberBlindPreflight, MemberBlindReviewContext };
 
 export class MemberApiError extends Error {
   constructor(
@@ -58,6 +73,38 @@ export interface JevConsent {
   version: string;
 }
 
+export interface JevReviewSummary {
+  versionId: string;
+  status: 'check_complete' | 'needs_author_review' | 'review_unavailable';
+  unavailableReason?: string;
+  generationModels: string[];
+  generationCalls: Array<{
+    stage: 'draft' | 'revision';
+    provider: 'mga' | 'google' | 'openai';
+    model: string;
+  }>;
+  checkerModel?: string;
+}
+
+export interface JevGenerationVersion {
+  id: string;
+  taskId: string;
+  createdAt: string;
+  operation: 'generation' | 'deep_update';
+  sourceHash: string;
+  draftText: string;
+  finalText: string;
+  draftHash: string;
+  finalHash: string;
+  conference: string;
+  generationModels: string[];
+  generationCalls: JevReviewSummary['generationCalls'];
+  initialCheck: Record<string, unknown> | null;
+  finalCheck: Record<string, unknown> | null;
+  status: JevReviewSummary['status'];
+  unavailableReason?: string;
+}
+
 export interface JevAnalysisResponse {
   analysis: {
     categories: Array<{
@@ -89,6 +136,20 @@ export interface JevAnalysisResponse {
   };
   cached: boolean;
   remaining: number;
+}
+
+export type FigureRouteRequest =
+  | { kind: 'data-template'; input: DataFigureRoutingInput }
+  | { kind: 'illustration-category'; input: IllustrationCategoryRoutingInput }
+  | { kind: 'illustration-journal'; input: IllustrationJournalRoutingInput }
+  | { kind: 'illustration-prompt'; input: PromptCompletenessInput }
+  | { kind: 'illustration-retry'; input: IllustrationRetryInput };
+
+export interface FigureRouteResponse {
+  kind: FigureRouteRequest['kind'];
+  decision: FigureRoutingDecision<string> | PromptCompletenessDecision;
+  remaining: number;
+  cached: boolean;
 }
 
 interface MemberApiClientOptions {
@@ -202,11 +263,22 @@ export function createMemberApiClient(options: MemberApiClientOptions) {
     getStatus: () => request<MemberStatus>('/api/member/status'),
     getCapabilities: () =>
       request<{ capabilities: ManagedCapabilityDescriptor[] }>('/api/member/capabilities'),
+    figureRoute: async (input: FigureRouteRequest): Promise<FigureRouteResponse> => {
+      const result = await request<FigureRouteResponse | { error: string }>(
+        '/api/jev',
+        { method: 'POST', body: JSON.stringify({ action: 'figure-route', ...input }) },
+        {},
+        20_000
+      );
+      if ('error' in result) throw new MemberApiError(result.error, 202);
+      return result;
+    },
     runCapability: (input: {
       idempotencyKey: string;
       capabilityId: MGAResearchAgentId;
       enabledCapabilityIds: string[];
       prompt: string;
+      blindReviewContext?: MemberBlindReviewContext;
     }) =>
       request<{
         output: {
@@ -215,6 +287,7 @@ export function createMemberApiClient(options: MemberApiClientOptions) {
           provider?: 'mga' | 'google' | 'openai';
           model?: string;
           modelType?: 'large-language-model' | 'research-agent' | 'image-generation-model';
+          jevPreflight?: MemberBlindPreflight;
         };
         bonusBalance: number;
         workflowId: string;
@@ -226,6 +299,7 @@ export function createMemberApiClient(options: MemberApiClientOptions) {
             capabilityId: input.capabilityId,
             enabledCapabilityIds: input.enabledCapabilityIds,
             prompt: input.prompt,
+            blindReviewContext: input.blindReviewContext,
           }),
         },
         { 'Idempotency-Key': input.idempotencyKey },
@@ -233,6 +307,13 @@ export function createMemberApiClient(options: MemberApiClientOptions) {
       ),
     getJevConsent: () =>
       request<JevConsent>('/api/jev?action=consent', { method: 'GET' }, {}, 15_000),
+    listJevGenerationVersions: (limit = 10) =>
+      request<{ versions: JevGenerationVersion[] }>(
+        `/api/jev?action=versions&limit=${encodeURIComponent(limit)}`,
+        { method: 'GET' },
+        {},
+        15_000
+      ),
     setJevConsent: (accepted: boolean) =>
       request<JevConsent>(
         '/api/jev',
@@ -314,6 +395,7 @@ export function createMemberApiClient(options: MemberApiClientOptions) {
         | 'blind_review';
       workflowId?: string;
       prompt: string;
+      blindReviewContext?: MemberBlindReviewContext;
       sourceText?: string;
       conference?: string;
       images?: ManagedImageInput[];
@@ -330,6 +412,8 @@ export function createMemberApiClient(options: MemberApiClientOptions) {
           requestedModel?: string;
           fallbackPath?: string[];
           modelType?: 'large-language-model' | 'research-agent' | 'image-generation-model';
+          jevReview?: JevReviewSummary;
+          jevPreflight?: MemberBlindPreflight;
         };
         bonusBalance: number;
         workflowId: string;
@@ -349,6 +433,7 @@ export function createMemberApiClient(options: MemberApiClientOptions) {
             operation: input.operation,
             workflowId: input.workflowId,
             prompt: input.prompt,
+            blindReviewContext: input.blindReviewContext,
             sourceText: input.sourceText,
             conference: input.conference,
             images: input.images,

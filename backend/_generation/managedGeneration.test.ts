@@ -150,6 +150,39 @@ describe('managed generation transaction', () => {
     expect(wallet.settleTask).toHaveBeenCalledWith('task-2', false, true);
   });
 
+  it('does not charge or deliver when version persistence fails after generation', async () => {
+    const wallet = {
+      reserveTask: vi.fn(),
+      continueWorkflow: vi.fn().mockResolvedValue({ taskId: 'task-jev', bonusBalance: 4 }),
+      settleTask: vi.fn().mockResolvedValue({ status: 'reserved', bonusBalance: 5 }),
+    };
+    const persistenceError = new Error('version store unavailable');
+    const provider = vi.fn().mockResolvedValue({ type: 'text', text: 'Synthetic abstract' });
+    const persist = vi.fn().mockRejectedValue(persistenceError);
+    await expect(
+      runManagedGeneration(
+        {
+          idempotencyKey: 'jev-generation-1',
+          taskKind: 'analysis_generation',
+          provider: 'gemini-3.6-flash',
+          completeWorkflow: false,
+          workflowId: 'task-jev',
+          workflowOperation: 'generation',
+        },
+        wallet,
+        async () => {
+          const generated = await provider();
+          await persist(generated);
+          return generated;
+        }
+      )
+    ).rejects.toBe(persistenceError);
+    expect(provider).toHaveBeenCalledOnce();
+    expect(persist).toHaveBeenCalledOnce();
+    expect(wallet.settleTask).toHaveBeenCalledWith('task-jev', false, false);
+    expect(wallet.settleTask).not.toHaveBeenCalledWith('task-jev', true, false);
+  });
+
   it('refunds before settlement when an image cannot fit the Vercel response limit', async () => {
     const wallet = {
       reserveTask: vi

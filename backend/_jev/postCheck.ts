@@ -201,7 +201,7 @@ function selectedChoice(answer: unknown, allowed: string[]): string {
   const probabilities = answer.probabilities;
   if (
     Object.keys(probabilities).length !== allowed.length ||
-    allowed.some((key) => !Object.hasOwn(probabilities, key)) ||
+    allowed.some((key) => !Object.prototype.hasOwnProperty.call(probabilities, key)) ||
     !allowed.includes(answer.choice)
   ) {
     throw new TypesafeJevError('invalid_jev_post_check_response', 502);
@@ -211,7 +211,7 @@ function selectedChoice(answer: unknown, allowed: string[]): string {
     values.some(
       (value) => typeof value !== 'number' || !Number.isFinite(value) || value < 0 || value > 1
     ) ||
-    Math.abs(values.reduce((sum, value) => sum + (value as number), 0) - 1) > 0.05
+    Math.abs(values.reduce<number>((sum, value) => sum + (value as number), 0) - 1) > 0.05
   ) {
     throw new TypesafeJevError('invalid_jev_post_check_response', 502);
   }
@@ -236,7 +236,7 @@ export function parsePostCheckResponse(
   const answerIds = [...RISK_IDS, ...AXIS_IDS];
   if (
     Object.keys(payload.answers).length !== answerIds.length ||
-    answerIds.some((id) => !Object.hasOwn(payload.answers as Record<string, unknown>, id))
+    answerIds.some((id) => !Object.prototype.hasOwnProperty.call(payload.answers, id))
   ) {
     throw new TypesafeJevError('invalid_jev_post_check_response', 502);
   }

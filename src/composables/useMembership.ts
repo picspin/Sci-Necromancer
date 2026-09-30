@@ -3,6 +3,7 @@ import { createClient, type Session, type SupabaseClient, type User } from '@sup
 import {
   createMemberApiClient,
   type JevConsent,
+  type JevReviewSummary,
   type MemberStatus,
   type ManagedImageInput,
 } from '@/src/services/memberApiClient';
@@ -157,11 +158,14 @@ export async function generateManagedText(input: {
   model?: 'glm-5.2' | 'gpt-5.6-luna';
   sourceText?: string;
   conference?: string;
+  blindReviewContext?: import('@/src/services/memberApiClient').MemberBlindReviewContext;
 }): Promise<{
   text: string;
   provider?: 'mga' | 'google' | 'openai';
   model?: string;
   modelType?: 'large-language-model' | 'research-agent' | 'image-generation-model';
+  jevReview?: JevReviewSummary;
+  jevPreflight?: import('@/src/services/memberApiClient').MemberBlindPreflight;
   workflowId: string;
   workflow: {
     analysisCount: number;
@@ -185,6 +189,8 @@ export async function generateManagedText(input: {
       provider: result.output.provider,
       model: result.output.model,
       modelType: result.output.modelType,
+      jevReview: result.output.jevReview,
+      jevPreflight: result.output.jevPreflight,
       workflowId: result.workflowId,
       workflow: result.workflow,
     };
@@ -198,11 +204,13 @@ export async function generateManagedResearchVerification(input: {
   prompt: string;
   idempotencyKey: string;
   enabledCapabilityIds: string[];
+  blindReviewContext?: import('@/src/services/memberApiClient').MemberBlindReviewContext;
 }): Promise<{
   text: string;
   provider?: 'mga' | 'google' | 'openai';
   model?: string;
   modelType?: 'large-language-model' | 'research-agent' | 'image-generation-model';
+  jevPreflight?: import('@/src/services/memberApiClient').MemberBlindPreflight;
   workflowId: string;
 }> {
   try {
@@ -219,6 +227,7 @@ export async function generateManagedResearchVerification(input: {
       provider: result.output.provider,
       model: result.output.model,
       modelType: result.output.modelType,
+      jevPreflight: result.output.jevPreflight,
       workflowId: result.workflowId,
     };
   } catch (verificationError) {

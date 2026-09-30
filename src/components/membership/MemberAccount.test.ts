@@ -4,14 +4,16 @@ import { describe, expect, it, vi } from 'vitest';
 import en from '../../../public/locales/en/translation.json';
 import MemberAccount from './MemberAccount.vue';
 
-const { membershipState, refreshStatus } = vi.hoisted(() => ({
+const { membershipState, refreshStatus, listJevGenerationVersions } = vi.hoisted(() => ({
   membershipState: {
     authenticated: false,
+    jevEnabled: false,
     status: null as null | { bonusBalance: number },
     error: null as string | null,
     user: null as null | Record<string, unknown>,
   },
   refreshStatus: vi.fn().mockResolvedValue(undefined),
+  listJevGenerationVersions: vi.fn().mockResolvedValue({ versions: [] }),
 }));
 
 vi.mock('@/composables/useMembership', async () => {
@@ -21,6 +23,7 @@ vi.mock('@/composables/useMembership', async () => {
       configured: true,
       turnstileSiteKey: 'test-site-key',
       isAuthenticated: computed(() => membershipState.authenticated),
+      jevEnabled: computed(() => membershipState.jevEnabled),
       isLoading: computed(() => false),
       isStatusLoading: computed(() => false),
       passwordRecovery: computed(() => false),
@@ -28,6 +31,7 @@ vi.mock('@/composables/useMembership', async () => {
       status: computed(() => membershipState.status),
       error: computed(() => membershipState.error),
       refreshStatus,
+      memberApi: { listJevGenerationVersions },
       signInWithGitHub: vi.fn(),
       signInWithEmail: vi.fn(),
       signUpWithEmail: vi.fn(),
@@ -124,6 +128,50 @@ describe('MemberAccount', () => {
 
     membershipState.authenticated = false;
     membershipState.status = null;
+    membershipState.user = null;
+  });
+
+  it('loads only the owner history on demand and shows delivered version details', async () => {
+    membershipState.authenticated = true;
+    membershipState.jevEnabled = true;
+    membershipState.user = {
+      email: 'member@example.com',
+      user_metadata: {},
+      app_metadata: {},
+      identities: [],
+    };
+    listJevGenerationVersions.mockResolvedValueOnce({
+      versions: [
+        {
+          id: 'version-1',
+          taskId: 'task-1',
+          operation: 'generation',
+          sourceHash: 'a'.repeat(64),
+          conference: 'ISMRM',
+          draftText: 'Draft abstract',
+          finalText: 'Delivered abstract',
+          draftHash: 'b'.repeat(64),
+          finalHash: 'c'.repeat(64),
+          generationModels: ['glm-5.2', 'gpt-5.6-luna'],
+          generationCalls: [
+            { stage: 'draft', provider: 'mga', model: 'glm-5.2' },
+            { stage: 'revision', provider: 'mga', model: 'gpt-5.6-luna' },
+          ],
+          initialCheck: null,
+          finalCheck: null,
+          status: 'needs_author_review',
+          createdAt: '2026-09-24T10:00:00Z',
+        },
+      ],
+    });
+    render(MemberAccount, { global: { plugins: [i18n] } });
+    expect(listJevGenerationVersions).not.toHaveBeenCalled();
+    await fireEvent.click(screen.getByText('Jev generation history'));
+    expect(await screen.findByText('Delivered abstract')).toBeTruthy();
+    expect(screen.getByText('Draft abstract')).toBeTruthy();
+    expect(listJevGenerationVersions).toHaveBeenCalledWith(10);
+    membershipState.authenticated = false;
+    membershipState.jevEnabled = false;
     membershipState.user = null;
   });
 });

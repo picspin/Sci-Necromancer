@@ -12,6 +12,7 @@ const mocks = vi.hoisted(() => ({
     settle: vi.fn(),
   },
   workflow: { open: vi.fn() },
+  listVersions: vi.fn(),
 }));
 
 vi.mock('../../backend/_jev/typesafe', async (importOriginal) => {
@@ -23,6 +24,9 @@ vi.mock('../../backend/_jev/memberPolicy', () => ({
 }));
 vi.mock('../../backend/_jev/generationWorkflow', () => ({
   createJevGenerationWorkflow: vi.fn(() => mocks.workflow),
+}));
+vi.mock('../../backend/_jev/versionStore', () => ({
+  createJevVersionStore: vi.fn(() => ({ listVersions: mocks.listVersions })),
 }));
 vi.mock('../../backend/_member/supabaseServer', () => ({
   createAdminSupabaseClient: vi.fn(() => ({ rpc: vi.fn() })),
@@ -63,6 +67,7 @@ function request(body: unknown = {}, method = 'POST'): any {
     method,
     headers: { origin: 'https://www.rad-sci.org', 'idempotency-key': 'jev-analysis-1' },
     body: { model: 'glm-5.2', ...(body as Record<string, unknown>) },
+    query: {},
   };
 }
 
@@ -88,6 +93,7 @@ describe('/api/jev', () => {
       bonusBalance: 9,
       workflow: { analysisCount: 1, callCount: 1, generationCount: 0, deepUpdateCount: 0 },
     });
+    mocks.listVersions.mockResolvedValue([]);
   });
 
   it('remains disabled and does not authenticate when the feature flag is off', async () => {
@@ -108,6 +114,29 @@ describe('/api/jev', () => {
     await handler(request({ action: 'consent', accepted: false }), setResponse);
     expect(mocks.policy.setConsent).toHaveBeenCalledWith(false);
     expect(setResponse.status).toHaveBeenCalledWith(200);
+  });
+
+  it('lets the authenticated owner read settled version history while the adapter is off', async () => {
+    process.env.TYPESAFE_JEV_ENABLED = 'false';
+    const req = request({}, 'GET');
+    req.query = { action: 'versions', limit: '10' };
+    const res = response();
+    await handler(req, res);
+    expect(mocks.requireUser).toHaveBeenCalledOnce();
+    expect(mocks.listVersions).toHaveBeenCalledWith('member-1', 10);
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith({ versions: [] });
+    expect(mocks.requestTypesafeJev).not.toHaveBeenCalled();
+  });
+
+  it('bounds version history responses before reading large generated texts', async () => {
+    process.env.TYPESAFE_JEV_ENABLED = 'false';
+    const req = request({}, 'GET');
+    req.query = { action: 'versions', limit: '100' };
+    const res = response();
+    await handler(req, res);
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(mocks.listVersions).not.toHaveBeenCalled();
   });
 
   it('uses server-owned candidate lists and settles a successful analysis', async () => {

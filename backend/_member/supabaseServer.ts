@@ -39,7 +39,7 @@ export function createScopedMemberRpcClient(
 ): MemberRpcClient {
   return {
     rpc<T = unknown>(name: string, args: Record<string, unknown> = {}) {
-      return admin.rpc(name, { p_user_id: userId, ...args }) as unknown as PromiseLike<{
+      return admin.rpc(name, { ...args, p_user_id: userId }) as unknown as PromiseLike<{
         data: T | null;
         error: { message?: string } | null;
       }>;

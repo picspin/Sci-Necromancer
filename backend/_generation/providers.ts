@@ -15,10 +15,12 @@ export interface ProviderRequest {
   images?: ProviderImageInput[];
   size?: '1024x1024' | '1024x1536' | '1536x1024';
   reasoning?: 'default' | 'high';
+  timeoutMs?: number;
 }
 
 const PROVIDER_TIMEOUT_MS = 105_000;
-const providerTimeout = (timeoutMs = PROVIDER_TIMEOUT_MS) => AbortSignal.timeout(timeoutMs);
+const providerTimeout = (timeoutMs = PROVIDER_TIMEOUT_MS) =>
+  AbortSignal.timeout(Math.max(1_000, Math.min(timeoutMs, PROVIDER_TIMEOUT_MS)));
 
 const PROVIDER_RESPONSE_LIMIT = 6_000_000;
 const MGA_TEXT_MODELS = new Set(['glm-5.2', 'gpt-5.6-luna']);
@@ -345,7 +347,7 @@ async function callMGAText(request: ProviderRequest) {
   const model = requestedModel;
   const response = await fetch(`${config.baseUrl}/chat/completions`, {
     method: 'POST',
-    signal: providerTimeout(),
+    signal: providerTimeout(request.timeoutMs),
     headers: {
       Authorization: `Bearer ${config.apiKey}`,
       'Content-Type': 'application/json',
@@ -639,7 +641,7 @@ async function generateGeminiText(request: ProviderRequest): Promise<ManagedGene
     `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
     {
       method: 'POST',
-      signal: providerTimeout(),
+      signal: providerTimeout(request.timeoutMs),
       headers: {
         'Content-Type': 'application/json',
         'x-goog-api-key': requiredGoogleApiKey(),

@@ -6,6 +6,10 @@ const mocks = vi.hoisted(() => ({
   assertContext: vi.fn(),
   runManagedGeneration: vi.fn(),
   callManagedProvider: vi.fn(),
+  postCheck: vi.fn(),
+  persistVersion: vi.fn(),
+  getConsent: vi.fn(),
+  prepareBlindReview: vi.fn(),
 }));
 
 vi.mock('../../backend/_jev/generationWorkflow', () => ({
@@ -16,6 +20,18 @@ vi.mock('../../backend/_generation/managedGeneration', () => ({
 }));
 vi.mock('../../backend/_generation/providers', () => ({
   callManagedProvider: mocks.callManagedProvider,
+}));
+vi.mock('../../backend/_jev/postCheckPipeline', () => ({
+  runJevPostCheckPipeline: mocks.postCheck,
+}));
+vi.mock('../../backend/_jev/versionStore', () => ({
+  createJevVersionStore: () => ({ persistVersion: mocks.persistVersion }),
+}));
+vi.mock('../../backend/_jev/memberPolicy', () => ({
+  createJevMemberPolicy: () => ({ getConsent: mocks.getConsent }),
+}));
+vi.mock('../../backend/_jev/blindPreflightWorkflow', () => ({
+  prepareMemberBlindReview: mocks.prepareBlindReview,
 }));
 vi.mock('../../backend/_member/supabaseServer', () => ({
   createAdminSupabaseClient: () => ({}),
@@ -61,11 +77,36 @@ function request(overrides: Record<string, unknown> = {}): any {
 describe('Jev generation provenance boundary', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    delete process.env.TYPESAFE_JEV_POST_CHECK_ENABLED;
     mocks.assertContext.mockResolvedValue(true);
-    mocks.callManagedProvider.mockResolvedValue({ type: 'text', text: '{"abstract":"Draft"}' });
+    mocks.getConsent.mockResolvedValue({ accepted: true, version: 'test' });
+    mocks.prepareBlindReview.mockImplementation(async ({ prompt }) => ({ prompt }));
+    mocks.callManagedProvider.mockResolvedValue({
+      type: 'text',
+      text: '{"abstract":"Draft"}',
+      model: 'glm-5.2',
+    });
+    mocks.postCheck.mockImplementation(async ({ draft }) => ({
+      output: draft,
+      version: {
+        id: '550e8400-e29b-41d4-a716-446655440099',
+        sourceHash: createHash('sha256').update(SOURCE).digest('hex'),
+        draftText: draft.text,
+        finalText: draft.text,
+        draftHash: createHash('sha256').update(draft.text).digest('hex'),
+        finalHash: createHash('sha256').update(draft.text).digest('hex'),
+        conference: 'ISMRM',
+        generationModels: ['glm-5.2'],
+        generationCalls: [{ stage: 'draft', provider: 'mga', model: 'glm-5.2' }],
+        initialCheck: null,
+        finalCheck: null,
+        status: 'review_unavailable',
+      },
+    }));
+    mocks.persistVersion.mockImplementation(async (version) => version);
     mocks.runManagedGeneration.mockImplementation(async (_input, _member, callProvider) => {
-      await callProvider();
-      return { output: { type: 'text', text: '{"abstract":"Draft"}' }, bonusBalance: 8 };
+      const output = await callProvider();
+      return { output, bonusBalance: 8 };
     });
   });
 
@@ -114,6 +155,93 @@ describe('Jev generation provenance boundary', () => {
     await handler(request(), res);
     expect(mocks.callManagedProvider).toHaveBeenCalledWith(
       expect.objectContaining({ prompt: 'Polish the scientific abstract.' })
+    );
+  });
+
+  it('keeps post-check off by default even for a Jev workflow', async () => {
+    await handler(request(), response());
+    expect(mocks.postCheck).not.toHaveBeenCalled();
+    expect(mocks.persistVersion).not.toHaveBeenCalled();
+  });
+
+  it('persists the checked version before delivering a member generation', async () => {
+    process.env.TYPESAFE_JEV_POST_CHECK_ENABLED = 'true';
+    const res = response();
+    await handler(request(), res);
+    expect(mocks.postCheck).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sourceText: SOURCE,
+        conference: 'ISMRM',
+        skipReason: undefined,
+      })
+    );
+    expect(mocks.persistVersion).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: '550e8400-e29b-41d4-a716-446655440099',
+        taskId: WORKFLOW_ID,
+        operation: 'generation',
+        userId: 'member-1',
+      })
+    );
+    expect(res.json).toHaveBeenCalledWith(
+      expect.objectContaining({
+        output: expect.objectContaining({
+          jevReview: expect.objectContaining({ versionId: '550e8400-e29b-41d4-a716-446655440099' }),
+        }),
+      })
+    );
+  });
+
+  it('does not send text to Jev after consent is revoked', async () => {
+    process.env.TYPESAFE_JEV_POST_CHECK_ENABLED = 'true';
+    mocks.getConsent.mockResolvedValue({ accepted: false, version: 'test' });
+    await handler(request(), response());
+    expect(mocks.postCheck).toHaveBeenCalledWith(
+      expect.objectContaining({
+        skipReason: 'consent_revoked',
+      })
+    );
+  });
+
+  it('passes blind-review source context through the ordinary member text route', async () => {
+    mocks.prepareBlindReview.mockResolvedValue({
+      prompt: 'Review synthetic manuscript. Jev advisory flags: {}',
+      preflight: { status: 'completed', provider: 'typesafe', model: 'jev-1.13.0', flags: {} },
+    });
+    const blindContext = {
+      sourceText: SOURCE,
+      conference: 'ISMRM',
+      target: 'manuscript',
+    };
+    const res = response();
+    await handler(
+      request({
+        operation: 'blind_review',
+        workflowId: undefined,
+        prompt: `Review synthetic manuscript. ${SOURCE}`,
+        blindReviewContext: blindContext,
+      }),
+      res
+    );
+
+    expect(mocks.prepareBlindReview).toHaveBeenCalledWith(
+      expect.objectContaining({
+        context: blindContext,
+        maxPromptBytes: 100_000,
+      })
+    );
+    expect(mocks.callManagedProvider).toHaveBeenCalledWith(
+      expect.objectContaining({
+        prompt: 'Review synthetic manuscript. Jev advisory flags: {}',
+      })
+    );
+    expect(mocks.runManagedGeneration).toHaveBeenCalledOnce();
+    expect(res.json).toHaveBeenCalledWith(
+      expect.objectContaining({
+        output: expect.objectContaining({
+          jevPreflight: expect.objectContaining({ status: 'completed', model: 'jev-1.13.0' }),
+        }),
+      })
     );
   });
 });

@@ -4,12 +4,14 @@ import { createJevVersionStore, type JevPostCheckVersion } from './versionStore'
 
 const USER_ID = '550e8400-e29b-41d4-a716-446655440000';
 const TASK_ID = '550e8400-e29b-41d4-a716-446655440001';
+const VERSION_ID = '550e8400-e29b-41d4-a716-446655440002';
 const sha = (value: string) => createHash('sha256').update(value).digest('hex');
 
 function input(): JevPostCheckVersion {
   const draftText = 'draft abstract';
   const finalText = 'final abstract';
   return {
+    id: VERSION_ID,
     taskId: TASK_ID,
     operation: 'generation',
     userId: USER_ID,
@@ -20,6 +22,7 @@ function input(): JevPostCheckVersion {
     finalHash: sha(finalText),
     conference: 'ISMRM',
     generationModels: ['glm-5.2'],
+    generationCalls: [{ stage: 'draft', provider: 'mga', model: 'glm-5.2' }],
     initialCheck: { status: 'check_complete' },
     finalCheck: { status: 'check_complete' },
     status: 'check_complete',
@@ -28,15 +31,16 @@ function input(): JevPostCheckVersion {
 
 describe('Jev generation version store', () => {
   it('persists an owner-scoped immutable version through the service RPC', async () => {
-    const client = { rpc: vi.fn().mockResolvedValue({ data: { id: TASK_ID }, error: null }) };
+    const client = { rpc: vi.fn().mockResolvedValue({ data: { id: VERSION_ID }, error: null }) };
     await expect(createJevVersionStore(client).persistVersion(input())).resolves.toMatchObject({
-      id: TASK_ID,
+      id: VERSION_ID,
       taskId: TASK_ID,
     });
     expect(client.rpc).toHaveBeenCalledWith(
       'jev_persist_generation_version',
       expect.objectContaining({
         p_user_id: USER_ID,
+        p_version_id: VERSION_ID,
         p_task_id: TASK_ID,
         p_source_hash: 'a'.repeat(64),
         p_draft_text: 'draft abstract',
@@ -76,9 +80,15 @@ describe('Jev generation version store', () => {
       final_hash: sha('final abstract'),
       conference: 'RSNA',
       generation_models: ['glm-5.2', 'gpt-5.6-luna'],
+      generation_calls: [
+        { stage: 'draft', provider: 'mga', model: 'glm-5.2' },
+        { stage: 'revision', provider: 'mga', model: 'gpt-5.6-luna' },
+      ],
       initial_check: null,
       final_check: { status: 'needs_author_review' },
       status: 'needs_author_review',
+      unavailable_reason: null,
+      created_at: '2026-09-24T00:00:00Z',
     };
     const client = { rpc: vi.fn().mockResolvedValue({ data: [row], error: null }) };
     await expect(createJevVersionStore(client).listVersions(USER_ID, 10)).resolves.toEqual([

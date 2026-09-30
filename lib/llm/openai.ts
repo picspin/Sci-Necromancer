@@ -7,6 +7,7 @@ import {
   AbstractTypeSuggestion,
   BlindReviewModelAssessment,
   ISMRMAnalysisBundle,
+  Conference,
 } from '../../types';
 import * as prompts from './prompts/ismrmPrompts';
 import {
@@ -35,7 +36,7 @@ import {
   managedConferenceContext,
   registerManagedTextWorkflow,
 } from './managedTextWorkflow';
-import { getLockedTextModel } from './textModelWorkflow';
+import { getLockedTextModel, recordTextWorkflowAssistance } from './textModelWorkflow';
 import { parseStructuredModelOutput } from './modelResponse';
 import {
   createAIAssistanceRecord,
@@ -105,6 +106,34 @@ async function callOpenAIAPI(
         result.workflowId,
         result.workflow
       );
+      if (result.jevReview) {
+        const calls = result.jevReview.generationCalls;
+        for (const call of calls) {
+          recordTextWorkflowAssistance(
+            workflowContext,
+            createAIAssistanceRecord({
+              provider: call.provider,
+              model: call.model,
+              mode: 'standard',
+              operations: [
+                call.stage === 'draft' ? 'abstract drafting' : 'post-check corrective review',
+              ],
+            })
+          );
+        }
+        if (result.jevReview.checkerModel) {
+          recordTextWorkflowAssistance(
+            workflowContext,
+            createAIAssistanceRecord({
+              provider: 'typesafe',
+              model: result.jevReview.checkerModel,
+              modelType: 'research-agent',
+              mode: 'standard',
+              operations: ['generated abstract post-check'],
+            })
+          );
+        }
+      }
       const parsed = parseStructuredModelOutput(result.text) ?? result.text;
       if (options.workflowStage === 'generation' || options.workflowStage === 'analysis') {
         const structured =
@@ -116,6 +145,7 @@ async function callOpenAIAPI(
           const {
             aiAssistance: _untrustedAssistance,
             aiAssistanceRecords: _untrustedRecords,
+            jevReview: _untrustedJevReview,
             ...safeGenerated
           } = generatedRecord;
           const assistance = createAIAssistanceRecord({
@@ -128,12 +158,18 @@ async function callOpenAIAPI(
                 ? 'content analysis'
                 : options.standaloneOperation === 'deep_update'
                   ? 'deep revision'
-                  : 'abstract drafting',
+                  : result.jevReview?.generationCalls.some((call) => call.stage === 'revision')
+                    ? 'post-check-guided abstract revision'
+                    : 'abstract drafting',
             ],
           });
           return markTrustedAIAssistance(
             options.workflowStage === 'generation'
-              ? { ...safeGenerated, aiAssistance: assistance }
+              ? {
+                  ...safeGenerated,
+                  aiAssistance: assistance,
+                  ...(result.jevReview ? { jevReview: result.jevReview } : {}),
+                }
               : { ...safeGenerated },
             assistance
           );
@@ -357,7 +393,9 @@ export async function generateFinalAbstract(
         messages: [
           {
             role: 'system',
-            content: 'You are an expert academic writer specializing in ISMRM submissions.',
+            content: type.startsWith('ECR ')
+              ? 'You are an expert academic writer specializing in ECR 2027 submissions.'
+              : 'You are an expert academic writer specializing in ISMRM submissions.',
           },
           { role: 'user', content: prompt },
         ],
@@ -374,14 +412,15 @@ export async function generateFinalAbstract(
 export async function generateCreativeAbstract(
   coreIdea: string,
   apiKey?: string,
-  forceManaged = false
+  forceManaged = false,
+  conference?: Conference
 ): Promise<AbstractData> {
   const settings = getSettings();
   const finalApiKey = forceManaged ? undefined : apiKey || settings.openAIApiKey;
   const baseUrl = settings.openAIBaseUrl || 'https://api.openai.com/v1';
   const model = settings.openAITextModel || 'gpt-4o';
 
-  const prompt = await prompts.getCreativeAbstractPrompt(coreIdea);
+  const prompt = await prompts.getCreativeAbstractPrompt(coreIdea, conference);
   return await callOpenAIAPI(prompt, finalApiKey, baseUrl, model, {
     finishWorkflow: true,
     workflowStage: 'generation',
@@ -448,6 +487,7 @@ export async function generateRSNAAbstract(
       : [],
     complianceWarnings: Array.isArray(result.complianceWarnings) ? result.complianceWarnings : [],
     rsna: input.classification,
+    ...(resultAssistance && result.jevReview ? { jevReview: result.jevReview } : {}),
     aiAssistance: createAIAssistanceRecord({
       provider: resultAssistance?.provider ?? (usesManagedProvider ? 'mga' : 'openai'),
       providerDisplayName: resultAssistance?.providerDisplayName,

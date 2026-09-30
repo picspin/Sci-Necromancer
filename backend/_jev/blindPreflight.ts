@@ -134,7 +134,7 @@ function selectedChoice(answer: unknown): JevBlindPreflightVerdict {
   const probabilities = answer.probabilities;
   if (
     Object.keys(probabilities).length !== allowed.length ||
-    allowed.some((key) => !Object.hasOwn(probabilities, key))
+    allowed.some((key) => !Object.prototype.hasOwnProperty.call(probabilities, key))
   ) {
     throw new TypesafeJevError('invalid_jev_blind_preflight_response', 502);
   }
@@ -143,7 +143,7 @@ function selectedChoice(answer: unknown): JevBlindPreflightVerdict {
     values.some(
       (value) => typeof value !== 'number' || !Number.isFinite(value) || value < 0 || value > 1
     ) ||
-    Math.abs(values.reduce((sum, value) => sum + (value as number), 0) - 1) > 0.05
+    Math.abs(values.reduce<number>((sum, value) => sum + (value as number), 0) - 1) > 0.05
   ) {
     throw new TypesafeJevError('invalid_jev_blind_preflight_response', 502);
   }
@@ -168,7 +168,7 @@ export function parseBlindPreflightResponse(
   const answers = payload.answers;
   if (
     Object.keys(answers).length !== DIMENSION_IDS.length ||
-    DIMENSION_IDS.some((id) => !Object.hasOwn(answers, id))
+    DIMENSION_IDS.some((id) => !Object.prototype.hasOwnProperty.call(answers, id))
   ) {
     throw new TypesafeJevError('invalid_jev_blind_preflight_response', 502);
   }

@@ -16,6 +16,7 @@ describe('Jev generation versions migration (static contract only)', () => {
       'draft_hash',
       'final_hash',
       'generation_models',
+      'generation_calls',
       'initial_check',
       'final_check',
       'status',
@@ -30,14 +31,17 @@ describe('Jev generation versions migration (static contract only)', () => {
 
   it('uses owner RLS reads and service-only mutation RPCs', () => {
     expect(migration).toContain('enable row level security');
-    expect(migration).toContain('using (user_id = auth.uid())');
+    expect(migration).toContain('using (user_id = auth.uid() and delivered)');
     expect(migration).toMatch(/revoke all on table[\s\S]*from public, anon/);
     expect(migration).toContain(
-      'grant all on table public.member_jev_generation_versions to service_role'
+      'grant insert on table public.member_jev_generation_versions to service_role'
     );
     expect(migration).toContain('function public.jev_persist_generation_version');
     expect(migration).toContain('function public.jev_list_generation_versions');
     expect(migration).toMatch(/revoke all on function[\s\S]*from public, anon, authenticated/);
     expect(migration).toMatch(/grant execute on function[\s\S]*to service_role/);
+    expect(migration).toContain('p_version_id uuid');
+    expect(migration).toContain('old.in_flight and not new.in_flight');
+    expect(migration).toContain('new.successful_call_count > old.successful_call_count');
   });
 });
