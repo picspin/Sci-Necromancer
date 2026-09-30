@@ -22,6 +22,9 @@ CLAUDE_FIX_REQUEST.md
 .vscode
 .DS_Store
 dist
+__pycache__/
+*.pyc
+.venv/
 
 # Local conference/reference PDFs (not distributed with the repository)
 public/My ESC Congress Services - My Abstracts Submission Rules.pdf

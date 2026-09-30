@@ -1,0 +1,8 @@
+[project]
+name = "sci-necromancer-figure-worker"
+version = "0.1.0"
+requires-python = ">=3.10,<3.11"
+dependencies = ["matplotlib==3.10.9"]
+
+[tool.uv]
+package = false
