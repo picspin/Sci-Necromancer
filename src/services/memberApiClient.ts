@@ -1,4 +1,5 @@
 import type { MGAResearchAgentId } from '@/lib/capabilities/managedResearchCapabilities';
+import type { AcceptedMemberTextModel } from '@/lib/llm/memberTextModels';
 import type {
   MemberBlindPreflight,
   MemberBlindReviewContext,
@@ -65,7 +66,7 @@ export interface JevAnalysisInput {
   text: string;
   conference: string;
   idempotencyKey: string;
-  model: 'glm-5.2' | 'gpt-5.6-luna';
+  model: AcceptedMemberTextModel;
 }
 
 export interface JevConsent {
@@ -385,7 +386,7 @@ export function createMemberApiClient(options: MemberApiClientOptions) {
     generate: (input: {
       idempotencyKey: string;
       provider: 'gemini-3.6-flash' | 'nano-banana-pro' | 'gpt-image-2';
-      model?: 'glm-5.2' | 'gpt-5.6-luna' | 'gemini-3.1-flash-image' | 'gemini-3-pro-image';
+      model?: AcceptedMemberTextModel | 'gemini-3.1-flash-image' | 'gemini-3-pro-image';
       operation:
         | 'analysis'
         | 'generation'

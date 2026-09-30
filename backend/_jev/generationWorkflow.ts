@@ -1,5 +1,6 @@
 import { MemberServiceError, type MemberRpcClient } from '../_member/memberService.js';
 import { JEV_CONSENT_VERSION } from './memberPolicy.js';
+import { isAcceptedMemberTextModel } from '../../lib/llm/memberTextModels.js';
 
 interface WorkflowRow {
   task_id: string;
@@ -13,7 +14,6 @@ interface WorkflowRow {
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const SHA256 = /^[a-f0-9]{64}$/;
 const CONFERENCES = new Set(['ISMRM', 'RSNA', 'ER', 'ASCO', 'ESMO', 'JACC']);
-const MODELS = new Set(['glm-5.2', 'gpt-5.6-luna']);
 
 export interface JevGenerationContext {
   sourceHash: string;
@@ -30,7 +30,7 @@ export function createJevGenerationWorkflow(client: MemberRpcClient) {
         !SHA256.test(cacheKey) ||
         !SHA256.test(context.sourceHash) ||
         !CONFERENCES.has(context.conference) ||
-        !MODELS.has(context.model)
+        !isAcceptedMemberTextModel(context.model)
       ) {
         throw new MemberServiceError('invalid_jev_workflow_request', 400);
       }

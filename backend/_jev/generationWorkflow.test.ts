@@ -39,6 +39,31 @@ describe('Jev to staged generation workflow bridge', () => {
     });
   });
 
+  it.each(['deepseek-v4.1-flash', 'gpt-5.6-terra'])(
+    'accepts %s as a new locked member model',
+    async (model) => {
+      const rpcClient = client({
+        data: {
+          task_id: TASK_ID,
+          bonus_balance: 9,
+          analysis_count: 1,
+          generation_count: 0,
+          deep_update_count: 0,
+          call_count: 1,
+        },
+        error: null,
+      });
+      await createJevGenerationWorkflow(rpcClient).open('analysis-1', CACHE_KEY, {
+        ...CONTEXT,
+        model,
+      });
+      expect(rpcClient.rpc).toHaveBeenCalledWith(
+        'jev_open_generation_workflow',
+        expect.objectContaining({ p_locked_model: model })
+      );
+    }
+  );
+
   it.each([
     ['', CACHE_KEY],
     ['x'.repeat(129), CACHE_KEY],

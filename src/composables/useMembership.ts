@@ -11,6 +11,7 @@ import {
   hasEnabledMGAResearchAgent,
   MGA_RESEARCH_AGENT_ID,
 } from '@/lib/capabilities/managedResearchCapabilities';
+import { normalizeMemberTextModel, type AcceptedMemberTextModel } from '@/lib/llm/memberTextModels';
 
 const directSupabaseUrl = import.meta.env.VITE_SUPABASE_URL?.trim() || '';
 const productionSupabaseProxyPath = ['rad-sci.org', 'www.rad-sci.org'].includes(
@@ -112,12 +113,12 @@ function readManagedTextPreference(): boolean {
   }
 }
 
-function readManagedTextModel(): 'glm-5.2' | 'gpt-5.6-luna' {
+function readManagedTextModel(): AcceptedMemberTextModel {
   try {
     const model = JSON.parse(localStorage.getItem('app-settings') || '{}')?.memberManagedTextModel;
-    return model === 'gpt-5.6-luna' ? model : 'glm-5.2';
+    return normalizeMemberTextModel(model);
   } catch {
-    return 'glm-5.2';
+    return normalizeMemberTextModel(undefined);
   }
 }
 
@@ -155,7 +156,7 @@ export async function generateManagedText(input: {
   idempotencyKey: string;
   operation: 'analysis' | 'generation' | 'regeneration' | 'deep_update' | 'blind_review';
   workflowId?: string;
-  model?: 'glm-5.2' | 'gpt-5.6-luna';
+  model?: AcceptedMemberTextModel;
   sourceText?: string;
   conference?: string;
   blindReviewContext?: import('@/src/services/memberApiClient').MemberBlindReviewContext;
@@ -361,7 +362,7 @@ export function useMembership() {
   async function managedGenerate(input: {
     idempotencyKey: string;
     provider: 'gemini-3.6-flash' | 'nano-banana-pro' | 'gpt-image-2';
-    model?: 'glm-5.2' | 'gpt-5.6-luna' | 'gemini-3.1-flash-image' | 'gemini-3-pro-image';
+    model?: AcceptedMemberTextModel | 'gemini-3.1-flash-image' | 'gemini-3-pro-image';
     operation:
       | 'analysis'
       | 'generation'

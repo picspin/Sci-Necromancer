@@ -7,6 +7,7 @@ import {
   registerManagedTextWorkflow,
 } from './managedTextWorkflow';
 import { getLockedTextModel } from './textModelWorkflow';
+import { isAcceptedMemberTextModel } from './memberTextModels';
 
 const JEV_CONFERENCES = new Set<Conference>(['ISMRM', 'RSNA', 'ER', 'ASCO', 'ESMO', 'JACC']);
 const inFlightAnalysis = new Map<string, Promise<AnalysisResult>>();
@@ -26,10 +27,7 @@ export async function analyzeJevContent(
 
   const operation = (async () => {
     const lockedModel = getLockedTextModel(workflowContext);
-    if (
-      lockedModel?.source !== 'managed' ||
-      (lockedModel.model !== 'glm-5.2' && lockedModel.model !== 'gpt-5.6-luna')
-    )
+    if (lockedModel?.source !== 'managed' || !isAcceptedMemberTextModel(lockedModel.model))
       throw new Error('typesafe_jev_unavailable');
     // A Jev analysis begins a fresh no-charge staged workflow, even if a prior
     // LLM analysis for this context exists. The server binds the key to its own

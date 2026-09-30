@@ -61,7 +61,7 @@ describe('managed MGA capability routing', () => {
     expect(JSON.stringify(body)).not.toContain('websearch');
   });
 
-  it('uses GLM-5.2 through the MGA v2 chat completion contract', async () => {
+  it('uses DeepSeek V4.1 Flash through the MGA v2 chat completion contract', async () => {
     enableMGA();
     const fetchMock = vi
       .fn()
@@ -83,7 +83,8 @@ describe('managed MGA capability routing', () => {
       type: 'text',
       text: 'revised abstract',
       provider: 'mga',
-      model: 'glm-5.2',
+      model: 'deepseek-v4.1-flash',
+      requestedModel: 'deepseek-v4.1-flash',
       modelType: 'large-language-model',
     });
 
@@ -97,7 +98,7 @@ describe('managed MGA capability routing', () => {
     );
     expect(request.headers).not.toHaveProperty('x-baychatgpt-accesstoken');
     expect(JSON.parse(String(request.body))).toMatchObject({
-      model: 'glm-5.2',
+      model: 'deepseek-v4.1-flash',
       reasoning_effort: 'high',
       stream: false,
       response_format: { type: 'json_object' },
@@ -105,10 +106,10 @@ describe('managed MGA capability routing', () => {
     expect(JSON.parse(String(request.body)).messages[0]).toMatchObject({ role: 'system' });
   });
 
-  it('routes the premium member text option to GPT-5.6 Luna', async () => {
+  it('routes GPT-5.6 Terra to the confirmed MGA deployment and discloses its public name', async () => {
     enableMGA();
     const fetchMock = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify({ choices: [{ message: { content: 'luna result' } }] }), {
+      new Response(JSON.stringify({ choices: [{ message: { content: 'terra result' } }] }), {
         status: 200,
         headers: { 'Content-Type': 'application/json' },
       })
@@ -118,18 +119,45 @@ describe('managed MGA capability routing', () => {
     await expect(
       callManagedProvider({
         provider: 'gemini-3.6-flash',
-        model: 'gpt-5.6-luna',
+        model: 'gpt-5.6-terra',
         prompt: 'Polish this abstract',
       })
     ).resolves.toMatchObject({
       type: 'text',
-      text: 'luna result',
+      text: 'terra result',
       provider: 'mga',
-      model: 'gpt-5.6-luna',
+      model: 'gpt-5.6-terra',
+      requestedModel: 'mga-gpt-terra-5.6',
     });
 
     const body = JSON.parse(String((fetchMock.mock.calls[0][1] as RequestInit).body));
-    expect(body.model).toBe('gpt-5.6-luna');
+    expect(body.model).toBe('mga-gpt-terra-5.6');
+  });
+
+  it('preserves an upstream-reported model instead of falsely claiming Terra', async () => {
+    enableMGA();
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            model: 'mga-gpt-5.6-terra-ptu',
+            choices: [{ message: { content: 'draft' } }],
+          }),
+          { status: 200 }
+        )
+      )
+    );
+    await expect(
+      callManagedProvider({
+        provider: 'gemini-3.6-flash',
+        model: 'gpt-5.6-terra',
+        prompt: 'Polish this abstract',
+      })
+    ).resolves.toMatchObject({
+      model: 'mga-gpt-5.6-terra-ptu',
+      requestedModel: 'mga-gpt-terra-5.6',
+    });
   });
 
   it('routes managed Nano Banana Flash through the MGA v2 chat-completion image contract', async () => {

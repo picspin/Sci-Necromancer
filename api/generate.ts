@@ -29,9 +29,9 @@ import {
 } from '../backend/_help/documentationAssistant.js';
 import { reserveHelpUsage, settleHelpUsage } from '../backend/_help/helpUsage.js';
 import { relayAnthropicRequest } from '../backend/_generation/anthropicByok.js';
+import { isAcceptedMemberTextModel } from '../lib/llm/memberTextModels.js';
 
 const PROVIDERS = new Set<ManagedProvider>(['gemini-3.6-flash', 'nano-banana-pro', 'gpt-image-2']);
-const TEXT_MODELS = new Set(['glm-5.2', 'gpt-5.6-luna']);
 const NANO_BANANA_MODELS = new Set(['gemini-3.1-flash-image', 'gemini-3-pro-image']);
 const TASK_KINDS = new Set<ManagedTaskKind>([
   'analysis_generation',
@@ -205,7 +205,7 @@ export default async function handler(request: VercelRequest, response: VercelRe
       throw new MemberServiceError('invalid_generation_request', 400);
     }
     if (
-      (provider === 'gemini-3.6-flash' && model && !TEXT_MODELS.has(model)) ||
+      (provider === 'gemini-3.6-flash' && model && !isAcceptedMemberTextModel(model)) ||
       (provider === 'nano-banana-pro' && model && !NANO_BANANA_MODELS.has(model)) ||
       (provider === 'gpt-image-2' && model)
     ) {

@@ -81,7 +81,10 @@ describe('ModelManager blind-review settings', () => {
     });
 
     await fireEvent.click(screen.getByRole('button', { name: 'Member benefits' }));
-    expect((screen.getByLabelText('GLM-5.2 - Text') as HTMLInputElement).disabled).toBe(true);
+    expect(
+      (screen.getByLabelText('DeepSeek V4.1 Flash / GPT-5.6 Terra - Text') as HTMLInputElement)
+        .disabled
+    ).toBe(true);
     expect((screen.getByLabelText('Nanobanana pro - Image') as HTMLInputElement).disabled).toBe(
       true
     );

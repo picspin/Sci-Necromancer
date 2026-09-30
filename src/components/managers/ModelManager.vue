@@ -246,7 +246,7 @@
               class="flex min-w-0 items-center justify-between gap-3 rounded-lg border border-base-300 bg-base-200 p-3 text-sm text-text-primary"
             >
               <span class="flex min-w-0 flex-col">
-                <strong>GLM-5.2 - Text</strong>
+                <strong>DeepSeek V4.1 Flash / GPT-5.6 Terra - Text</strong>
                 <small class="mt-1 text-xs font-normal leading-relaxed text-text-secondary">{{
                   t('model_manager.member_model_text_help')
                 }}</small>
@@ -255,7 +255,7 @@
                 v-model="localSettings.memberManagedTextEnabled"
                 type="checkbox"
                 :disabled="!isAuthenticated"
-                aria-label="GLM-5.2 - Text"
+                aria-label="DeepSeek V4.1 Flash / GPT-5.6 Terra - Text"
                 class="h-4 w-4 shrink-0 accent-brand-primary"
               />
             </label>

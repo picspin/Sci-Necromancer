@@ -331,7 +331,7 @@ export interface Settings {
   capabilities?: CapabilitySettings;
   memberManagedTextEnabled?: boolean;
   textGenerationSource?: 'byok' | 'managed';
-  memberManagedTextModel?: 'glm-5.2' | 'gpt-5.6-luna';
+  memberManagedTextModel?: import('./lib/llm/memberTextModels').AcceptedMemberTextModel;
   memberManagedImageEnabled?: boolean;
   memberManagedNanoBananaEnabled?: boolean;
   memberManagedGptImageEnabled?: boolean;

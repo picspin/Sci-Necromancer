@@ -13,6 +13,7 @@ import {
 } from '../backend/_jev/typesafe.js';
 import { prepareMemberApi, sendApiError } from '../backend/_member/http.js';
 import { MemberServiceError } from '../backend/_member/memberService.js';
+import { isAcceptedMemberTextModel } from '../lib/llm/memberTextModels.js';
 import {
   createAdminSupabaseClient,
   createScopedMemberRpcClient,
@@ -312,7 +313,7 @@ export default async function handler(request: VercelRequest, response: VercelRe
     const idempotencyKey = request.headers['idempotency-key'];
     if (typeof idempotencyKey !== 'string' || !idempotencyKey || idempotencyKey.length > 128)
       throw new MemberServiceError('invalid_jev_workflow_request', 400);
-    if (body.model !== 'glm-5.2' && body.model !== 'gpt-5.6-luna')
+    if (!isAcceptedMemberTextModel(body.model))
       throw new MemberServiceError('invalid_jev_workflow_request', 400);
     const cacheKey = canonicalDigest(input);
     const openWorkflow = () =>

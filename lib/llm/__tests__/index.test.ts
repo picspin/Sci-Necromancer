@@ -662,7 +662,7 @@ describe('LLM Index - Provider Selection', () => {
     });
   });
 
-  it('locks the analysis model through generation and releases it before deep update', async () => {
+  it('migrates old preferences while locking each request model through generation', async () => {
     localStorage.setItem(
       'app-settings',
       JSON.stringify({
@@ -691,7 +691,7 @@ describe('LLM Index - Provider Selection', () => {
         workflowId: '55555555-5555-4555-8555-555555555555',
         workflow: { analysisCount: 1, callCount: 2, generationCount: 1, deepUpdateCount: 0 },
         provider: 'mga',
-        model: 'glm-5.2',
+        model: 'deepseek-v4.1-flash',
       })
       .mockResolvedValueOnce({
         text: JSON.stringify({
@@ -703,7 +703,7 @@ describe('LLM Index - Provider Selection', () => {
         workflowId: '55555555-5555-4555-8555-555555555555',
         workflow: { analysisCount: 1, callCount: 3, generationCount: 1, deepUpdateCount: 1 },
         provider: 'mga',
-        model: 'gpt-5.6-luna',
+        model: 'gpt-5.6-terra',
       });
     const { analyzeContentForConference, generateAbstractForConference, generateFinalAbstract } =
       await import('@/lib/llm/index');
@@ -736,16 +736,16 @@ describe('LLM Index - Provider Selection', () => {
       'ER:Model lock source'
     );
 
-    expect(generateManagedTextMock.mock.calls[0][0].model).toBe('glm-5.2');
-    expect(generateManagedTextMock.mock.calls[1][0].model).toBe('glm-5.2');
-    expect(generateManagedTextMock.mock.calls[2][0].model).toBe('gpt-5.6-luna');
+    expect(generateManagedTextMock.mock.calls[0][0].model).toBe('deepseek-v4.1-flash');
+    expect(generateManagedTextMock.mock.calls[1][0].model).toBe('deepseek-v4.1-flash');
+    expect(generateManagedTextMock.mock.calls[2][0].model).toBe('gpt-5.6-terra');
     expect(generated.aiAssistanceRecords).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          model: 'glm-5.2',
+          model: 'deepseek-v4.1-flash',
           operations: ['ER content analysis and classification'],
         }),
-        expect.objectContaining({ model: 'glm-5.2' }),
+        expect.objectContaining({ model: 'deepseek-v4.1-flash' }),
       ])
     );
   });

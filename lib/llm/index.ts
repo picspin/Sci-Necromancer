@@ -38,6 +38,11 @@ import {
 import { assertBlindReviewAssessment } from '../review/blindReview';
 import { resolveTextRoute, selectedByokTextModel } from './capabilityRouting';
 import {
+  DEFAULT_MEMBER_TEXT_MODEL,
+  isAcceptedMemberTextModel,
+  normalizeMemberTextModel,
+} from './memberTextModels';
+import {
   enabledMGAResearchToolIds,
   hasEnabledMGAResearchAgent,
 } from '../capabilities/managedResearchCapabilities';
@@ -85,7 +90,9 @@ const getTextRoute = (workflowContext?: string) => {
   if (locked?.source === 'managed') {
     settings.textGenerationSource = 'managed';
     settings.memberManagedTextEnabled = true;
-    settings.memberManagedTextModel = locked.model === 'gpt-5.6-luna' ? 'gpt-5.6-luna' : 'glm-5.2';
+    settings.memberManagedTextModel = isAcceptedMemberTextModel(locked.model)
+      ? locked.model
+      : DEFAULT_MEMBER_TEXT_MODEL;
   } else if (
     locked?.source === 'byok' &&
     locked.provider !== 'mga' &&
@@ -138,7 +145,7 @@ const currentTextModel = (
     return {
       provider: 'mga',
       providerDisplayName: 'MGA',
-      model: settings.memberManagedTextModel || 'glm-5.2',
+      model: normalizeMemberTextModel(settings.memberManagedTextModel),
     };
   }
   if (settings.provider === 'anthropic') {

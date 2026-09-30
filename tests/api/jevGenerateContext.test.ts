@@ -125,6 +125,20 @@ describe('Jev generation provenance boundary', () => {
     expect(mocks.runManagedGeneration).toHaveBeenCalledOnce();
   });
 
+  it('accepts the new Terra ID while excluding the unverified PTU deployment', async () => {
+    await handler(request({ model: 'gpt-5.6-terra' }), response());
+    expect(mocks.assertContext).toHaveBeenCalledWith(
+      WORKFLOW_ID,
+      expect.objectContaining({ model: 'gpt-5.6-terra' }),
+      'generation'
+    );
+    vi.clearAllMocks();
+    const rejected = response();
+    await handler(request({ model: 'mga-gpt-5.6-terra-ptu' }), rejected);
+    expect(rejected.status).toHaveBeenCalledWith(400);
+    expect(mocks.runManagedGeneration).not.toHaveBeenCalled();
+  });
+
   it('rejects a provenance mismatch without reserving credit or calling the provider', async () => {
     mocks.assertContext.mockRejectedValue(
       new MemberServiceError('jev_generation_context_mismatch', 409)
