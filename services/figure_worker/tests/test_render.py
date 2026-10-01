@@ -5,11 +5,11 @@ import unittest
 from decimal import Decimal
 
 from services.figure_worker.dataset import (
-    DatasetError, parse_csv_bytes, validate_grouped_bar, validate_heatmap, validate_scatter,
+    DatasetError, parse_csv_bytes, validate_grouped_bar, validate_heatmap, validate_scatter, validate_trend,
 )
 from services.figure_worker.render import (
-    _make_figure, _make_heatmap_figure, _make_scatter_figure,
-    render_grouped_bar, render_heatmap, render_scatter,
+    _make_figure, _make_heatmap_figure, _make_scatter_figure, _make_trend_figure,
+    render_grouped_bar, render_heatmap, render_scatter, render_trend,
 )
 
 
@@ -187,6 +187,52 @@ class HeatmapRenderTests(unittest.TestCase):
         with self.assertRaises(DatasetError) as context:
             render_heatmap(data)
         self.assertEqual(context.exception.code, "unsupported_heatmap_glyph")
+
+
+class TrendRenderTests(unittest.TestCase):
+    def test_no_smoothing_accumulation_or_missing_time_imputation(self):
+        parsed = parse_csv_bytes(b"Series,Week,Count\nA,1,3\nB,1,7\nA,3,8\nB,4,9\n")
+        data = validate_trend(parsed, x_column="col_2", value_column="col_3",
+                              series_column="col_1", x_unit="weeks", value_unit="patients")
+        figure = _make_trend_figure(data)
+        try:
+            lines = figure.axes[0].lines
+            self.assertEqual(len(lines), 2)
+            self.assertEqual(lines[0].get_xdata().tolist(), [1.0, 3.0])
+            self.assertEqual(lines[0].get_ydata().tolist(), [3.0, 8.0])
+            self.assertEqual(lines[1].get_ydata().tolist(), [7.0, 9.0])
+            self.assertEqual(len(figure.axes[0].collections), 0)
+            self.assertEqual(figure.axes[0].get_xlabel(), "Week (weeks)")
+        finally:
+            figure.clear()
+
+    def test_three_formats_are_repeatable_without_fit_or_bootstrap(self):
+        data = validate_trend(parse_csv_bytes(b"Week,Count\n1,3\n2,8\n"),
+                              x_column="col_1", value_column="col_2",
+                              x_unit="weeks", value_unit="patients")
+        first, second = render_trend(data), render_trend(data)
+        self.assertEqual(first.template_version, "trend-v1")
+        self.assertEqual(first.randomness, "none")
+        self.assertEqual([(a.format, a.sha256) for a in first.artifacts],
+                         [(a.format, a.sha256) for a in second.artifacts])
+        artifacts = {a.format: a.content for a in first.artifacts}
+        self.assertTrue(artifacts["png"].startswith(b"\x89PNG\r\n\x1a\n"))
+        self.assertTrue(artifacts["pdf"].startswith(b"%PDF-"))
+        self.assertIn(b"<svg", artifacts["svg"][:2000])
+
+    def test_unplottable_float_collision_and_unavailable_glyph_are_rejected(self):
+        data = validate_trend(parse_csv_bytes(b"X,Y\n1,2\n1.00000000000000000001,3\n"),
+                              x_column="col_1", value_column="col_2",
+                              x_unit="days", value_unit="score")
+        with self.assertRaises(DatasetError) as context:
+            render_trend(data)
+        self.assertEqual(context.exception.code, "unordered_or_duplicate_trend_x")
+        data = validate_trend(parse_csv_bytes("时间,Y\n1,2\n".encode()),
+                              x_column="col_1", value_column="col_2",
+                              x_unit="days", value_unit="score")
+        with self.assertRaises(DatasetError) as context:
+            render_trend(data)
+        self.assertEqual(context.exception.code, "unsupported_trend_glyph")
 
 
 if __name__ == "__main__":

@@ -116,6 +116,22 @@ class HeatmapData:
     cells: tuple[HeatmapCell, ...] = field(repr=False)
 
 
+@dataclass(frozen=True)
+class TrendData:
+    template_id: str
+    parser_version: str
+    dataset_hash: str
+    x_column: str
+    value_column: str
+    series_column: str | None
+    x_unit: str
+    value_unit: str
+    x_label: str = field(repr=False)
+    value_label: str = field(repr=False)
+    # Each point's group is the user-mapped series; no grouping inference.
+    points: tuple[ScatterPoint, ...] = field(repr=False)
+
+
 def _numeric_kind(values: list[str]) -> str:
     present = [value for value in values if value.strip()]
     if not present:
@@ -365,3 +381,24 @@ def validate_heatmap(
         raise DatasetError("incomplete_heatmap_matrix")
     return HeatmapData("heatmap", dataset.parser_version, dataset.sha256,
                        row_column, column_column, value_column, unit, tuple(cells))
+
+
+def validate_trend(
+    dataset: ParsedCsv, *, x_column: str, value_column: str,
+    x_unit: str, value_unit: str, series_column: str | None = None,
+) -> TrendData:
+    """Draw supplied numeric observations in order; no smoothing or accumulation."""
+    try:
+        observed = validate_scatter(dataset, x_column=x_column, y_column=value_column,
+                                    x_unit=x_unit, y_unit=value_unit, group_column=series_column)
+    except DatasetError as error:
+        raise DatasetError(error.code.replace("scatter", "trend"),
+                           row=error.row, column=error.column) from error
+    previous: dict[str | None, Decimal] = {}
+    for row_number, point in enumerate(observed.points, start=2):
+        if point.group in previous and point.x <= previous[point.group]:
+            raise DatasetError("unordered_or_duplicate_trend_x", row=row_number, column=x_column)
+        previous[point.group] = point.x
+    return TrendData("trend", observed.parser_version, observed.dataset_hash,
+                     x_column, value_column, series_column, observed.x_unit, observed.y_unit,
+                     observed.x_label, observed.y_label, observed.points)

@@ -18,13 +18,14 @@ from matplotlib.font_manager import FontProperties
 from matplotlib.ft2font import FT2Font
 
 from services.figure_worker.dataset import (
-    DatasetError, GroupedBarData, HeatmapData, MAX_HEATMAP_DIMENSION, ScatterData,
+    DatasetError, GroupedBarData, HeatmapData, MAX_HEATMAP_DIMENSION, ScatterData, TrendData,
 )
 
 
 GROUPED_BAR_TEMPLATE_VERSION = "grouped-bar-v1"
 SCATTER_TEMPLATE_VERSION = "scatter-v1"
 HEATMAP_TEMPLATE_VERSION = "heatmap-v1"
+TREND_TEMPLATE_VERSION = "trend-v1"
 DPI = 160
 HEIGHT_INCHES = 5.5
 FONT_NAME = "DejaVu Sans"
@@ -66,7 +67,7 @@ def _literal_label(value: str) -> str:
     return value.replace("$", r"\$")
 
 
-def _spec_hash(data: GroupedBarData | ScatterData | HeatmapData) -> str:
+def _spec_hash(data: GroupedBarData | ScatterData | HeatmapData | TrendData) -> str:
     if isinstance(data, GroupedBarData):
         spec = {
             "template_version": GROUPED_BAR_TEMPLATE_VERSION,
@@ -87,6 +88,18 @@ def _spec_hash(data: GroupedBarData | ScatterData | HeatmapData) -> str:
             "value_unit": data.value_unit,
             "cells": [(cell.row_label, cell.column_label, str(cell.value)) for cell in data.cells],
             "transform": "none", "ordering": "first-observed", "clustering": "none",
+        }
+    elif isinstance(data, TrendData):
+        spec = {
+            "template_version": TREND_TEMPLATE_VERSION,
+            "dataset_hash": data.dataset_hash,
+            "x_column": data.x_column, "value_column": data.value_column,
+            "series_column": data.series_column,
+            "x_unit": data.x_unit, "value_unit": data.value_unit,
+            "x_label": data.x_label, "value_label": data.value_label,
+            "points": [(str(p.x), str(p.y), p.group) for p in data.points],
+            "transform": "none", "ordering": "source-increasing-per-series",
+            "smoothing": "none", "aggregation": "none",
         }
     else:
         spec = {
@@ -327,6 +340,60 @@ def render_heatmap(data: HeatmapData) -> RenderedFigure:
         raise DatasetError("invalid_heatmap_contract")
     return _export_figure(
         _make_heatmap_figure(data), template_version=HEATMAP_TEMPLATE_VERSION,
+        dataset_hash=data.dataset_hash, parser_version=data.parser_version,
+        figure_spec_hash=_spec_hash(data),
+    )
+
+
+def _make_trend_figure(data: TrendData) -> Figure:
+    if not isinstance(data, TrendData) or data.template_id != "trend" or not data.points:
+        raise DatasetError("invalid_trend_contract")
+    groups = list(dict.fromkeys(point.group for point in data.points))
+    if len(data.points) > 5_000 or len(groups) > len(COLORS):
+        raise DatasetError("trend_limit_exceeded")
+    if any((point.group is None) != (data.series_column is None) for point in data.points):
+        raise DatasetError("invalid_trend_contract")
+    _check_font_coverage([data.x_label, data.value_label, data.x_unit, data.value_unit,
+                          *(group for group in groups if group is not None)],
+                         "unsupported_trend_glyph")
+    previous: dict[str | None, float] = {}
+    for point in data.points:
+        x, y = float(point.x), float(point.y)
+        if not isfinite(x) or not isfinite(y):
+            raise DatasetError("invalid_trend_value")
+        if point.group in previous and x <= previous[point.group]:
+            raise DatasetError("unordered_or_duplicate_trend_x")
+        previous[point.group] = x
+    figure = Figure(figsize=(8.0, HEIGHT_INCHES), dpi=DPI, facecolor="white")
+    FigureCanvasAgg(figure)
+    axis = figure.subplots()
+    for index, group in enumerate(groups):
+        points = [point for point in data.points if point.group == group]
+        axis.plot([float(p.x) for p in points], [float(p.y) for p in points],
+                  marker="o", markersize=4, linewidth=1.2, color=COLORS[index],
+                  label=_literal_label(group) if group is not None else None)
+    font = FontProperties(fname=str(FONT_PATH))
+    axis.set_xlabel(_literal_label(f"{data.x_label} ({data.x_unit})"), fontproperties=font)
+    axis.set_ylabel(_literal_label(f"{data.value_label} ({data.value_unit})"), fontproperties=font)
+    if data.series_column is not None:
+        axis.legend(frameon=False, prop=FontProperties(fname=str(FONT_PATH), size=9))
+    axis.grid(color="#D9E1E5", linewidth=0.6)
+    axis.set_axisbelow(True)
+    axis.spines["top"].set_visible(False)
+    axis.spines["right"].set_visible(False)
+    for label in (*axis.get_xticklabels(), *axis.get_yticklabels(),
+                  axis.xaxis.get_offset_text(), axis.yaxis.get_offset_text()):
+        label.set_fontproperties(font)
+    figure.tight_layout()
+    return figure
+
+
+def render_trend(data: TrendData) -> RenderedFigure:
+    """Render only supplied vertices, including already cumulative input unchanged."""
+    if not isinstance(data, TrendData):
+        raise DatasetError("invalid_trend_contract")
+    return _export_figure(
+        _make_trend_figure(data), template_version=TREND_TEMPLATE_VERSION,
         dataset_hash=data.dataset_hash, parser_version=data.parser_version,
         figure_spec_hash=_spec_hash(data),
     )

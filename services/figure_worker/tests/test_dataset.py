@@ -264,5 +264,43 @@ class HeatmapContractTests(unittest.TestCase):
         self.assertEqual(context.exception.code, "missing_heatmap_label")
 
 
+class TrendContractTests(unittest.TestCase):
+    def test_preserves_interleaved_series_and_already_cumulative_values(self):
+        parsed = figures.parse_csv_bytes(b"Series,Week,Count\nA,1,3\nB,1,7\nA,2,8\nB,3,9\n")
+        data = figures.validate_trend(parsed, x_column="col_2", value_column="col_3",
+                                      series_column="col_1", x_unit="weeks", value_unit="patients")
+        self.assertEqual(data.template_id, "trend")
+        self.assertEqual([(p.group, p.x, p.y) for p in data.points],
+                         [("A", Decimal(1), Decimal(3)), ("B", Decimal(1), Decimal(7)),
+                          ("A", Decimal(2), Decimal(8)), ("B", Decimal(3), Decimal(9))])
+        self.assertNotIn("Count", repr(data))
+
+    def test_duplicate_or_reversed_x_is_not_silently_sorted_or_aggregated(self):
+        for sequence in ["1,3\n1,8", "2,3\n1,8"]:
+            with self.subTest(sequence=sequence), self.assertRaises(figures.DatasetError) as context:
+                figures.validate_trend(figures.parse_csv_bytes(f"Week,Count\n{sequence}\n".encode()),
+                                        x_column="col_1", value_column="col_2",
+                                        x_unit="weeks", value_unit="patients")
+            self.assertEqual(context.exception.code, "unordered_or_duplicate_trend_x")
+            self.assertEqual((context.exception.row, context.exception.column), (3, "col_1"))
+
+    def test_non_numeric_dates_missing_values_and_bounds_fail_explicitly(self):
+        for payload, code in [
+            (b"X,Y\n2026-10-01,2\n", "invalid_trend_value"),
+            (b"X,Y\n1,\n", "missing_trend_value"),
+            (b"X,Y\n1,inf\n", "invalid_trend_value"),
+        ]:
+            with self.subTest(code=code), self.assertRaises(figures.DatasetError) as context:
+                figures.validate_trend(figures.parse_csv_bytes(payload), x_column="col_1",
+                                        value_column="col_2", x_unit="days", value_unit="score")
+            self.assertEqual(context.exception.code, code)
+        with patch.object(figures, "MAX_SCATTER_POINTS", 1):
+            with self.assertRaises(figures.DatasetError) as context:
+                figures.validate_trend(figures.parse_csv_bytes(b"X,Y\n1,2\n2,3\n"),
+                                        x_column="col_1", value_column="col_2",
+                                        x_unit="days", value_unit="score")
+        self.assertEqual(context.exception.code, "trend_limit_exceeded")
+
+
 if __name__ == "__main__":
     unittest.main()
