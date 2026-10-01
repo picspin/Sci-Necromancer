@@ -157,6 +157,27 @@ class IntervalData:
     points: tuple[IntervalPoint, ...] = field(repr=False)
 
 
+@dataclass(frozen=True)
+class RankedPoint:
+    label: str = field(repr=False)
+    value: Decimal
+    group: str | None = field(repr=False)
+
+
+@dataclass(frozen=True)
+class RankedData:
+    template_id: str
+    parser_version: str
+    dataset_hash: str
+    label_column: str
+    value_column: str
+    group_column: str | None
+    value_unit: str
+    ordering: str
+    top_n: int
+    points: tuple[RankedPoint, ...] = field(repr=False)
+
+
 def _numeric_kind(values: list[str]) -> str:
     present = [value for value in values if value.strip()]
     if not present:
@@ -500,3 +521,52 @@ def validate_intervals(
     return IntervalData(template_id, dataset.parser_version, dataset.sha256,
                         label_column, estimate_column, lower_column, upper_column,
                         unit, interval_type, level, effect_type, tuple(points))
+
+
+def validate_ranked(
+    dataset: ParsedCsv, *, label_column: str, value_column: str,
+    value_unit: str, ordering: str, top_n: int, group_column: str | None = None,
+) -> RankedData:
+    """Validate all supplied scores before explicit ranking/top-N; no enrichment."""
+    if ordering not in ("source", "ascending", "descending") or type(top_n) is not int or not 1 <= top_n <= 24:
+        raise DatasetError("invalid_ranked_selection")
+    ids = {column.id: index for index, column in enumerate(dataset.columns)}
+    chosen = [label_column, value_column, *([group_column] if group_column is not None else [])]
+    if (any(not isinstance(column, str) or column not in ids for column in chosen)
+            or len(set(chosen)) != len(chosen)):
+        raise DatasetError("invalid_ranked_mapping")
+    if not isinstance(value_unit, str):
+        raise DatasetError("invalid_ranked_unit")
+    unit = _safe_label(value_unit, max_length=48, error_code="invalid_ranked_unit")
+    points: list[RankedPoint] = []
+    labels: set[str] = set()
+    groups: set[str] = set()
+    for row_number, row in enumerate(dataset._rows, start=2):
+        if len(points) >= MAX_SCATTER_POINTS:
+            raise DatasetError("ranked_limit_exceeded", row=row_number)
+        try:
+            label = _safe_label(row[ids[label_column]], max_length=80, error_code="missing_ranked_label")
+            group = (_safe_label(row[ids[group_column]], max_length=80, error_code="missing_ranked_group")
+                     if group_column is not None else None)
+        except DatasetError as error:
+            raise DatasetError(error.code, row=row_number) from error
+        if label in labels:
+            raise DatasetError("duplicate_ranked_label", row=row_number)
+        raw = row[ids[value_column]].strip()
+        if not raw:
+            raise DatasetError("missing_ranked_value", row=row_number, column=value_column)
+        try:
+            value = Decimal(raw)
+            plotted = float(value)
+        except (InvalidOperation, ValueError, OverflowError) as error:
+            raise DatasetError("invalid_ranked_value", row=row_number, column=value_column) from error
+        if not value.is_finite() or not isfinite(plotted) or (value != 0 and plotted == 0):
+            raise DatasetError("invalid_ranked_value", row=row_number, column=value_column)
+        labels.add(label)
+        if group is not None:
+            groups.add(group)
+            if len(groups) > MAX_SCATTER_GROUPS:
+                raise DatasetError("ranked_limit_exceeded", row=row_number)
+        points.append(RankedPoint(label, value, group))
+    return RankedData("ranked-lollipop", dataset.parser_version, dataset.sha256,
+                      label_column, value_column, group_column, unit, ordering, top_n, tuple(points))

@@ -19,7 +19,7 @@ from matplotlib.ft2font import FT2Font
 
 from services.figure_worker.dataset import (
     DatasetError, GroupedBarData, HeatmapData, IntervalData,
-    MAX_HEATMAP_DIMENSION, MAX_INTERVAL_POINTS, ScatterData, TrendData,
+    MAX_HEATMAP_DIMENSION, MAX_INTERVAL_POINTS, RankedData, ScatterData, TrendData,
 )
 
 
@@ -27,6 +27,7 @@ GROUPED_BAR_TEMPLATE_VERSION = "grouped-bar-v1"
 SCATTER_TEMPLATE_VERSION = "scatter-v1"
 HEATMAP_TEMPLATE_VERSION = "heatmap-v1"
 TREND_TEMPLATE_VERSION = "trend-v1"
+RANKED_TEMPLATE_VERSION = "ranked-lollipop-v1"
 INTERVAL_TEMPLATE_VERSIONS = {"dot-interval": "dot-interval-v1", "forest": "forest-v1"}
 DPI = 160
 HEIGHT_INCHES = 5.5
@@ -69,7 +70,7 @@ def _literal_label(value: str) -> str:
     return value.replace("$", r"\$")
 
 
-def _spec_hash(data: GroupedBarData | ScatterData | HeatmapData | TrendData | IntervalData) -> str:
+def _spec_hash(data: GroupedBarData | ScatterData | HeatmapData | TrendData | IntervalData | RankedData) -> str:
     if isinstance(data, GroupedBarData):
         spec = {
             "template_version": GROUPED_BAR_TEMPLATE_VERSION,
@@ -114,6 +115,15 @@ def _spec_hash(data: GroupedBarData | ScatterData | HeatmapData | TrendData | In
             "effect_type": data.effect_type,
             "points": [(p.label, str(p.estimate), str(p.lower), str(p.upper)) for p in data.points],
             "transform": "none", "pooling": "none", "ordering": "source",
+        }
+    elif isinstance(data, RankedData):
+        spec = {
+            "template_version": RANKED_TEMPLATE_VERSION, "dataset_hash": data.dataset_hash,
+            "label_column": data.label_column, "value_column": data.value_column,
+            "group_column": data.group_column, "value_unit": data.value_unit,
+            "ordering": data.ordering, "top_n": data.top_n, "ties": "source-order",
+            "omitted": max(len(data.points) - data.top_n, 0), "enrichment": "none",
+            "points": [(p.label, str(p.value), p.group) for p in data.points],
         }
     else:
         spec = {
@@ -488,3 +498,60 @@ def render_intervals(data: IntervalData) -> RenderedFigure:
         dataset_hash=data.dataset_hash, parser_version=data.parser_version,
         figure_spec_hash=_spec_hash(data),
     )
+
+
+def _make_ranked_figure(data: RankedData) -> Figure:
+    if (not isinstance(data, RankedData) or data.template_id != "ranked-lollipop" or not data.points
+            or data.ordering not in ("source", "ascending", "descending")
+            or type(data.top_n) is not int or not 1 <= data.top_n <= 24):
+        raise DatasetError("invalid_ranked_contract")
+    groups = list(dict.fromkeys(p.group for p in data.points if p.group is not None))
+    if len(data.points) > 5_000 or len(groups) > len(COLORS):
+        raise DatasetError("ranked_limit_exceeded")
+    if (len({p.label for p in data.points}) != len(data.points)
+            or any((p.group is None) != (data.group_column is None) for p in data.points)):
+        raise DatasetError("invalid_ranked_contract")
+    if any(not isfinite(float(p.value)) or (p.value != 0 and float(p.value) == 0) for p in data.points):
+        raise DatasetError("invalid_ranked_value")
+    ordered = (list(data.points) if data.ordering == "source" else
+               sorted(data.points, key=lambda p: p.value, reverse=data.ordering == "descending"))
+    selected = ordered[:data.top_n]
+    _check_font_coverage([data.value_unit, *groups, *(p.label for p in selected)], "unsupported_ranked_glyph")
+    figure = Figure(figsize=(8.0, HEIGHT_INCHES), dpi=DPI, facecolor="white")
+    FigureCanvasAgg(figure)
+    axis = figure.subplots()
+    plot_groups = groups or [None]
+    for index, group in enumerate(plot_groups):
+        members = [(position, point) for position, point in enumerate(selected) if point.group == group]
+        if not members:
+            continue
+        positions = [position for position, _ in members]
+        values = [float(point.value) for _, point in members]
+        axis.hlines(positions, 0, values, color=COLORS[index], linewidth=1.1)
+        axis.scatter(values, positions, s=28, color=COLORS[index],
+                     label=_literal_label(group) if group is not None else None, zorder=3)
+    font = FontProperties(fname=str(FONT_PATH))
+    axis.set_yticks(range(len(selected)), [_literal_label(p.label) for p in selected])
+    axis.invert_yaxis()
+    axis.set_xlabel(_literal_label(data.value_unit), fontproperties=font)
+    axis.axvline(0, color="#67747B", linewidth=0.7)
+    if groups:
+        axis.legend(frameon=False, prop=FontProperties(fname=str(FONT_PATH), size=9))
+    axis.spines["top"].set_visible(False)
+    axis.spines["right"].set_visible(False)
+    for label in (*axis.get_xticklabels(), *axis.get_yticklabels(), axis.xaxis.get_offset_text()):
+        label.set_fontproperties(font)
+    figure.text(0.02, 0.02, f"Order: {data.ordering}; ties: source order. "
+                f"Shown {len(selected)} of {len(data.points)}; omitted {len(data.points) - len(selected)}.",
+                fontproperties=font, fontsize=8)
+    figure.tight_layout(rect=(0, 0.06, 1, 1))
+    return figure
+
+
+def render_ranked(data: RankedData) -> RenderedFigure:
+    """Render explicitly selected supplied scores and disclose excluded rows."""
+    with rc_context({"text.usetex": False}):
+        figure = _make_ranked_figure(data)
+    return _export_figure(figure, template_version=RANKED_TEMPLATE_VERSION,
+                          dataset_hash=data.dataset_hash, parser_version=data.parser_version,
+                          figure_spec_hash=_spec_hash(data))
