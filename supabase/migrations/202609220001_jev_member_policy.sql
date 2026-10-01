@@ -82,7 +82,7 @@ begin
   if v_minute>=3 or v_day>=30 then
     select max(x) into v_retry from (values (
       case when v_minute>=3 then (select min(created_at)+interval '1 minute' from public.member_jev_analysis_attempts where user_id=p_user_id and created_at>v_now-interval '1 minute') end),
-      case when v_day>=30 then (select min(least(created_at+interval '24 hours', case when status='pending' then lease_expires_at else created_at+interval '24 hours' end)) from public.member_jev_analysis_attempts where user_id=p_user_id and created_at>v_now-interval '24 hours' and status in ('pending','completed')) end)
+      (case when v_day>=30 then (select min(least(created_at+interval '24 hours', case when status='pending' then lease_expires_at else created_at+interval '24 hours' end)) from public.member_jev_analysis_attempts where user_id=p_user_id and created_at>v_now-interval '24 hours' and status in ('pending','completed')) end)
     ) as retries(x);
     return jsonb_build_object('status','limited','retry_at',v_retry,'remaining',greatest(30-v_day,0));
   end if;
