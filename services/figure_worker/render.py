@@ -17,11 +17,14 @@ from matplotlib.figure import Figure
 from matplotlib.font_manager import FontProperties
 from matplotlib.ft2font import FT2Font
 
-from services.figure_worker.dataset import DatasetError, GroupedBarData, ScatterData
+from services.figure_worker.dataset import (
+    DatasetError, GroupedBarData, HeatmapData, MAX_HEATMAP_DIMENSION, ScatterData,
+)
 
 
 GROUPED_BAR_TEMPLATE_VERSION = "grouped-bar-v1"
 SCATTER_TEMPLATE_VERSION = "scatter-v1"
+HEATMAP_TEMPLATE_VERSION = "heatmap-v1"
 DPI = 160
 HEIGHT_INCHES = 5.5
 FONT_NAME = "DejaVu Sans"
@@ -63,7 +66,7 @@ def _literal_label(value: str) -> str:
     return value.replace("$", r"\$")
 
 
-def _spec_hash(data: GroupedBarData | ScatterData) -> str:
+def _spec_hash(data: GroupedBarData | ScatterData | HeatmapData) -> str:
     if isinstance(data, GroupedBarData):
         spec = {
             "template_version": GROUPED_BAR_TEMPLATE_VERSION,
@@ -73,6 +76,17 @@ def _spec_hash(data: GroupedBarData | ScatterData) -> str:
             "group_column": data.group_column,
             "value_unit": data.value_unit,
             "points": [(point.category, point.group, str(point.value)) for point in data.points],
+        }
+    elif isinstance(data, HeatmapData):
+        spec = {
+            "template_version": HEATMAP_TEMPLATE_VERSION,
+            "dataset_hash": data.dataset_hash,
+            "row_column": data.row_column,
+            "column_column": data.column_column,
+            "value_column": data.value_column,
+            "value_unit": data.value_unit,
+            "cells": [(cell.row_label, cell.column_label, str(cell.value)) for cell in data.cells],
+            "transform": "none", "ordering": "first-observed", "clustering": "none",
         }
     else:
         spec = {
@@ -270,6 +284,49 @@ def render_scatter(data: ScatterData) -> RenderedFigure:
         raise DatasetError("invalid_scatter_contract")
     return _export_figure(
         _make_scatter_figure(data), template_version=SCATTER_TEMPLATE_VERSION,
+        dataset_hash=data.dataset_hash, parser_version=data.parser_version,
+        figure_spec_hash=_spec_hash(data),
+    )
+
+
+def _make_heatmap_figure(data: HeatmapData) -> Figure:
+    if not isinstance(data, HeatmapData) or data.template_id != "heatmap" or not data.cells:
+        raise DatasetError("invalid_heatmap_contract")
+    rows = list(dict.fromkeys(cell.row_label for cell in data.cells))
+    columns = list(dict.fromkeys(cell.column_label for cell in data.cells))
+    if max(len(rows), len(columns)) > MAX_HEATMAP_DIMENSION:
+        raise DatasetError("heatmap_limit_exceeded")
+    lookup = {(cell.row_label, cell.column_label): cell.value for cell in data.cells}
+    if len(lookup) != len(data.cells) or len(lookup) != len(rows) * len(columns):
+        raise DatasetError("invalid_heatmap_contract")
+    _check_font_coverage([*rows, *columns, data.value_unit], "unsupported_heatmap_glyph")
+    matrix = [[float(lookup[(row, column)]) for column in columns] for row in rows]
+    if any(not isfinite(value) for row in matrix for value in row):
+        raise DatasetError("invalid_heatmap_value")
+    figure = Figure(figsize=(max(8.0, len(columns) * 0.7), HEIGHT_INCHES),
+                    dpi=DPI, facecolor="white")
+    FigureCanvasAgg(figure)
+    axis = figure.subplots()
+    image = axis.imshow(matrix, cmap="viridis", aspect="auto", interpolation="nearest")
+    axis.set_xticks(range(len(columns)), [_literal_label(label) for label in columns],
+                    rotation=45, ha="right")
+    axis.set_yticks(range(len(rows)), [_literal_label(label) for label in rows])
+    colorbar = figure.colorbar(image, ax=axis)
+    font = FontProperties(fname=str(FONT_PATH))
+    colorbar.set_label(_literal_label(data.value_unit), fontproperties=font)
+    for label in (*axis.get_xticklabels(), *axis.get_yticklabels(),
+                  *colorbar.ax.get_yticklabels(), colorbar.ax.yaxis.get_offset_text()):
+        label.set_fontproperties(font)
+    figure.tight_layout()
+    return figure
+
+
+def render_heatmap(data: HeatmapData) -> RenderedFigure:
+    """Export the supplied raw matrix on one shared color scale, without statistics."""
+    if not isinstance(data, HeatmapData):
+        raise DatasetError("invalid_heatmap_contract")
+    return _export_figure(
+        _make_heatmap_figure(data), template_version=HEATMAP_TEMPLATE_VERSION,
         dataset_hash=data.dataset_hash, parser_version=data.parser_version,
         figure_spec_hash=_spec_hash(data),
     )

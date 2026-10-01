@@ -25,6 +25,7 @@ MAX_GROUPED_BAR_CATEGORIES = 24
 MAX_GROUPED_BAR_GROUPS = 8
 MAX_SCATTER_POINTS = 5_000
 MAX_SCATTER_GROUPS = 8
+MAX_HEATMAP_DIMENSION = 12
 
 
 class DatasetError(ValueError):
@@ -94,6 +95,25 @@ class ScatterData:
     x_label: str = field(repr=False)
     y_label: str = field(repr=False)
     points: tuple[ScatterPoint, ...] = field(repr=False)
+
+
+@dataclass(frozen=True)
+class HeatmapCell:
+    row_label: str = field(repr=False)
+    column_label: str = field(repr=False)
+    value: Decimal
+
+
+@dataclass(frozen=True)
+class HeatmapData:
+    template_id: str
+    parser_version: str
+    dataset_hash: str
+    row_column: str
+    column_column: str
+    value_column: str
+    value_unit: str
+    cells: tuple[HeatmapCell, ...] = field(repr=False)
 
 
 def _numeric_kind(values: list[str]) -> str:
@@ -295,3 +315,53 @@ def validate_scatter(
         y_label=dataset.columns[ids[y_column]].name,
         points=tuple(points),
     )
+
+
+def validate_heatmap(
+    dataset: ParsedCsv, *, row_column: str, column_column: str,
+    value_column: str, value_unit: str,
+) -> HeatmapData:
+    """Accept a complete raw long-form matrix; never fill, aggregate or cluster."""
+    ids = {column.id: index for index, column in enumerate(dataset.columns)}
+    chosen = [row_column, column_column, value_column]
+    if (any(not isinstance(column, str) or column not in ids for column in chosen)
+            or len(set(chosen)) != len(chosen)):
+        raise DatasetError("invalid_heatmap_mapping")
+    if not isinstance(value_unit, str):
+        raise DatasetError("invalid_heatmap_unit")
+    unit = _safe_label(value_unit, max_length=48, error_code="invalid_heatmap_unit")
+    cells: list[HeatmapCell] = []
+    keys: set[tuple[str, str]] = set()
+    rows: set[str] = set()
+    columns: set[str] = set()
+    for row_number, row in enumerate(dataset._rows, start=2):
+        try:
+            row_label = _safe_label(row[ids[row_column]], max_length=80,
+                                    error_code="missing_heatmap_label")
+            column_label = _safe_label(row[ids[column_column]], max_length=80,
+                                       error_code="missing_heatmap_label")
+        except DatasetError as error:
+            raise DatasetError(error.code, row=row_number) from error
+        key = (row_label, column_label)
+        if key in keys:
+            raise DatasetError("duplicate_heatmap_cell", row=row_number)
+        raw_value = row[ids[value_column]].strip()
+        if not raw_value:
+            raise DatasetError("missing_heatmap_value", row=row_number, column=value_column)
+        try:
+            value = Decimal(raw_value)
+            plotted = float(value)
+        except (InvalidOperation, ValueError, OverflowError) as error:
+            raise DatasetError("invalid_heatmap_value", row=row_number, column=value_column) from error
+        if not value.is_finite() or not isfinite(plotted) or (value != 0 and plotted == 0):
+            raise DatasetError("invalid_heatmap_value", row=row_number, column=value_column)
+        keys.add(key)
+        rows.add(row_label)
+        columns.add(column_label)
+        if max(len(rows), len(columns)) > MAX_HEATMAP_DIMENSION:
+            raise DatasetError("heatmap_limit_exceeded", row=row_number)
+        cells.append(HeatmapCell(row_label, column_label, value))
+    if len(keys) != len(rows) * len(columns):
+        raise DatasetError("incomplete_heatmap_matrix")
+    return HeatmapData("heatmap", dataset.parser_version, dataset.sha256,
+                       row_column, column_column, value_column, unit, tuple(cells))

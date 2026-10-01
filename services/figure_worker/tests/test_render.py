@@ -4,8 +4,13 @@ import hashlib
 import unittest
 from decimal import Decimal
 
-from services.figure_worker.dataset import DatasetError, parse_csv_bytes, validate_grouped_bar, validate_scatter
-from services.figure_worker.render import _make_figure, _make_scatter_figure, render_grouped_bar, render_scatter
+from services.figure_worker.dataset import (
+    DatasetError, parse_csv_bytes, validate_grouped_bar, validate_heatmap, validate_scatter,
+)
+from services.figure_worker.render import (
+    _make_figure, _make_heatmap_figure, _make_scatter_figure,
+    render_grouped_bar, render_heatmap, render_scatter,
+)
 
 
 def grouped_data(payload: bytes, *, grouped: bool = False):
@@ -140,6 +145,48 @@ class ScatterRenderTests(unittest.TestCase):
         with self.assertRaises(DatasetError) as context:
             render_scatter(data)
         self.assertEqual(context.exception.code, "unsupported_scatter_glyph")
+
+
+class HeatmapRenderTests(unittest.TestCase):
+    def test_raw_matrix_keeps_first_observed_order_and_shared_scale(self):
+        parsed = parse_csv_bytes(b"Row,Column,Value\nB,Y,-2\nA,Y,3\nB,X,4\nA,X,5\n")
+        data = validate_heatmap(parsed, row_column="col_1", column_column="col_2",
+                                value_column="col_3", value_unit="score")
+        figure = _make_heatmap_figure(data)
+        try:
+            axis = figure.axes[0]
+            self.assertEqual(axis.images[0].get_array().tolist(), [[-2.0, 4.0], [3.0, 5.0]])
+            self.assertEqual([t.get_text() for t in axis.get_xticklabels()], ["Y", "X"])
+            self.assertEqual([t.get_text() for t in axis.get_yticklabels()], ["B", "A"])
+            self.assertEqual(axis.images[0].get_clim(), (-2, 5))
+            self.assertEqual(figure.axes[1].get_ylabel(), "score")
+            self.assertEqual(len(axis.lines), 0)
+        finally:
+            figure.clear()
+
+    def test_three_formats_are_repeatable_and_unit_changes_spec_identity(self):
+        parsed = parse_csv_bytes(b"R,C,V\nA,X,1\nA,Y,2\n")
+        data = validate_heatmap(parsed, row_column="col_1", column_column="col_2",
+                                value_column="col_3", value_unit="score")
+        first, second = render_heatmap(data), render_heatmap(data)
+        self.assertEqual(first.template_version, "heatmap-v1")
+        self.assertEqual([(a.format, a.sha256) for a in first.artifacts],
+                         [(a.format, a.sha256) for a in second.artifacts])
+        artifacts = {a.format: a.content for a in first.artifacts}
+        self.assertTrue(artifacts["png"].startswith(b"\x89PNG\r\n\x1a\n"))
+        self.assertTrue(artifacts["pdf"].startswith(b"%PDF-"))
+        self.assertIn(b"<svg", artifacts["svg"][:2000])
+        other = validate_heatmap(parsed, row_column="col_1", column_column="col_2",
+                                 value_column="col_3", value_unit="count")
+        self.assertNotEqual(first.figure_spec_hash, render_heatmap(other).figure_spec_hash)
+
+    def test_unsupported_labels_fail_before_export(self):
+        parsed = parse_csv_bytes("R,C,V\n患者,X,1\n".encode())
+        data = validate_heatmap(parsed, row_column="col_1", column_column="col_2",
+                                value_column="col_3", value_unit="score")
+        with self.assertRaises(DatasetError) as context:
+            render_heatmap(data)
+        self.assertEqual(context.exception.code, "unsupported_heatmap_glyph")
 
 
 if __name__ == "__main__":

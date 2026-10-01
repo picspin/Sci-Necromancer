@@ -210,5 +210,59 @@ class ScatterContractTests(unittest.TestCase):
         self.assertEqual(context.exception.code, "scatter_limit_exceeded")
 
 
+class HeatmapContractTests(unittest.TestCase):
+    def test_preserves_raw_values_and_rejects_incomplete_or_duplicate_cells(self):
+        parsed = figures.parse_csv_bytes(b"Row,Column,Value\nB,X,-2\nB,Y,5\nA,X,3\nA,Y,4\n")
+        data = figures.validate_heatmap(parsed, row_column="col_1", column_column="col_2",
+                                        value_column="col_3", value_unit="score")
+        self.assertEqual(data.template_id, "heatmap")
+        self.assertEqual([(c.row_label, c.column_label, c.value) for c in data.cells],
+                         [("B", "X", Decimal(-2)), ("B", "Y", Decimal(5)),
+                          ("A", "X", Decimal(3)), ("A", "Y", Decimal(4))])
+        self.assertNotIn("B", repr(data))
+        for payload, code in [
+            (b"R,C,V\nA,X,1\nB,Y,2\n", "incomplete_heatmap_matrix"),
+            (b"R,C,V\nA,X,1\nA,X,2\n", "duplicate_heatmap_cell"),
+        ]:
+            with self.subTest(code=code), self.assertRaises(figures.DatasetError) as context:
+                figures.validate_heatmap(figures.parse_csv_bytes(payload), row_column="col_1",
+                                          column_column="col_2", value_column="col_3", value_unit="score")
+            self.assertEqual(context.exception.code, code)
+
+    def test_invalid_values_report_location_without_value_contents(self):
+        for value, code in [("", "missing_heatmap_value"), ("patient-secret", "invalid_heatmap_value"),
+                            ("NaN", "invalid_heatmap_value"), ("1e999", "invalid_heatmap_value"),
+                            ("1e-999", "invalid_heatmap_value")]:
+            with self.subTest(value=value), self.assertRaises(figures.DatasetError) as context:
+                figures.validate_heatmap(figures.parse_csv_bytes(f"R,C,V\nA,X,{value}\n".encode()),
+                                          row_column="col_1", column_column="col_2",
+                                          value_column="col_3", value_unit="score")
+            self.assertEqual(context.exception.code, code)
+            self.assertEqual((context.exception.row, context.exception.column), (2, "col_3"))
+            self.assertNotIn("patient-secret", str(context.exception))
+
+    def test_mapping_units_labels_and_bounds_are_explicit(self):
+        parsed = figures.parse_csv_bytes(b"R,C,V\nA,X,1\nB,X,2\n")
+        for mapping in [("col_1", "col_1", "col_3"), ("col_1", "col_2", "col_9")]:
+            with self.assertRaises(figures.DatasetError) as context:
+                figures.validate_heatmap(parsed, row_column=mapping[0], column_column=mapping[1],
+                                          value_column=mapping[2], value_unit="score")
+            self.assertEqual(context.exception.code, "invalid_heatmap_mapping")
+        with self.assertRaises(figures.DatasetError) as context:
+            figures.validate_heatmap(parsed, row_column="col_1", column_column="col_2",
+                                      value_column="col_3", value_unit=" ")
+        self.assertEqual(context.exception.code, "invalid_heatmap_unit")
+        with patch.object(figures, "MAX_HEATMAP_DIMENSION", 1):
+            with self.assertRaises(figures.DatasetError) as context:
+                figures.validate_heatmap(parsed, row_column="col_1", column_column="col_2",
+                                          value_column="col_3", value_unit="score")
+        self.assertEqual(context.exception.code, "heatmap_limit_exceeded")
+        parsed = figures.parse_csv_bytes(b"R,C,V\n,X,1\n")
+        with self.assertRaises(figures.DatasetError) as context:
+            figures.validate_heatmap(parsed, row_column="col_1", column_column="col_2",
+                                      value_column="col_3", value_unit="score")
+        self.assertEqual(context.exception.code, "missing_heatmap_label")
+
+
 if __name__ == "__main__":
     unittest.main()
