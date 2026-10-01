@@ -13,6 +13,7 @@ from services.figure_worker.render import (
     RANKED_TEMPLATE_VERSION, SCATTER_TEMPLATE_VERSION, TREND_TEMPLATE_VERSION, VOLCANO_TEMPLATE_VERSION, RenderedFigure,
     render_composition, render_grouped_bar, render_heatmap, render_intervals, render_ranked, render_scatter, render_trend, render_volcano,
 )
+from services.figure_worker.styles import resolve_style, STANDARD_STYLE
 
 
 SCHEMA_VERSION = "figure-spec-v1"
@@ -37,7 +38,7 @@ def render_csv_spec(payload: bytes, spec: dict) -> RenderedFigure:
     if type(spec) is not dict:
         raise DatasetError("invalid_figure_spec")
     required = {"schema_version", "template_id", "template_version", "dataset_sha256", "mapping", "units"}
-    if not required <= spec.keys() or spec.keys() - required - {"interval", "ranking", "composition", "volcano"}:
+    if not required <= spec.keys() or spec.keys() - required - {"interval", "ranking", "composition", "volcano", "style"}:
         raise DatasetError("invalid_figure_spec_fields")
     if spec["schema_version"] != SCHEMA_VERSION:
         raise DatasetError("unsupported_figure_spec_version")
@@ -48,8 +49,9 @@ def render_csv_spec(payload: bytes, spec: dict) -> RenderedFigure:
                        {"ranking"} if template == "ranked-lollipop" else
                        {"composition"} if template == "composition" else
                        {"volcano"} if template == "volcano" else set())
-    if spec.keys() - required - allowed_options:
+    if spec.keys() - required - allowed_options - {"style"}:
         raise DatasetError("invalid_figure_spec_fields")
+    style = resolve_style(spec["style"]) if "style" in spec else STANDARD_STYLE
     if spec["template_version"] != TEMPLATE_VERSIONS[template]:
         raise DatasetError("unsupported_figure_template_version")
     source_hash = spec["dataset_sha256"]
@@ -122,42 +124,42 @@ def render_csv_spec(payload: bytes, spec: dict) -> RenderedFigure:
         return render_grouped_bar(validate_grouped_bar(
             dataset, category_column=mapping["category"], value_column=mapping["value"],
             group_column=mapping.get("group"), value_unit=units["value"],
-        ))
+        ), style=style)
     if template == "scatter":
         return render_scatter(validate_scatter(
             dataset, x_column=mapping["x"], y_column=mapping["y"], group_column=mapping.get("group"),
             x_unit=units["x"], y_unit=units["y"],
-        ))
+        ), style=style)
     if template == "heatmap":
         return render_heatmap(validate_heatmap(
             dataset, row_column=mapping["row"], column_column=mapping["column"],
             value_column=mapping["value"], value_unit=units["value"],
-        ))
+        ), style=style)
     if template == "trend":
         return render_trend(validate_trend(
             dataset, x_column=mapping["x"], value_column=mapping["value"],
             series_column=mapping.get("series"), x_unit=units["x"], value_unit=units["value"],
-        ))
+        ), style=style)
     if template == "ranked-lollipop":
         return render_ranked(validate_ranked(
             dataset, label_column=mapping["label"], value_column=mapping["value"],
             group_column=mapping.get("group"), value_unit=units["value"],
             ordering=ranking["ordering"], top_n=ranking["top_n"],
-        ))
+        ), style=style)
     if template == "composition":
         return render_composition(validate_composition(
             dataset, group_column=mapping["group"], component_column=mapping["component"],
             count_column=mapping["count"], denominator_column=mapping["denominator"],
             count_unit=units["count"], **composition,
-        ))
+        ), style=style)
     if template == "volcano":
         return render_volcano(validate_volcano(
             dataset, identifier_column=mapping["identifier"], log2fc_column=mapping["log2fc"],
             p_column=mapping["p"], **volcano,
-        ))
+        ), style=style)
     return render_intervals(validate_intervals(
         dataset, template_id=template, label_column=mapping["label"],
         estimate_column=mapping["estimate"], lower_column=mapping["lower"], upper_column=mapping["upper"],
         value_unit=units["value"], interval_type=interval["type"],
         ci_level=interval.get("ci_level"), effect_type=interval.get("effect_type"),
-    ))
+    ), style=style)
