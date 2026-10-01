@@ -1,6 +1,6 @@
-import type { Conference } from '@/types';
-import { RSNA_RULESET } from '@/lib/conference/rsnaRules';
-import { getOncologyProfile } from '@/lib/conference/oncologyRules';
+import type { Conference } from '../../types.js';
+import { RSNA_RULESET } from '../conference/rsnaRules.js';
+import { getOncologyProfile } from '../conference/oncologyRules.js';
 
 type ReviewConference = Exclude<Conference, 'IMAGE' | 'JACC' | 'ESC'>;
 
