@@ -23,6 +23,35 @@
 5. **上线后验收。** `curl -i https://www.rad-sci.org/api/health` 应返回 JSON，而不是 SPA HTML，并带有 `X-Sci-Proxy: member-api`。检查首页、会员注册/登录与余额、一次实际会员分析→生成→深度更新、学分变动与 AI 模型披露；对涉及生图的版本另测生图及回退。任何付费烟测应使用明确的测试账户，记录实际扣分，不使用真实用户数据。查看 Vercel 函数日志和浏览器 Network 中 `/api/*` 的响应；不要只依据浏览器里无关的 CDN/扩展报错判断业务成功。
 6. **失败时回退。** 停止继续推广新前端，使用已知正常的 Vercel/Worker 发布版本回退代码；已应用的兼容性数据库迁移通常保留，不要直接删除列或重置生产库。检查失败请求是否已结算/退款，再安排修复。任何会改变既有数据的逆向 SQL 都需要单独审核。
 
+## 2026-10-01：会员请求 500 的后端导入修复
+
+Vercel 生产日志表明，`conferenceBlindReviewRules.js` 中未被改写的 `@/lib` 导入导致 `ERR_MODULE_NOT_FOUND`。`/api/generate` 和 `/api/member/capabilities` 在调用 MGA 前就失败；这是函数加载故障，不是 Terra 上游不可用。共享规则改用显式 `.js` 相对路径，保留模型映射和计费行为。
+
+回归：`tests/api/serverlessImportContract.test.ts` 编译全部 `api/` 入口，再由普通 Node 加载，避免 Vite 的 alias 解析掩盖服务端错误。它是本地回归，不替代实际 Vercel 发布产物检查和线上验收。
+
+本次导入修复：**Supabase 无新迁移；Vercel 需要部署含修复的提交；Cloudflare 无需仅因导入路径变化重建/部署**（前端解析到的规则内容不变）。无环境变量变更。先部署后端候选并验证生成/capabilities 无加载崩溃，再晋升和通过站点代理验证会员生成及实际学分。修复尚未发布到生产。
+
+自动化发布的后续方案见[Agent 发布工作流设计](./specs/2026-10-01-agent-release-workflow.md)。它目前是待确认设计，不是已启用的发布系统。
+
+## 迁移语法报错后继续执行
+
+`supabase db push --dry-run` 只列出待执行文件，不会在 PostgreSQL 中编译或执行 SQL，因此不能证明迁移语法正确。SQL 修复应先在隔离的本地数据库中验证完整迁移链；Jev 分析限流的运行时回归测试为 `supabase test db supabase/tests/jev_member_policy.test.sql`，需本地 Supabase 已启动并应用全部迁移。
+
+普通事务型迁移失败会回滚该文件，之前成功提交的文件保留。先核对远端迁移历史及对象状态，再修复尚未应用的原始文件。对于 `202609220001_jev_member_policy.sql` 的 `case` 语法错误，若历史已包含 `202608110001`，但不包含 `202609220001`，且 Jev 分析表与函数不存在，修复后应剩余 5 个待执行文件（从 `202609220001` 到 `202609300001`）。无需手动删除表、重复执行已完成文件或用 `migration repair` 标记失败文件为已应用。
+
+在项目根目录的本机终端运行以下命令（不是 Supabase SQL Editor），核对 dry-run 清单后才执行 push：
+
+```bash
+supabase migration list --linked
+supabase db push --dry-run --linked
+supabase db push --linked
+supabase migration list --linked
+```
+
+完成后 Local 与 Remote 应全部对应。此次 SQL 语法修复需要 **Supabase：继续应用待执行迁移**；**Vercel：无需因本修复重部署**；**Wrangler：无需因本修复重建或部署**；无环境变量变更。PR #8 的前后端代码若尚未上线，仍按其上线卡片发布；本地测试与只读核对不等于已应用生产迁移。
+
+2026-10-01 只读核对：用户自行应用迁移后，远端已记录全部 11 个本地版本，最新为 `202609300001`；该项目无需因上述语法修复重复 push。此记录不替代其他项目或未来发布的实时核验。
+
 ## PR #8（Jev、ECR 2027、会员文本模型）上线卡片
 
 - **Supabase：需要。** 本 PR 包含多个追加迁移，最近一项是 [`202609300001_member_text_models.sql`](../supabase/migrations/202609300001_member_text_models.sql)。它让 Jev 工作流接受 DeepSeek V4.1 Flash、GPT-5.6 Terra，同时保留旧 ID 供既有工作流兼容。按 dry-run 的完整待执行清单审核，不要只手工执行最后一个文件。
