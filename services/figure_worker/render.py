@@ -253,8 +253,10 @@ def render_grouped_bar(data: GroupedBarData) -> RenderedFigure:
     """Render one validated grouped-bar version to PNG/PDF/SVG bytes in memory."""
     if not isinstance(data, GroupedBarData):
         raise DatasetError("invalid_grouped_bar_contract")
+    with rc_context({"text.usetex": False}):
+        figure = _make_figure(data)
     return _export_figure(
-        _make_figure(data), template_version=GROUPED_BAR_TEMPLATE_VERSION,
+        figure, template_version=GROUPED_BAR_TEMPLATE_VERSION,
         dataset_hash=data.dataset_hash, parser_version=data.parser_version,
         figure_spec_hash=_spec_hash(data),
     )
@@ -309,8 +311,10 @@ def render_scatter(data: ScatterData) -> RenderedFigure:
     """Render raw x/y observations only; never infer a fit or significance."""
     if not isinstance(data, ScatterData):
         raise DatasetError("invalid_scatter_contract")
+    with rc_context({"text.usetex": False}):
+        figure = _make_scatter_figure(data)
     return _export_figure(
-        _make_scatter_figure(data), template_version=SCATTER_TEMPLATE_VERSION,
+        figure, template_version=SCATTER_TEMPLATE_VERSION,
         dataset_hash=data.dataset_hash, parser_version=data.parser_version,
         figure_spec_hash=_spec_hash(data),
     )
@@ -352,8 +356,10 @@ def render_heatmap(data: HeatmapData) -> RenderedFigure:
     """Export the supplied raw matrix on one shared color scale, without statistics."""
     if not isinstance(data, HeatmapData):
         raise DatasetError("invalid_heatmap_contract")
+    with rc_context({"text.usetex": False}):
+        figure = _make_heatmap_figure(data)
     return _export_figure(
-        _make_heatmap_figure(data), template_version=HEATMAP_TEMPLATE_VERSION,
+        figure, template_version=HEATMAP_TEMPLATE_VERSION,
         dataset_hash=data.dataset_hash, parser_version=data.parser_version,
         figure_spec_hash=_spec_hash(data),
     )
@@ -406,8 +412,10 @@ def render_trend(data: TrendData) -> RenderedFigure:
     """Render only supplied vertices, including already cumulative input unchanged."""
     if not isinstance(data, TrendData):
         raise DatasetError("invalid_trend_contract")
+    with rc_context({"text.usetex": False}):
+        figure = _make_trend_figure(data)
     return _export_figure(
-        _make_trend_figure(data), template_version=TREND_TEMPLATE_VERSION,
+        figure, template_version=TREND_TEMPLATE_VERSION,
         dataset_hash=data.dataset_hash, parser_version=data.parser_version,
         figure_spec_hash=_spec_hash(data),
     )
@@ -473,8 +481,10 @@ def render_intervals(data: IntervalData) -> RenderedFigure:
     """Export dot intervals or forest results with explicit type and CI disclosure."""
     if not isinstance(data, IntervalData) or data.template_id not in INTERVAL_TEMPLATE_VERSIONS:
         raise DatasetError("invalid_interval_contract")
+    with rc_context({"text.usetex": False}):
+        figure = _make_interval_figure(data)
     return _export_figure(
-        _make_interval_figure(data), template_version=INTERVAL_TEMPLATE_VERSIONS[data.template_id],
+        figure, template_version=INTERVAL_TEMPLATE_VERSIONS[data.template_id],
         dataset_hash=data.dataset_hash, parser_version=data.parser_version,
         figure_spec_hash=_spec_hash(data),
     )
