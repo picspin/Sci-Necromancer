@@ -27,6 +27,9 @@ MAX_SCATTER_POINTS = 5_000
 MAX_SCATTER_GROUPS = 8
 MAX_HEATMAP_DIMENSION = 12
 MAX_INTERVAL_POINTS = 24
+MAX_COMPOSITION_GROUPS = 12
+MAX_COMPOSITION_COMPONENTS = 8
+MAX_EXACT_COUNT = 2**53 - 1
 
 
 class DatasetError(ValueError):
@@ -176,6 +179,28 @@ class RankedData:
     ordering: str
     top_n: int
     points: tuple[RankedPoint, ...] = field(repr=False)
+
+
+@dataclass(frozen=True)
+class CompositionCell:
+    group: str = field(repr=False)
+    component: str = field(repr=False)
+    count: Decimal
+    denominator: Decimal
+
+
+@dataclass(frozen=True)
+class CompositionData:
+    template_id: str
+    parser_version: str
+    dataset_hash: str
+    group_column: str
+    component_column: str
+    count_column: str
+    denominator_column: str
+    count_unit: str
+    display: str
+    cells: tuple[CompositionCell, ...] = field(repr=False)
 
 
 def _numeric_kind(values: list[str]) -> str:
@@ -570,3 +595,64 @@ def validate_ranked(
         points.append(RankedPoint(label, value, group))
     return RankedData("ranked-lollipop", dataset.parser_version, dataset.sha256,
                       label_column, value_column, group_column, unit, ordering, top_n, tuple(points))
+
+
+def validate_composition(
+    dataset: ParsedCsv, *, group_column: str, component_column: str,
+    count_column: str, denominator_column: str, count_unit: str, display: str,
+    denominator_scope: str, mutually_exclusive: bool, exhaustive: bool,
+) -> CompositionData:
+    """Accept complete integer counts and declared within-group denominators."""
+    if (display not in ("count", "percent") or denominator_scope != "within-group"
+            or mutually_exclusive is not True or exhaustive is not True):
+        raise DatasetError("unconfirmed_composition_semantics")
+    ids = {column.id: index for index, column in enumerate(dataset.columns)}
+    chosen = [group_column, component_column, count_column, denominator_column]
+    if (any(not isinstance(column, str) or column not in ids for column in chosen)
+            or len(set(chosen)) != len(chosen)):
+        raise DatasetError("invalid_composition_mapping")
+    if not isinstance(count_unit, str):
+        raise DatasetError("invalid_composition_unit")
+    unit = _safe_label(count_unit, max_length=48, error_code="invalid_composition_unit")
+    cells: list[CompositionCell] = []
+    keys: set[tuple[str, str]] = set()
+    totals: dict[str, int] = {}
+    denominators: dict[str, Decimal] = {}
+    components: set[str] = set()
+    for row_number, row in enumerate(dataset._rows, start=2):
+        try:
+            group = _safe_label(row[ids[group_column]], max_length=80, error_code="missing_composition_label")
+            component = _safe_label(row[ids[component_column]], max_length=80, error_code="missing_composition_label")
+        except DatasetError as error:
+            raise DatasetError(error.code, row=row_number) from error
+        if (group, component) in keys:
+            raise DatasetError("duplicate_composition_cell", row=row_number)
+        values = []
+        for column in (count_column, denominator_column):
+            try:
+                value = Decimal(row[ids[column]].strip())
+            except InvalidOperation as error:
+                raise DatasetError("invalid_composition_count", row=row_number, column=column) from error
+            if (not value.is_finite() or not 0 <= value <= MAX_EXACT_COUNT
+                    or value != value.to_integral_value()):
+                raise DatasetError("invalid_composition_count", row=row_number, column=column)
+            values.append(value)
+        count, denominator = values
+        if denominator == 0 or count > denominator:
+            raise DatasetError("invalid_composition_denominator", row=row_number)
+        if group in denominators and denominators[group] != denominator:
+            raise DatasetError("inconsistent_composition_denominator", row=row_number)
+        denominators[group] = denominator
+        totals[group] = totals.get(group, 0) + int(count)
+        components.add(component)
+        keys.add((group, component))
+        if len(denominators) > MAX_COMPOSITION_GROUPS or len(components) > MAX_COMPOSITION_COMPONENTS:
+            raise DatasetError("composition_limit_exceeded", row=row_number)
+        cells.append(CompositionCell(group, component, count, denominator))
+    if len(keys) != len(denominators) * len(components):
+        raise DatasetError("incomplete_composition_matrix")
+    if any(Decimal(totals[group]) != denominator for group, denominator in denominators.items()):
+        raise DatasetError("composition_total_mismatch")
+    return CompositionData("composition", dataset.parser_version, dataset.sha256,
+                           group_column, component_column, count_column, denominator_column,
+                           unit, display, tuple(cells))

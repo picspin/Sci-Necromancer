@@ -18,7 +18,8 @@ from matplotlib.font_manager import FontProperties
 from matplotlib.ft2font import FT2Font
 
 from services.figure_worker.dataset import (
-    DatasetError, GroupedBarData, HeatmapData, IntervalData,
+    CompositionData, DatasetError, GroupedBarData, HeatmapData, IntervalData,
+    MAX_COMPOSITION_COMPONENTS, MAX_COMPOSITION_GROUPS, MAX_EXACT_COUNT,
     MAX_HEATMAP_DIMENSION, MAX_INTERVAL_POINTS, RankedData, ScatterData, TrendData,
 )
 
@@ -28,6 +29,7 @@ SCATTER_TEMPLATE_VERSION = "scatter-v1"
 HEATMAP_TEMPLATE_VERSION = "heatmap-v1"
 TREND_TEMPLATE_VERSION = "trend-v1"
 RANKED_TEMPLATE_VERSION = "ranked-lollipop-v1"
+COMPOSITION_TEMPLATE_VERSION = "composition-v1"
 INTERVAL_TEMPLATE_VERSIONS = {"dot-interval": "dot-interval-v1", "forest": "forest-v1"}
 DPI = 160
 HEIGHT_INCHES = 5.5
@@ -70,7 +72,7 @@ def _literal_label(value: str) -> str:
     return value.replace("$", r"\$")
 
 
-def _spec_hash(data: GroupedBarData | ScatterData | HeatmapData | TrendData | IntervalData | RankedData) -> str:
+def _spec_hash(data: GroupedBarData | ScatterData | HeatmapData | TrendData | IntervalData | RankedData | CompositionData) -> str:
     if isinstance(data, GroupedBarData):
         spec = {
             "template_version": GROUPED_BAR_TEMPLATE_VERSION,
@@ -124,6 +126,16 @@ def _spec_hash(data: GroupedBarData | ScatterData | HeatmapData | TrendData | In
             "ordering": data.ordering, "top_n": data.top_n, "ties": "source-order",
             "omitted": max(len(data.points) - data.top_n, 0), "enrichment": "none",
             "points": [(p.label, str(p.value), p.group) for p in data.points],
+        }
+    elif isinstance(data, CompositionData):
+        spec = {
+            "template_version": COMPOSITION_TEMPLATE_VERSION, "dataset_hash": data.dataset_hash,
+            "group_column": data.group_column, "component_column": data.component_column,
+            "count_column": data.count_column, "denominator_column": data.denominator_column,
+            "count_unit": data.count_unit, "display": data.display,
+            "denominator_scope": "within-group", "mutually_exclusive": True, "exhaustive": True,
+            "ordering": "first-observed", "missing": "reject",
+            "cells": [(c.group, c.component, str(c.count), str(c.denominator)) for c in data.cells],
         }
     else:
         spec = {
@@ -553,5 +565,64 @@ def render_ranked(data: RankedData) -> RenderedFigure:
     with rc_context({"text.usetex": False}):
         figure = _make_ranked_figure(data)
     return _export_figure(figure, template_version=RANKED_TEMPLATE_VERSION,
+                          dataset_hash=data.dataset_hash, parser_version=data.parser_version,
+                          figure_spec_hash=_spec_hash(data))
+
+
+def _make_composition_figure(data: CompositionData) -> Figure:
+    if (not isinstance(data, CompositionData) or data.template_id != "composition"
+            or not data.cells or data.display not in ("count", "percent")):
+        raise DatasetError("invalid_composition_contract")
+    groups = list(dict.fromkeys(c.group for c in data.cells))
+    components = list(dict.fromkeys(c.component for c in data.cells))
+    if len(groups) > MAX_COMPOSITION_GROUPS or len(components) > MAX_COMPOSITION_COMPONENTS:
+        raise DatasetError("composition_limit_exceeded")
+    lookup = {(c.group, c.component): c for c in data.cells}
+    if len(lookup) != len(data.cells) or len(lookup) != len(groups) * len(components):
+        raise DatasetError("invalid_composition_contract")
+    for group in groups:
+        cells = [lookup[group, component] for component in components]
+        for cell in cells:
+            if any(not v.is_finite() or not 0 <= v <= MAX_EXACT_COUNT or v != v.to_integral_value()
+                   for v in (cell.count, cell.denominator)):
+                raise DatasetError("invalid_composition_count")
+        denominator = cells[0].denominator
+        if (denominator <= 0 or any(c.denominator != denominator for c in cells)
+                or sum(int(c.count) for c in cells) != int(denominator)):
+            raise DatasetError("invalid_composition_denominator")
+    _check_font_coverage([data.count_unit, *groups, *components], "unsupported_composition_glyph")
+    font = FontProperties(fname=str(FONT_PATH))
+    figure = Figure(figsize=(max(8.0, 0.65 * len(groups) + 3), HEIGHT_INCHES), dpi=DPI, facecolor="white")
+    FigureCanvasAgg(figure)
+    axis = figure.subplots()
+    bottom = [0.0] * len(groups)
+    for index, component in enumerate(components):
+        cells = [lookup[group, component] for group in groups]
+        values = [float(c.count) if data.display == "count" else 100 * float(c.count / c.denominator) for c in cells]
+        axis.bar(range(len(groups)), values, bottom=bottom, width=0.7,
+                 color=COLORS[index], label=_literal_label(component))
+        bottom = [base + value for base, value in zip(bottom, values)]
+    axis.set_xticks(range(len(groups)), [f"{_literal_label(group)}\n(n={int(lookup[group, components[0]].denominator)})"
+                                       for group in groups])
+    axis.set_ylabel(_literal_label(data.count_unit if data.display == "count" else
+                                  f"Percent of {data.count_unit} within group"), fontproperties=font)
+    axis.set_ylim(0, 100 if data.display == "percent" else max(bottom) * 1.08)
+    axis.legend(frameon=False, loc="upper left", bbox_to_anchor=(1, 1),
+                prop=FontProperties(fname=str(FONT_PATH), size=9))
+    axis.spines["top"].set_visible(False)
+    axis.spines["right"].set_visible(False)
+    for label in (*axis.get_xticklabels(), *axis.get_yticklabels(), axis.yaxis.get_offset_text()):
+        label.set_fontproperties(font)
+    figure.text(0.02, 0.02, "Declared mutually exclusive, exhaustive categories; supplied within-group totals.",
+                fontproperties=font, fontsize=8)
+    figure.tight_layout(rect=(0, 0.06, 1, 1))
+    return figure
+
+
+def render_composition(data: CompositionData) -> RenderedFigure:
+    """Show counts or explicitly requested percentages using supplied denominators."""
+    with rc_context({"text.usetex": False}):
+        figure = _make_composition_figure(data)
+    return _export_figure(figure, template_version=COMPOSITION_TEMPLATE_VERSION,
                           dataset_hash=data.dataset_hash, parser_version=data.parser_version,
                           figure_spec_hash=_spec_hash(data))

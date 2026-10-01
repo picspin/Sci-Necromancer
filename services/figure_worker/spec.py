@@ -5,13 +5,13 @@ from __future__ import annotations
 import re
 
 from services.figure_worker.dataset import (
-    DatasetError, parse_csv_bytes, validate_grouped_bar, validate_heatmap,
+    DatasetError, parse_csv_bytes, validate_composition, validate_grouped_bar, validate_heatmap,
     validate_intervals, validate_ranked, validate_scatter, validate_trend,
 )
 from services.figure_worker.render import (
-    GROUPED_BAR_TEMPLATE_VERSION, HEATMAP_TEMPLATE_VERSION, INTERVAL_TEMPLATE_VERSIONS,
+    COMPOSITION_TEMPLATE_VERSION, GROUPED_BAR_TEMPLATE_VERSION, HEATMAP_TEMPLATE_VERSION, INTERVAL_TEMPLATE_VERSIONS,
     RANKED_TEMPLATE_VERSION, SCATTER_TEMPLATE_VERSION, TREND_TEMPLATE_VERSION, RenderedFigure,
-    render_grouped_bar, render_heatmap, render_intervals, render_ranked, render_scatter, render_trend,
+    render_composition, render_grouped_bar, render_heatmap, render_intervals, render_ranked, render_scatter, render_trend,
 )
 
 
@@ -22,6 +22,7 @@ TEMPLATE_VERSIONS = {
     "heatmap": HEATMAP_TEMPLATE_VERSION,
     "trend": TREND_TEMPLATE_VERSION,
     "ranked-lollipop": RANKED_TEMPLATE_VERSION,
+    "composition": COMPOSITION_TEMPLATE_VERSION,
     **INTERVAL_TEMPLATE_VERSIONS,
 }
 
@@ -35,7 +36,7 @@ def render_csv_spec(payload: bytes, spec: dict) -> RenderedFigure:
     if type(spec) is not dict:
         raise DatasetError("invalid_figure_spec")
     required = {"schema_version", "template_id", "template_version", "dataset_sha256", "mapping", "units"}
-    if not required <= spec.keys() or spec.keys() - required - {"interval", "ranking"}:
+    if not required <= spec.keys() or spec.keys() - required - {"interval", "ranking", "composition"}:
         raise DatasetError("invalid_figure_spec_fields")
     if spec["schema_version"] != SCHEMA_VERSION:
         raise DatasetError("unsupported_figure_spec_version")
@@ -43,7 +44,8 @@ def render_csv_spec(payload: bytes, spec: dict) -> RenderedFigure:
     if type(template) is not str or template not in TEMPLATE_VERSIONS:
         raise DatasetError("unavailable_figure_template")
     allowed_options = ({"interval"} if template in INTERVAL_TEMPLATE_VERSIONS else
-                       {"ranking"} if template == "ranked-lollipop" else set())
+                       {"ranking"} if template == "ranked-lollipop" else
+                       {"composition"} if template == "composition" else set())
     if spec.keys() - required - allowed_options:
         raise DatasetError("invalid_figure_spec_fields")
     if spec["template_version"] != TEMPLATE_VERSIONS[template]:
@@ -64,6 +66,8 @@ def render_csv_spec(payload: bytes, spec: dict) -> RenderedFigure:
         roles, optional, unit_roles = {"x", "value"}, {"series"}, {"x", "value"}
     elif template == "ranked-lollipop":
         roles, optional, unit_roles = {"label", "value"}, {"group"}, {"value"}
+    elif template == "composition":
+        roles, optional, unit_roles = {"group", "component", "count", "denominator"}, set(), {"count"}
     else:
         roles, optional, unit_roles = {"label", "estimate", "lower", "upper"}, set(), {"value"}
     if (not roles <= mapping.keys() or mapping.keys() - roles - optional
@@ -88,6 +92,13 @@ def render_csv_spec(payload: bytes, spec: dict) -> RenderedFigure:
         if (type(ranking) is not dict or ranking.keys() != {"ordering", "top_n"}
                 or type(ranking["ordering"]) is not str or type(ranking["top_n"]) is not int):
             raise DatasetError("invalid_figure_spec_ranking")
+    elif template == "composition":
+        composition = spec.get("composition")
+        if (type(composition) is not dict
+                or composition.keys() != {"display", "denominator_scope", "mutually_exclusive", "exhaustive"}
+                or type(composition["display"]) is not str or type(composition["denominator_scope"]) is not str
+                or composition["mutually_exclusive"] is not True or composition["exhaustive"] is not True):
+            raise DatasetError("invalid_figure_spec_composition")
     dataset = parse_csv_bytes(payload)
     if dataset.sha256 != source_hash:
         raise DatasetError("figure_dataset_hash_mismatch")
@@ -116,6 +127,12 @@ def render_csv_spec(payload: bytes, spec: dict) -> RenderedFigure:
             dataset, label_column=mapping["label"], value_column=mapping["value"],
             group_column=mapping.get("group"), value_unit=units["value"],
             ordering=ranking["ordering"], top_n=ranking["top_n"],
+        ))
+    if template == "composition":
+        return render_composition(validate_composition(
+            dataset, group_column=mapping["group"], component_column=mapping["component"],
+            count_column=mapping["count"], denominator_column=mapping["denominator"],
+            count_unit=units["count"], **composition,
         ))
     return render_intervals(validate_intervals(
         dataset, template_id=template, label_column=mapping["label"],

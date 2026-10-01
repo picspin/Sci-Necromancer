@@ -26,6 +26,7 @@ class FigureSpecTests(unittest.TestCase):
             ("dot-interval", b"L,E,Low,High\nA,2,1,3\n", {"label": "col_1", "estimate": "col_2", "lower": "col_3", "upper": "col_4"}, {"value": "score"}, {"interval": {"type": "CI", "ci_level": 95}}),
             ("forest", b"L,E,Low,High\nA,1.2,0.9,1.8\n", {"label": "col_1", "estimate": "col_2", "lower": "col_3", "upper": "col_4"}, {"value": "OR"}, {"interval": {"type": "CI", "ci_level": 95, "effect_type": "OR"}}),
             ("ranked-lollipop", b"L,V\nA,3\nB,5\n", {"label": "col_1", "value": "col_2"}, {"value": "score"}, {"ranking": {"ordering": "descending", "top_n": 1}}),
+            ("composition", b"G,C,N,D\nA,X,2,5\nA,Y,3,5\n", {"group": "col_1", "component": "col_2", "count": "col_3", "denominator": "col_4"}, {"count": "patients"}, {"composition": {"display": "percent", "denominator_scope": "within-group", "mutually_exclusive": True, "exhaustive": True}}),
         ]
         self.assertEqual({case[0] for case in cases}, set(figures.TEMPLATE_VERSIONS))
         for template, payload, mapping, units, extra in cases:
@@ -108,6 +109,16 @@ class FigureSpecTests(unittest.TestCase):
         with self.assertRaises(DatasetError):
             figures.render_csv_spec(payload, {**base, "ranking": {"ordering": "source", "top_n": 1},
                                              "interval": {"type": "CI"}})
+
+    def test_composition_requires_confirmation_not_a_model_assumed_denominator(self):
+        payload = b"G,C,N,D\nA,X,2,2\n"
+        base = self.plan(payload, "composition", {"group": "col_1", "component": "col_2",
+                         "count": "col_3", "denominator": "col_4"}, {"count": "patients"})
+        valid = dict(display="count", denominator_scope="within-group", mutually_exclusive=True, exhaustive=True)
+        for options in (None, {**valid, "exhaustive": False}, {**valid, "mutually_exclusive": 1},
+                        {**valid, "denominator_scope": "global"}, {**valid, "script": "x"}):
+            with self.subTest(options=options), self.assertRaises(DatasetError):
+                figures.render_csv_spec(payload, {**base, "composition": options})
 
 
 if __name__ == "__main__":
