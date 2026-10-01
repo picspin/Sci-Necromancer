@@ -302,5 +302,76 @@ class TrendContractTests(unittest.TestCase):
         self.assertEqual(context.exception.code, "trend_limit_exceeded")
 
 
+class IntervalContractTests(unittest.TestCase):
+    def validate(self, payload=b"Label,Estimate,Lower,Upper\nTrial A,1.2,0.9,1.8\n", **options):
+        defaults = dict(template_id="forest", label_column="col_1", estimate_column="col_2",
+                        lower_column="col_3", upper_column="col_4", value_unit="OR",
+                        interval_type="CI", ci_level=95, effect_type="OR")
+        defaults.update(options)
+        return figures.validate_intervals(figures.parse_csv_bytes(payload), **defaults)
+
+    def test_keeps_asymmetric_user_bounds_and_explicit_interval_meaning(self):
+        data = self.validate()
+        self.assertEqual(data.template_id, "forest")
+        self.assertEqual(data.ci_level, Decimal(95))
+        self.assertEqual((data.points[0].estimate, data.points[0].lower, data.points[0].upper),
+                         (Decimal("1.2"), Decimal("0.9"), Decimal("1.8")))
+        self.assertNotIn("Trial A", repr(data))
+        data = self.validate(template_id="dot-interval", effect_type=None, value_unit="score",
+                             interval_type="SD", ci_level=None)
+        self.assertIsNone(data.ci_level)
+        self.assertEqual(data.interval_type, "SD")
+
+    def test_requires_interval_type_ci_level_and_one_effect_semantic(self):
+        for options, code in [
+            ({"template_id": "unknown"}, "invalid_interval_template"),
+            ({"interval_type": "unknown"}, "invalid_interval_type"),
+            ({"ci_level": None}, "invalid_interval_ci_level"),
+            ({"ci_level": "NaN"}, "invalid_interval_ci_level"),
+            ({"ci_level": 0}, "invalid_interval_ci_level"),
+            ({"ci_level": 100}, "invalid_interval_ci_level"),
+            ({"effect_type": "OR/RR"}, "invalid_forest_effect_type"),
+            ({"effect_type": "HR", "value_unit": "OR"}, "invalid_forest_unit"),
+            ({"interval_type": "SE"}, "invalid_forest_effect_type"),
+            ({"template_id": "dot-interval"}, "invalid_interval_effect_type"),
+            ({"template_id": "dot-interval", "effect_type": None, "interval_type": "SD"},
+             "invalid_interval_ci_level"),
+        ]:
+            with self.subTest(options=options), self.assertRaises(figures.DatasetError) as context:
+                self.validate(**options)
+            self.assertEqual(context.exception.code, code)
+
+    def test_invalid_nonfinite_missing_bounds_and_log_ratios_fail_without_imputation(self):
+        for row, code in [
+            ("A,1,2,3", "invalid_interval_bounds"),
+            ("A,1,0.5,0.8", "invalid_interval_bounds"),
+            ("A,1,0,2", "nonpositive_forest_ratio"),
+            ("A,1,-1,2", "nonpositive_forest_ratio"),
+            ("A,1,,2", "missing_interval_value"),
+            ("A,1,NaN,2", "invalid_interval_value"),
+            ("A,1,0.5,inf", "invalid_interval_value"),
+            ("A,1,1e-999,2", "invalid_interval_value"),
+            (",1,0.5,2", "missing_interval_label"),
+        ]:
+            with self.subTest(row=row), self.assertRaises(figures.DatasetError) as context:
+                self.validate(f"L,E,Low,High\n{row}\n".encode())
+            self.assertEqual(context.exception.code, code)
+            self.assertEqual(context.exception.row, 2)
+        data = self.validate(b"L,E,Low,High\nA,-1,-2,0\n", effect_type="MD", value_unit="mm")
+        self.assertEqual(data.points[0].estimate, Decimal(-1))
+
+    def test_unique_mapping_labels_and_bounds_limits(self):
+        with self.assertRaises(figures.DatasetError) as context:
+            self.validate(upper_column="col_2")
+        self.assertEqual(context.exception.code, "invalid_interval_mapping")
+        with self.assertRaises(figures.DatasetError) as context:
+            self.validate(b"L,E,Low,High\nA,1,0.5,2\nA,2,1,3\n")
+        self.assertEqual(context.exception.code, "duplicate_interval_label")
+        with patch.object(figures, "MAX_INTERVAL_POINTS", 1):
+            with self.assertRaises(figures.DatasetError) as context:
+                self.validate(b"L,E,Low,High\nA,1,0.5,2\nB,2,1,3\n")
+        self.assertEqual(context.exception.code, "interval_limit_exceeded")
+
+
 if __name__ == "__main__":
     unittest.main()

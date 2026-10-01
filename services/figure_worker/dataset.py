@@ -26,6 +26,7 @@ MAX_GROUPED_BAR_GROUPS = 8
 MAX_SCATTER_POINTS = 5_000
 MAX_SCATTER_GROUPS = 8
 MAX_HEATMAP_DIMENSION = 12
+MAX_INTERVAL_POINTS = 24
 
 
 class DatasetError(ValueError):
@@ -130,6 +131,30 @@ class TrendData:
     value_label: str = field(repr=False)
     # Each point's group is the user-mapped series; no grouping inference.
     points: tuple[ScatterPoint, ...] = field(repr=False)
+
+
+@dataclass(frozen=True)
+class IntervalPoint:
+    label: str = field(repr=False)
+    estimate: Decimal
+    lower: Decimal
+    upper: Decimal
+
+
+@dataclass(frozen=True)
+class IntervalData:
+    template_id: str
+    parser_version: str
+    dataset_hash: str
+    label_column: str
+    estimate_column: str
+    lower_column: str
+    upper_column: str
+    value_unit: str
+    interval_type: str
+    ci_level: Decimal | None
+    effect_type: str | None
+    points: tuple[IntervalPoint, ...] = field(repr=False)
 
 
 def _numeric_kind(values: list[str]) -> str:
@@ -402,3 +427,76 @@ def validate_trend(
     return TrendData("trend", observed.parser_version, observed.dataset_hash,
                      x_column, value_column, series_column, observed.x_unit, observed.y_unit,
                      observed.x_label, observed.y_label, observed.points)
+
+
+def validate_intervals(
+    dataset: ParsedCsv, *, template_id: str, label_column: str,
+    estimate_column: str, lower_column: str, upper_column: str,
+    value_unit: str, interval_type: str, ci_level: int | float | str | Decimal | None = None,
+    effect_type: str | None = None,
+) -> IntervalData:
+    """Display explicitly supplied bounds; never estimate errors or pooled effects."""
+    if template_id not in ("dot-interval", "forest"):
+        raise DatasetError("invalid_interval_template")
+    if interval_type not in ("CI", "SD", "SE"):
+        raise DatasetError("invalid_interval_type")
+    if template_id == "forest":
+        if interval_type != "CI" or effect_type not in ("OR", "RR", "HR", "MD", "SMD"):
+            raise DatasetError("invalid_forest_effect_type")
+    elif effect_type is not None:
+        raise DatasetError("invalid_interval_effect_type")
+    level = None
+    if interval_type == "CI":
+        try:
+            level = Decimal(str(ci_level))
+        except InvalidOperation as error:
+            raise DatasetError("invalid_interval_ci_level") from error
+        if not level.is_finite() or not 0 < level < 100:
+            raise DatasetError("invalid_interval_ci_level")
+    elif ci_level is not None:
+        raise DatasetError("invalid_interval_ci_level")
+    ids = {column.id: index for index, column in enumerate(dataset.columns)}
+    chosen = [label_column, estimate_column, lower_column, upper_column]
+    if (any(not isinstance(column, str) or column not in ids for column in chosen)
+            or len(set(chosen)) != len(chosen)):
+        raise DatasetError("invalid_interval_mapping")
+    if not isinstance(value_unit, str):
+        raise DatasetError("invalid_interval_unit")
+    unit = _safe_label(value_unit, max_length=48, error_code="invalid_interval_unit")
+    if effect_type in ("OR", "RR", "HR", "SMD") and unit != effect_type:
+        raise DatasetError("invalid_forest_unit")
+    points: list[IntervalPoint] = []
+    labels: set[str] = set()
+    for row_number, row in enumerate(dataset._rows, start=2):
+        if len(points) >= MAX_INTERVAL_POINTS:
+            raise DatasetError("interval_limit_exceeded", row=row_number)
+        try:
+            label = _safe_label(row[ids[label_column]], max_length=80,
+                                error_code="missing_interval_label")
+        except DatasetError as error:
+            raise DatasetError(error.code, row=row_number, column=label_column) from error
+        if label in labels:
+            raise DatasetError("duplicate_interval_label", row=row_number)
+        values = []
+        for column in (estimate_column, lower_column, upper_column):
+            raw = row[ids[column]].strip()
+            if not raw:
+                raise DatasetError("missing_interval_value", row=row_number, column=column)
+            try:
+                value = Decimal(raw)
+                plotted = float(value)
+            except (InvalidOperation, ValueError, OverflowError) as error:
+                raise DatasetError("invalid_interval_value", row=row_number, column=column) from error
+            if not value.is_finite() or not isfinite(plotted) or (value != 0 and plotted == 0):
+                raise DatasetError("invalid_interval_value", row=row_number, column=column)
+            values.append(value)
+        estimate, lower, upper = values
+        if not lower <= estimate <= upper:
+            raise DatasetError("invalid_interval_bounds", row=row_number)
+        if effect_type in ("OR", "RR", "HR") and lower <= 0:
+            raise DatasetError("nonpositive_forest_ratio", row=row_number, column=lower_column)
+        labels.add(label)
+        points.append(IntervalPoint(label, estimate, lower, upper))
+    return IntervalData(template_id, dataset.parser_version, dataset.sha256,
+                        label_column, estimate_column, lower_column, upper_column,
+                        unit, interval_type, level, effect_type, tuple(points))

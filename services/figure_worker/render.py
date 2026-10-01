@@ -18,7 +18,8 @@ from matplotlib.font_manager import FontProperties
 from matplotlib.ft2font import FT2Font
 
 from services.figure_worker.dataset import (
-    DatasetError, GroupedBarData, HeatmapData, MAX_HEATMAP_DIMENSION, ScatterData, TrendData,
+    DatasetError, GroupedBarData, HeatmapData, IntervalData,
+    MAX_HEATMAP_DIMENSION, MAX_INTERVAL_POINTS, ScatterData, TrendData,
 )
 
 
@@ -26,6 +27,7 @@ GROUPED_BAR_TEMPLATE_VERSION = "grouped-bar-v1"
 SCATTER_TEMPLATE_VERSION = "scatter-v1"
 HEATMAP_TEMPLATE_VERSION = "heatmap-v1"
 TREND_TEMPLATE_VERSION = "trend-v1"
+INTERVAL_TEMPLATE_VERSIONS = {"dot-interval": "dot-interval-v1", "forest": "forest-v1"}
 DPI = 160
 HEIGHT_INCHES = 5.5
 FONT_NAME = "DejaVu Sans"
@@ -67,7 +69,7 @@ def _literal_label(value: str) -> str:
     return value.replace("$", r"\$")
 
 
-def _spec_hash(data: GroupedBarData | ScatterData | HeatmapData | TrendData) -> str:
+def _spec_hash(data: GroupedBarData | ScatterData | HeatmapData | TrendData | IntervalData) -> str:
     if isinstance(data, GroupedBarData):
         spec = {
             "template_version": GROUPED_BAR_TEMPLATE_VERSION,
@@ -100,6 +102,18 @@ def _spec_hash(data: GroupedBarData | ScatterData | HeatmapData | TrendData) -> 
             "points": [(str(p.x), str(p.y), p.group) for p in data.points],
             "transform": "none", "ordering": "source-increasing-per-series",
             "smoothing": "none", "aggregation": "none",
+        }
+    elif isinstance(data, IntervalData):
+        spec = {
+            "template_version": INTERVAL_TEMPLATE_VERSIONS[data.template_id],
+            "dataset_hash": data.dataset_hash,
+            "label_column": data.label_column, "estimate_column": data.estimate_column,
+            "lower_column": data.lower_column, "upper_column": data.upper_column,
+            "value_unit": data.value_unit, "interval_type": data.interval_type,
+            "ci_level": str(data.ci_level) if data.ci_level is not None else None,
+            "effect_type": data.effect_type,
+            "points": [(p.label, str(p.estimate), str(p.lower), str(p.upper)) for p in data.points],
+            "transform": "none", "pooling": "none", "ordering": "source",
         }
     else:
         spec = {
@@ -394,6 +408,73 @@ def render_trend(data: TrendData) -> RenderedFigure:
         raise DatasetError("invalid_trend_contract")
     return _export_figure(
         _make_trend_figure(data), template_version=TREND_TEMPLATE_VERSION,
+        dataset_hash=data.dataset_hash, parser_version=data.parser_version,
+        figure_spec_hash=_spec_hash(data),
+    )
+
+
+def _make_interval_figure(data: IntervalData) -> Figure:
+    if (not isinstance(data, IntervalData) or data.template_id not in INTERVAL_TEMPLATE_VERSIONS
+            or not data.points):
+        raise DatasetError("invalid_interval_contract")
+    if len(data.points) > MAX_INTERVAL_POINTS:
+        raise DatasetError("interval_limit_exceeded")
+    ratio = data.effect_type in ("OR", "RR", "HR")
+    if (data.interval_type not in ("CI", "SD", "SE")
+            or (data.interval_type == "CI" and
+                (data.ci_level is None or not data.ci_level.is_finite() or not 0 < data.ci_level < 100))
+            or (data.interval_type != "CI" and data.ci_level is not None)
+            or (data.template_id == "forest" and
+                (data.interval_type != "CI" or data.effect_type not in ("OR", "RR", "HR", "MD", "SMD")))
+            or (data.template_id == "dot-interval" and data.effect_type is not None)
+            or (data.effect_type in ("OR", "RR", "HR", "SMD") and data.value_unit != data.effect_type)):
+        raise DatasetError("invalid_interval_contract")
+    labels = [point.label for point in data.points]
+    if len(set(labels)) != len(labels):
+        raise DatasetError("duplicate_interval_label")
+    _check_font_coverage([*labels, data.value_unit], "unsupported_interval_glyph")
+    for point in data.points:
+        if any(not isfinite(float(v)) or (v != 0 and float(v) == 0)
+               for v in (point.estimate, point.lower, point.upper)):
+            raise DatasetError("invalid_interval_value")
+        if not point.lower <= point.estimate <= point.upper:
+            raise DatasetError("invalid_interval_bounds")
+        if ratio and point.lower <= 0:
+            raise DatasetError("nonpositive_forest_ratio")
+    figure = Figure(figsize=(8.0, HEIGHT_INCHES), dpi=DPI, facecolor="white")
+    FigureCanvasAgg(figure)
+    axis = figure.subplots()
+    positions = list(range(len(data.points)))
+    # Endpoints are supplied by the author, not derived from an error magnitude.
+    axis.hlines(positions, [float(p.lower) for p in data.points],
+                [float(p.upper) for p in data.points], color=COLORS[0], linewidth=1.2)
+    axis.scatter([float(p.estimate) for p in data.points], positions,
+                 s=30, color=COLORS[0], zorder=3)
+    if ratio:
+        axis.set_xscale("log")
+    if data.template_id == "forest":
+        axis.axvline(1 if ratio else 0, color="#67747B", linestyle="--", linewidth=0.8)
+    axis.set_yticks(positions, [_literal_label(label) for label in labels])
+    axis.invert_yaxis()
+    interval_label = f"{data.ci_level}% CI" if data.interval_type == "CI" else data.interval_type
+    font = FontProperties(fname=str(FONT_PATH))
+    axis.set_xlabel(_literal_label(f"{data.value_unit} ({interval_label})"), fontproperties=font)
+    axis.spines["top"].set_visible(False)
+    axis.spines["right"].set_visible(False)
+    axis.grid(axis="x", color="#D9E1E5", linewidth=0.6)
+    axis.set_axisbelow(True)
+    for label in (*axis.get_xticklabels(), *axis.get_yticklabels(), axis.xaxis.get_offset_text()):
+        label.set_fontproperties(font)
+    figure.tight_layout()
+    return figure
+
+
+def render_intervals(data: IntervalData) -> RenderedFigure:
+    """Export dot intervals or forest results with explicit type and CI disclosure."""
+    if not isinstance(data, IntervalData) or data.template_id not in INTERVAL_TEMPLATE_VERSIONS:
+        raise DatasetError("invalid_interval_contract")
+    return _export_figure(
+        _make_interval_figure(data), template_version=INTERVAL_TEMPLATE_VERSIONS[data.template_id],
         dataset_hash=data.dataset_hash, parser_version=data.parser_version,
         figure_spec_hash=_spec_hash(data),
     )
