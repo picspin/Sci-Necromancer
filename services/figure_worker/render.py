@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from hashlib import sha256
 from io import BytesIO
 import json
@@ -14,9 +14,14 @@ from textwrap import wrap
 import matplotlib
 from matplotlib import get_data_path, rc_context
 from matplotlib.backends.backend_agg import FigureCanvasAgg
+from matplotlib.collections import Collection
+from matplotlib.colors import to_rgba
 from matplotlib.figure import Figure
 from matplotlib.font_manager import FontProperties
 from matplotlib.ft2font import FT2Font
+from matplotlib.lines import Line2D
+from matplotlib.patches import Patch
+from matplotlib.text import Text
 
 from services.figure_worker.dataset import (
     CompositionData, DatasetError, GroupedBarData, HeatmapData, IntervalData,
@@ -24,6 +29,7 @@ from services.figure_worker.dataset import (
     MAX_HEATMAP_DIMENSION, MAX_INTERVAL_POINTS, RankedData, ScatterData, TrendData,
     VolcanoData, validate_volcano_options, volcano_ordinate,
 )
+from services.figure_worker.styles import FigureStyle, STANDARD_STYLE, STYLES
 
 
 GROUPED_BAR_TEMPLATE_VERSION = "grouped-bar-v1"
@@ -40,8 +46,7 @@ FONT_NAME = "DejaVu Sans"
 FONT_PATH = Path(get_data_path()) / "fonts" / "ttf" / "DejaVuSans.ttf"
 FONT_SHA256 = sha256(FONT_PATH.read_bytes()).hexdigest()
 LOCK_SHA256 = sha256(Path(__file__).with_name("uv.lock").read_bytes()).hexdigest()
-COLORS = ("#0B6970", "#B35431", "#4A6099", "#78639B",
-          "#729444", "#A4436D", "#9A742E", "#567F8F")
+COLORS = STANDARD_STYLE.palette
 
 
 @dataclass(frozen=True)
@@ -67,6 +72,9 @@ class RenderedFigure:
     width_inches: float
     height_inches: float
     randomness: str
+    style_id: str
+    style_version: str
+    style_sha256: str
     artifacts: tuple[FigureArtifact, ...] = field(repr=False)
 
 
@@ -240,11 +248,55 @@ def _make_figure(data: GroupedBarData) -> Figure:
     return figure
 
 
+def _apply_style(figure: Figure, style: FigureStyle) -> None:
+    """Change existing artist appearance only; retain positions, scales and warnings."""
+    colors = {to_rgba(old)[:3]: to_rgba(new)[:3]
+              for old, new in zip(COLORS, style.palette)}
+
+    def recolor(value):
+        rgba = to_rgba(value)
+        return (*colors.get(rgba[:3], rgba[:3]), rgba[3])
+
+    for axis in figure.axes:
+        for image in axis.images:
+            image.set_cmap(style.heatmap_cmap)
+    # findobj includes legend copies; each artist is visited once.
+    for artist in figure.findobj():
+        if isinstance(artist, Patch):
+            artist.set_facecolor(recolor(artist.get_facecolor()))
+            artist.set_edgecolor(recolor(artist.get_edgecolor()))
+        elif isinstance(artist, Line2D):
+            original = to_rgba(artist.get_color())
+            artist.set_color(recolor(original))
+            if original[:3] in colors:
+                artist.set_linewidth(artist.get_linewidth() * style.line_scale)
+        elif isinstance(artist, Collection):
+            original = artist.get_facecolors()
+            edges = artist.get_edgecolors()
+            # Continuous colorbars use a scalar mapping; do not replace it with a palette.
+            if artist.get_array() is None:
+                artist.set_facecolors([recolor(c) for c in original])
+                artist.set_edgecolors([recolor(c) for c in edges])
+                if any(tuple(c[:3]) in colors for c in (*original, *edges)):
+                    artist.set_linewidths(artist.get_linewidths() * style.line_scale)
+        elif isinstance(artist, Text) and artist not in figure.texts:
+            artist.set_fontsize(artist.get_fontsize() * style.font_scale)
+
+
 def _export_figure(
     figure: Figure, *, template_version: str, dataset_hash: str,
-    parser_version: str, figure_spec_hash: str,
+    parser_version: str, figure_spec_hash: str, style: FigureStyle = STANDARD_STYLE,
 ) -> RenderedFigure:
     """Export a frozen figure to three formats with identical input provenance."""
+    if type(style) is not FigureStyle or STYLES.get(style.id) is not style:
+        figure.clear()
+        raise DatasetError("invalid_figure_style")
+    style_hash = sha256(json.dumps({"profile": asdict(style), "font_sha256": FONT_SHA256},
+                                  sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+    if style is not STANDARD_STYLE:
+        figure_spec_hash = sha256(json.dumps({"data_spec_hash": figure_spec_hash,
+                                             "style_sha256": style_hash},
+                                            sort_keys=True).encode()).hexdigest()
     with rc_context({
         "font.family": FONT_NAME,
         "text.usetex": False,
@@ -252,6 +304,8 @@ def _export_figure(
         "svg.hashsalt": figure_spec_hash,
     }):
         try:
+            if style is not STANDARD_STYLE:
+                _apply_style(figure, style)
             outputs = []
             for format_name, media_type, metadata in (
                 ("png", "image/png", {"Software": "Sci-Necromancer figure worker"}),
@@ -259,7 +313,10 @@ def _export_figure(
                 ("svg", "image/svg+xml", {"Date": None, "Creator": "Sci-Necromancer figure worker"}),
             ):
                 stream = BytesIO()
-                figure.savefig(stream, format=format_name, dpi=DPI, metadata=metadata,
+                if style is not STANDARD_STYLE:
+                    key = {"png": "Description", "pdf": "Subject", "svg": "Description"}[format_name]
+                    metadata[key] = f"{style.version}; style_sha256={style_hash}; figure_spec_hash={figure_spec_hash}"
+                figure.savefig(stream, format=format_name, dpi=style.dpi, metadata=metadata,
                                facecolor="white")
                 content = stream.getvalue()
                 outputs.append(FigureArtifact(
@@ -278,15 +335,18 @@ def _export_figure(
         dependency_lock_sha256=LOCK_SHA256,
         font=FONT_NAME,
         font_sha256=FONT_SHA256,
-        dpi=DPI,
+        dpi=style.dpi,
         width_inches=float(figure.get_size_inches()[0]),
         height_inches=HEIGHT_INCHES,
         randomness="none",
+        style_id=style.id,
+        style_version=style.version,
+        style_sha256=style_hash,
         artifacts=tuple(outputs),
     )
 
 
-def render_grouped_bar(data: GroupedBarData) -> RenderedFigure:
+def render_grouped_bar(data: GroupedBarData, *, style: FigureStyle = STANDARD_STYLE) -> RenderedFigure:
     """Render one validated grouped-bar version to PNG/PDF/SVG bytes in memory."""
     if not isinstance(data, GroupedBarData):
         raise DatasetError("invalid_grouped_bar_contract")
@@ -295,7 +355,7 @@ def render_grouped_bar(data: GroupedBarData) -> RenderedFigure:
     return _export_figure(
         figure, template_version=GROUPED_BAR_TEMPLATE_VERSION,
         dataset_hash=data.dataset_hash, parser_version=data.parser_version,
-        figure_spec_hash=_spec_hash(data),
+        figure_spec_hash=_spec_hash(data), style=style,
     )
 
 
@@ -344,7 +404,7 @@ def _make_scatter_figure(data: ScatterData) -> Figure:
     return figure
 
 
-def render_scatter(data: ScatterData) -> RenderedFigure:
+def render_scatter(data: ScatterData, *, style: FigureStyle = STANDARD_STYLE) -> RenderedFigure:
     """Render raw x/y observations only; never infer a fit or significance."""
     if not isinstance(data, ScatterData):
         raise DatasetError("invalid_scatter_contract")
@@ -353,7 +413,7 @@ def render_scatter(data: ScatterData) -> RenderedFigure:
     return _export_figure(
         figure, template_version=SCATTER_TEMPLATE_VERSION,
         dataset_hash=data.dataset_hash, parser_version=data.parser_version,
-        figure_spec_hash=_spec_hash(data),
+        figure_spec_hash=_spec_hash(data), style=style,
     )
 
 
@@ -389,7 +449,7 @@ def _make_heatmap_figure(data: HeatmapData) -> Figure:
     return figure
 
 
-def render_heatmap(data: HeatmapData) -> RenderedFigure:
+def render_heatmap(data: HeatmapData, *, style: FigureStyle = STANDARD_STYLE) -> RenderedFigure:
     """Export the supplied raw matrix on one shared color scale, without statistics."""
     if not isinstance(data, HeatmapData):
         raise DatasetError("invalid_heatmap_contract")
@@ -398,7 +458,7 @@ def render_heatmap(data: HeatmapData) -> RenderedFigure:
     return _export_figure(
         figure, template_version=HEATMAP_TEMPLATE_VERSION,
         dataset_hash=data.dataset_hash, parser_version=data.parser_version,
-        figure_spec_hash=_spec_hash(data),
+        figure_spec_hash=_spec_hash(data), style=style,
     )
 
 
@@ -445,7 +505,7 @@ def _make_trend_figure(data: TrendData) -> Figure:
     return figure
 
 
-def render_trend(data: TrendData) -> RenderedFigure:
+def render_trend(data: TrendData, *, style: FigureStyle = STANDARD_STYLE) -> RenderedFigure:
     """Render only supplied vertices, including already cumulative input unchanged."""
     if not isinstance(data, TrendData):
         raise DatasetError("invalid_trend_contract")
@@ -454,7 +514,7 @@ def render_trend(data: TrendData) -> RenderedFigure:
     return _export_figure(
         figure, template_version=TREND_TEMPLATE_VERSION,
         dataset_hash=data.dataset_hash, parser_version=data.parser_version,
-        figure_spec_hash=_spec_hash(data),
+        figure_spec_hash=_spec_hash(data), style=style,
     )
 
 
@@ -514,7 +574,7 @@ def _make_interval_figure(data: IntervalData) -> Figure:
     return figure
 
 
-def render_intervals(data: IntervalData) -> RenderedFigure:
+def render_intervals(data: IntervalData, *, style: FigureStyle = STANDARD_STYLE) -> RenderedFigure:
     """Export dot intervals or forest results with explicit type and CI disclosure."""
     if not isinstance(data, IntervalData) or data.template_id not in INTERVAL_TEMPLATE_VERSIONS:
         raise DatasetError("invalid_interval_contract")
@@ -523,7 +583,7 @@ def render_intervals(data: IntervalData) -> RenderedFigure:
     return _export_figure(
         figure, template_version=INTERVAL_TEMPLATE_VERSIONS[data.template_id],
         dataset_hash=data.dataset_hash, parser_version=data.parser_version,
-        figure_spec_hash=_spec_hash(data),
+        figure_spec_hash=_spec_hash(data), style=style,
     )
 
 
@@ -575,13 +635,13 @@ def _make_ranked_figure(data: RankedData) -> Figure:
     return figure
 
 
-def render_ranked(data: RankedData) -> RenderedFigure:
+def render_ranked(data: RankedData, *, style: FigureStyle = STANDARD_STYLE) -> RenderedFigure:
     """Render explicitly selected supplied scores and disclose excluded rows."""
     with rc_context({"text.usetex": False}):
         figure = _make_ranked_figure(data)
     return _export_figure(figure, template_version=RANKED_TEMPLATE_VERSION,
                           dataset_hash=data.dataset_hash, parser_version=data.parser_version,
-                          figure_spec_hash=_spec_hash(data))
+                          figure_spec_hash=_spec_hash(data), style=style)
 
 
 def _make_composition_figure(data: CompositionData) -> Figure:
@@ -636,13 +696,13 @@ def _make_composition_figure(data: CompositionData) -> Figure:
     return figure
 
 
-def render_composition(data: CompositionData) -> RenderedFigure:
+def render_composition(data: CompositionData, *, style: FigureStyle = STANDARD_STYLE) -> RenderedFigure:
     """Show counts or explicitly requested percentages using supplied denominators."""
     with rc_context({"text.usetex": False}):
         figure = _make_composition_figure(data)
     return _export_figure(figure, template_version=COMPOSITION_TEMPLATE_VERSION,
                           dataset_hash=data.dataset_hash, parser_version=data.parser_version,
-                          figure_spec_hash=_spec_hash(data))
+                          figure_spec_hash=_spec_hash(data), style=style)
 
 
 def _make_volcano_figure(data: VolcanoData) -> Figure:
@@ -699,10 +759,10 @@ def _make_volcano_figure(data: VolcanoData) -> Figure:
     return figure
 
 
-def render_volcano(data: VolcanoData) -> RenderedFigure:
+def render_volcano(data: VolcanoData, *, style: FigureStyle = STANDARD_STYLE) -> RenderedFigure:
     """Plot supplied differential results, with explicit zero handling and thresholds."""
     with rc_context({"text.usetex": False}):
         figure = _make_volcano_figure(data)
     return _export_figure(figure, template_version=VOLCANO_TEMPLATE_VERSION,
                           dataset_hash=data.dataset_hash, parser_version=data.parser_version,
-                          figure_spec_hash=_spec_hash(data))
+                          figure_spec_hash=_spec_hash(data), style=style)
