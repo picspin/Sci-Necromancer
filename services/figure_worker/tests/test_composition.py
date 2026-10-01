@@ -2,7 +2,7 @@
 
 import unittest
 from dataclasses import replace
-from decimal import Decimal
+from decimal import Decimal, localcontext
 
 from services.figure_worker.dataset import DatasetError, parse_csv_bytes, validate_composition
 from services.figure_worker.render import _make_composition_figure, render_composition
@@ -76,6 +76,21 @@ class CompositionTests(unittest.TestCase):
                 render_composition(forged)
         with self.assertRaises(DatasetError):
             render_composition(replace(data, count_unit="患者"))
+
+    def test_percentages_are_independent_of_ambient_decimal_precision(self):
+        data = self.data(b"G,C,N,D\nA,X,2,3\nA,Y,1,3\n", display="percent")
+        normal = _make_composition_figure(data)
+        try:
+            expected = [p.get_height() for p in normal.axes[0].patches]
+        finally:
+            normal.clear()
+        with localcontext() as context:
+            context.prec = 3
+            figure = _make_composition_figure(data)
+        try:
+            self.assertEqual([p.get_height() for p in figure.axes[0].patches], expected)
+        finally:
+            figure.clear()
 
 
 if __name__ == "__main__":

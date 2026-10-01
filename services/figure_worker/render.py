@@ -138,6 +138,7 @@ def _spec_hash(data: GroupedBarData | ScatterData | HeatmapData | TrendData | In
             "count_unit": data.count_unit, "display": data.display,
             "denominator_scope": "within-group", "mutually_exclusive": True, "exhaustive": True,
             "ordering": "first-observed", "missing": "reject",
+            "percent_arithmetic": "binary64-counts-divided-by-supplied-total",
             "cells": [(c.group, c.component, str(c.count), str(c.denominator)) for c in data.cells],
         }
     elif isinstance(data, VolcanoData):
@@ -612,7 +613,9 @@ def _make_composition_figure(data: CompositionData) -> Figure:
     bottom = [0.0] * len(groups)
     for index, component in enumerate(components):
         cells = [lookup[group, component] for group in groups]
-        values = [float(c.count) if data.display == "count" else 100 * float(c.count / c.denominator) for c in cells]
+        # Validated integers are exactly representable; ignore caller Decimal precision.
+        values = [float(c.count) if data.display == "count" else
+                  100.0 * (float(c.count) / float(c.denominator)) for c in cells]
         axis.bar(range(len(groups)), values, bottom=bottom, width=0.7,
                  color=COLORS[index], label=_literal_label(component))
         bottom = [base + value for base, value in zip(bottom, values)]
