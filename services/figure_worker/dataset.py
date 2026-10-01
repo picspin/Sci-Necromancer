@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import csv
 from dataclasses import dataclass, field
-from decimal import Decimal, InvalidOperation
+from decimal import Context, Decimal, InvalidOperation, ROUND_HALF_EVEN
 from hashlib import sha256
 from io import StringIO
 from math import isfinite
@@ -27,6 +27,9 @@ MAX_SCATTER_POINTS = 5_000
 MAX_SCATTER_GROUPS = 8
 MAX_HEATMAP_DIMENSION = 12
 MAX_INTERVAL_POINTS = 24
+MAX_COMPOSITION_GROUPS = 12
+MAX_COMPOSITION_COMPONENTS = 8
+MAX_EXACT_COUNT = 2**53 - 1
 
 
 class DatasetError(ValueError):
@@ -155,6 +158,113 @@ class IntervalData:
     ci_level: Decimal | None
     effect_type: str | None
     points: tuple[IntervalPoint, ...] = field(repr=False)
+
+
+@dataclass(frozen=True)
+class RankedPoint:
+    label: str = field(repr=False)
+    value: Decimal
+    group: str | None = field(repr=False)
+
+
+@dataclass(frozen=True)
+class RankedData:
+    template_id: str
+    parser_version: str
+    dataset_hash: str
+    label_column: str
+    value_column: str
+    group_column: str | None
+    value_unit: str
+    ordering: str
+    top_n: int
+    points: tuple[RankedPoint, ...] = field(repr=False)
+
+
+@dataclass(frozen=True)
+class CompositionCell:
+    group: str = field(repr=False)
+    component: str = field(repr=False)
+    count: Decimal
+    denominator: Decimal
+
+
+@dataclass(frozen=True)
+class CompositionData:
+    template_id: str
+    parser_version: str
+    dataset_hash: str
+    group_column: str
+    component_column: str
+    count_column: str
+    denominator_column: str
+    count_unit: str
+    display: str
+    cells: tuple[CompositionCell, ...] = field(repr=False)
+
+
+@dataclass(frozen=True)
+class VolcanoPoint:
+    identifier: str = field(repr=False)
+    log2fc: Decimal
+    p_value: Decimal
+
+
+@dataclass(frozen=True)
+class VolcanoData:
+    template_id: str
+    parser_version: str
+    dataset_hash: str
+    identifier_column: str
+    log2fc_column: str
+    p_column: str
+    p_kind: str
+    p_threshold: Decimal
+    fold_threshold: Decimal
+    zero_p_floor: Decimal | None
+    points: tuple[VolcanoPoint, ...] = field(repr=False)
+
+
+def validate_volcano_options(
+    *, p_kind: str, p_threshold: int | float | str | Decimal,
+    fold_threshold: int | float | str | Decimal,
+    zero_p_floor: int | float | str | Decimal | None,
+) -> tuple[Decimal, Decimal, Decimal | None]:
+    """Shared by intake and renderer: explicit existing-P semantics, never FDR."""
+    if p_kind not in ("p", "adjusted_p"):
+        raise DatasetError("invalid_volcano_p_kind")
+    values = []
+    for raw in (p_threshold, fold_threshold, zero_p_floor):
+        if raw is None and len(values) == 2:
+            values.append(None)
+            continue
+        if type(raw) not in (int, float, str, Decimal) or len(str(raw)) > 128:
+            raise DatasetError("invalid_volcano_threshold")
+        try:
+            value = Decimal(str(raw))
+        except InvalidOperation as error:
+            raise DatasetError("invalid_volcano_threshold") from error
+        if not value.is_finite() or value <= 0:
+            raise DatasetError("invalid_volcano_threshold")
+        values.append(value)
+    p, fold, floor = values
+    if (p >= 1 or not isfinite(float(fold)) or float(fold) == 0
+            or (floor is not None and (floor >= 1 or floor > p))):
+        raise DatasetError("invalid_volcano_threshold")
+    volcano_ordinate(p)
+    if floor is not None:
+        volcano_ordinate(floor)
+    return p, fold, floor
+
+
+def volcano_ordinate(p_value: Decimal) -> float:
+    """Convert positive P without float underflow; fixed 28-digit log10 context."""
+    if not p_value.is_finite() or not 0 < p_value <= 1:
+        raise DatasetError("invalid_volcano_p")
+    result = float(p_value.log10(context=Context(prec=28, rounding=ROUND_HALF_EVEN)).copy_negate())
+    if not isfinite(result) or (p_value < 1 and result == 0):
+        raise DatasetError("unplottable_volcano_p")
+    return result
 
 
 def _numeric_kind(values: list[str]) -> str:
@@ -500,3 +610,169 @@ def validate_intervals(
     return IntervalData(template_id, dataset.parser_version, dataset.sha256,
                         label_column, estimate_column, lower_column, upper_column,
                         unit, interval_type, level, effect_type, tuple(points))
+
+
+def validate_ranked(
+    dataset: ParsedCsv, *, label_column: str, value_column: str,
+    value_unit: str, ordering: str, top_n: int, group_column: str | None = None,
+) -> RankedData:
+    """Validate all supplied scores before explicit ranking/top-N; no enrichment."""
+    if ordering not in ("source", "ascending", "descending") or type(top_n) is not int or not 1 <= top_n <= 24:
+        raise DatasetError("invalid_ranked_selection")
+    ids = {column.id: index for index, column in enumerate(dataset.columns)}
+    chosen = [label_column, value_column, *([group_column] if group_column is not None else [])]
+    if (any(not isinstance(column, str) or column not in ids for column in chosen)
+            or len(set(chosen)) != len(chosen)):
+        raise DatasetError("invalid_ranked_mapping")
+    if not isinstance(value_unit, str):
+        raise DatasetError("invalid_ranked_unit")
+    unit = _safe_label(value_unit, max_length=48, error_code="invalid_ranked_unit")
+    points: list[RankedPoint] = []
+    labels: set[str] = set()
+    groups: set[str] = set()
+    for row_number, row in enumerate(dataset._rows, start=2):
+        if len(points) >= MAX_SCATTER_POINTS:
+            raise DatasetError("ranked_limit_exceeded", row=row_number)
+        try:
+            label = _safe_label(row[ids[label_column]], max_length=80, error_code="missing_ranked_label")
+            group = (_safe_label(row[ids[group_column]], max_length=80, error_code="missing_ranked_group")
+                     if group_column is not None else None)
+        except DatasetError as error:
+            raise DatasetError(error.code, row=row_number) from error
+        if label in labels:
+            raise DatasetError("duplicate_ranked_label", row=row_number)
+        raw = row[ids[value_column]].strip()
+        if not raw:
+            raise DatasetError("missing_ranked_value", row=row_number, column=value_column)
+        try:
+            value = Decimal(raw)
+            plotted = float(value)
+        except (InvalidOperation, ValueError, OverflowError) as error:
+            raise DatasetError("invalid_ranked_value", row=row_number, column=value_column) from error
+        if not value.is_finite() or not isfinite(plotted) or (value != 0 and plotted == 0):
+            raise DatasetError("invalid_ranked_value", row=row_number, column=value_column)
+        labels.add(label)
+        if group is not None:
+            groups.add(group)
+            if len(groups) > MAX_SCATTER_GROUPS:
+                raise DatasetError("ranked_limit_exceeded", row=row_number)
+        points.append(RankedPoint(label, value, group))
+    return RankedData("ranked-lollipop", dataset.parser_version, dataset.sha256,
+                      label_column, value_column, group_column, unit, ordering, top_n, tuple(points))
+
+
+def validate_composition(
+    dataset: ParsedCsv, *, group_column: str, component_column: str,
+    count_column: str, denominator_column: str, count_unit: str, display: str,
+    denominator_scope: str, mutually_exclusive: bool, exhaustive: bool,
+) -> CompositionData:
+    """Accept complete integer counts and declared within-group denominators."""
+    if (display not in ("count", "percent") or denominator_scope != "within-group"
+            or mutually_exclusive is not True or exhaustive is not True):
+        raise DatasetError("unconfirmed_composition_semantics")
+    ids = {column.id: index for index, column in enumerate(dataset.columns)}
+    chosen = [group_column, component_column, count_column, denominator_column]
+    if (any(not isinstance(column, str) or column not in ids for column in chosen)
+            or len(set(chosen)) != len(chosen)):
+        raise DatasetError("invalid_composition_mapping")
+    if not isinstance(count_unit, str):
+        raise DatasetError("invalid_composition_unit")
+    unit = _safe_label(count_unit, max_length=48, error_code="invalid_composition_unit")
+    cells: list[CompositionCell] = []
+    keys: set[tuple[str, str]] = set()
+    totals: dict[str, int] = {}
+    denominators: dict[str, Decimal] = {}
+    components: set[str] = set()
+    for row_number, row in enumerate(dataset._rows, start=2):
+        try:
+            group = _safe_label(row[ids[group_column]], max_length=80, error_code="missing_composition_label")
+            component = _safe_label(row[ids[component_column]], max_length=80, error_code="missing_composition_label")
+        except DatasetError as error:
+            raise DatasetError(error.code, row=row_number) from error
+        if (group, component) in keys:
+            raise DatasetError("duplicate_composition_cell", row=row_number)
+        values = []
+        for column in (count_column, denominator_column):
+            try:
+                value = Decimal(row[ids[column]].strip())
+            except InvalidOperation as error:
+                raise DatasetError("invalid_composition_count", row=row_number, column=column) from error
+            if (not value.is_finite() or not 0 <= value <= MAX_EXACT_COUNT
+                    or value != value.to_integral_value()):
+                raise DatasetError("invalid_composition_count", row=row_number, column=column)
+            values.append(value)
+        count, denominator = values
+        if denominator == 0 or count > denominator:
+            raise DatasetError("invalid_composition_denominator", row=row_number)
+        if group in denominators and denominators[group] != denominator:
+            raise DatasetError("inconsistent_composition_denominator", row=row_number)
+        denominators[group] = denominator
+        totals[group] = totals.get(group, 0) + int(count)
+        components.add(component)
+        keys.add((group, component))
+        if len(denominators) > MAX_COMPOSITION_GROUPS or len(components) > MAX_COMPOSITION_COMPONENTS:
+            raise DatasetError("composition_limit_exceeded", row=row_number)
+        cells.append(CompositionCell(group, component, count, denominator))
+    if len(keys) != len(denominators) * len(components):
+        raise DatasetError("incomplete_composition_matrix")
+    if any(Decimal(totals[group]) != denominator for group, denominator in denominators.items()):
+        raise DatasetError("composition_total_mismatch")
+    return CompositionData("composition", dataset.parser_version, dataset.sha256,
+                           group_column, component_column, count_column, denominator_column,
+                           unit, display, tuple(cells))
+
+
+def validate_volcano(
+    dataset: ParsedCsv, *, identifier_column: str, log2fc_column: str, p_column: str,
+    p_kind: str, p_threshold: int | float | str | Decimal,
+    fold_threshold: int | float | str | Decimal,
+    zero_p_floor: int | float | str | Decimal | None = None,
+) -> VolcanoData:
+    """Display existing differential results; no tests, adjustments or zero inference."""
+    p_limit, fold_limit, floor = validate_volcano_options(
+        p_kind=p_kind, p_threshold=p_threshold, fold_threshold=fold_threshold, zero_p_floor=zero_p_floor,
+    )
+    ids = {column.id: index for index, column in enumerate(dataset.columns)}
+    chosen = [identifier_column, log2fc_column, p_column]
+    if (any(not isinstance(column, str) or column not in ids for column in chosen)
+            or len(set(chosen)) != len(chosen)):
+        raise DatasetError("invalid_volcano_mapping")
+    points: list[VolcanoPoint] = []
+    identifiers: set[str] = set()
+    for row_number, row in enumerate(dataset._rows, start=2):
+        if len(points) >= MAX_SCATTER_POINTS:
+            raise DatasetError("volcano_limit_exceeded", row=row_number)
+        try:
+            identifier = _safe_label(row[ids[identifier_column]], max_length=80,
+                                     error_code="missing_volcano_identifier")
+        except DatasetError as error:
+            raise DatasetError(error.code, row=row_number, column=identifier_column) from error
+        if identifier in identifiers:
+            raise DatasetError("duplicate_volcano_identifier", row=row_number)
+        values = []
+        for column in (log2fc_column, p_column):
+            try:
+                value = Decimal(row[ids[column]].strip())
+            except InvalidOperation as error:
+                raise DatasetError("invalid_volcano_value", row=row_number, column=column) from error
+            if not value.is_finite():
+                raise DatasetError("invalid_volcano_value", row=row_number, column=column)
+            values.append(value)
+        log2fc, p_value = values
+        if not isfinite(float(log2fc)) or (log2fc != 0 and float(log2fc) == 0):
+            raise DatasetError("invalid_volcano_value", row=row_number, column=log2fc_column)
+        if not 0 <= p_value <= 1:
+            raise DatasetError("invalid_volcano_p", row=row_number, column=p_column)
+        if p_value == 0 and floor is None:
+            raise DatasetError("volcano_zero_floor_required", row=row_number, column=p_column)
+        if p_value > 0 and floor is not None and floor > p_value:
+            raise DatasetError("volcano_floor_above_observed_p", row=row_number, column=p_column)
+        try:
+            volcano_ordinate(p_value if p_value > 0 else floor)
+        except DatasetError as error:
+            raise DatasetError(error.code, row=row_number, column=p_column) from error
+        identifiers.add(identifier)
+        points.append(VolcanoPoint(identifier, log2fc, p_value))
+    return VolcanoData("volcano", dataset.parser_version, dataset.sha256,
+                       identifier_column, log2fc_column, p_column, p_kind,
+                       p_limit, fold_limit, floor, tuple(points))

@@ -9,6 +9,7 @@ import json
 from math import isfinite
 from pathlib import Path
 from platform import python_version
+from textwrap import wrap
 
 import matplotlib
 from matplotlib import get_data_path, rc_context
@@ -18,8 +19,10 @@ from matplotlib.font_manager import FontProperties
 from matplotlib.ft2font import FT2Font
 
 from services.figure_worker.dataset import (
-    DatasetError, GroupedBarData, HeatmapData, IntervalData,
-    MAX_HEATMAP_DIMENSION, MAX_INTERVAL_POINTS, ScatterData, TrendData,
+    CompositionData, DatasetError, GroupedBarData, HeatmapData, IntervalData,
+    MAX_COMPOSITION_COMPONENTS, MAX_COMPOSITION_GROUPS, MAX_EXACT_COUNT,
+    MAX_HEATMAP_DIMENSION, MAX_INTERVAL_POINTS, RankedData, ScatterData, TrendData,
+    VolcanoData, validate_volcano_options, volcano_ordinate,
 )
 
 
@@ -27,6 +30,9 @@ GROUPED_BAR_TEMPLATE_VERSION = "grouped-bar-v1"
 SCATTER_TEMPLATE_VERSION = "scatter-v1"
 HEATMAP_TEMPLATE_VERSION = "heatmap-v1"
 TREND_TEMPLATE_VERSION = "trend-v1"
+RANKED_TEMPLATE_VERSION = "ranked-lollipop-v1"
+COMPOSITION_TEMPLATE_VERSION = "composition-v1"
+VOLCANO_TEMPLATE_VERSION = "volcano-v1"
 INTERVAL_TEMPLATE_VERSIONS = {"dot-interval": "dot-interval-v1", "forest": "forest-v1"}
 DPI = 160
 HEIGHT_INCHES = 5.5
@@ -69,7 +75,7 @@ def _literal_label(value: str) -> str:
     return value.replace("$", r"\$")
 
 
-def _spec_hash(data: GroupedBarData | ScatterData | HeatmapData | TrendData | IntervalData) -> str:
+def _spec_hash(data: GroupedBarData | ScatterData | HeatmapData | TrendData | IntervalData | RankedData | CompositionData | VolcanoData) -> str:
     if isinstance(data, GroupedBarData):
         spec = {
             "template_version": GROUPED_BAR_TEMPLATE_VERSION,
@@ -114,6 +120,37 @@ def _spec_hash(data: GroupedBarData | ScatterData | HeatmapData | TrendData | In
             "effect_type": data.effect_type,
             "points": [(p.label, str(p.estimate), str(p.lower), str(p.upper)) for p in data.points],
             "transform": "none", "pooling": "none", "ordering": "source",
+        }
+    elif isinstance(data, RankedData):
+        spec = {
+            "template_version": RANKED_TEMPLATE_VERSION, "dataset_hash": data.dataset_hash,
+            "label_column": data.label_column, "value_column": data.value_column,
+            "group_column": data.group_column, "value_unit": data.value_unit,
+            "ordering": data.ordering, "top_n": data.top_n, "ties": "source-order",
+            "omitted": max(len(data.points) - data.top_n, 0), "enrichment": "none",
+            "points": [(p.label, str(p.value), p.group) for p in data.points],
+        }
+    elif isinstance(data, CompositionData):
+        spec = {
+            "template_version": COMPOSITION_TEMPLATE_VERSION, "dataset_hash": data.dataset_hash,
+            "group_column": data.group_column, "component_column": data.component_column,
+            "count_column": data.count_column, "denominator_column": data.denominator_column,
+            "count_unit": data.count_unit, "display": data.display,
+            "denominator_scope": "within-group", "mutually_exclusive": True, "exhaustive": True,
+            "ordering": "first-observed", "missing": "reject",
+            "percent_arithmetic": "binary64-counts-divided-by-supplied-total",
+            "cells": [(c.group, c.component, str(c.count), str(c.denominator)) for c in data.cells],
+        }
+    elif isinstance(data, VolcanoData):
+        spec = {
+            "template_version": VOLCANO_TEMPLATE_VERSION, "dataset_hash": data.dataset_hash,
+            "identifier_column": data.identifier_column, "log2fc_column": data.log2fc_column,
+            "p_column": data.p_column, "p_kind": data.p_kind,
+            "p_threshold": str(data.p_threshold), "fold_threshold": str(data.fold_threshold),
+            "zero_p_floor": str(data.zero_p_floor) if data.zero_p_floor is not None else None,
+            "zero_count": sum(p.p_value == 0 for p in data.points),
+            "y_transform": "negative-decimal-log10-prec28-half-even", "correction": "none",
+            "points": [(p.identifier, str(p.log2fc), str(p.p_value)) for p in data.points],
         }
     else:
         spec = {
@@ -488,3 +525,184 @@ def render_intervals(data: IntervalData) -> RenderedFigure:
         dataset_hash=data.dataset_hash, parser_version=data.parser_version,
         figure_spec_hash=_spec_hash(data),
     )
+
+
+def _make_ranked_figure(data: RankedData) -> Figure:
+    if (not isinstance(data, RankedData) or data.template_id != "ranked-lollipop" or not data.points
+            or data.ordering not in ("source", "ascending", "descending")
+            or type(data.top_n) is not int or not 1 <= data.top_n <= 24):
+        raise DatasetError("invalid_ranked_contract")
+    groups = list(dict.fromkeys(p.group for p in data.points if p.group is not None))
+    if len(data.points) > 5_000 or len(groups) > len(COLORS):
+        raise DatasetError("ranked_limit_exceeded")
+    if (len({p.label for p in data.points}) != len(data.points)
+            or any((p.group is None) != (data.group_column is None) for p in data.points)):
+        raise DatasetError("invalid_ranked_contract")
+    if any(not isfinite(float(p.value)) or (p.value != 0 and float(p.value) == 0) for p in data.points):
+        raise DatasetError("invalid_ranked_value")
+    ordered = (list(data.points) if data.ordering == "source" else
+               sorted(data.points, key=lambda p: p.value, reverse=data.ordering == "descending"))
+    selected = ordered[:data.top_n]
+    _check_font_coverage([data.value_unit, *groups, *(p.label for p in selected)], "unsupported_ranked_glyph")
+    figure = Figure(figsize=(8.0, HEIGHT_INCHES), dpi=DPI, facecolor="white")
+    FigureCanvasAgg(figure)
+    axis = figure.subplots()
+    plot_groups = groups or [None]
+    for index, group in enumerate(plot_groups):
+        members = [(position, point) for position, point in enumerate(selected) if point.group == group]
+        if not members:
+            continue
+        positions = [position for position, _ in members]
+        values = [float(point.value) for _, point in members]
+        axis.hlines(positions, 0, values, color=COLORS[index], linewidth=1.1)
+        axis.scatter(values, positions, s=28, color=COLORS[index],
+                     label=_literal_label(group) if group is not None else None, zorder=3)
+    font = FontProperties(fname=str(FONT_PATH))
+    axis.set_yticks(range(len(selected)), [_literal_label(p.label) for p in selected])
+    axis.invert_yaxis()
+    axis.set_xlabel(_literal_label(data.value_unit), fontproperties=font)
+    axis.axvline(0, color="#67747B", linewidth=0.7)
+    if groups:
+        axis.legend(frameon=False, prop=FontProperties(fname=str(FONT_PATH), size=9))
+    axis.spines["top"].set_visible(False)
+    axis.spines["right"].set_visible(False)
+    for label in (*axis.get_xticklabels(), *axis.get_yticklabels(), axis.xaxis.get_offset_text()):
+        label.set_fontproperties(font)
+    figure.text(0.02, 0.02, f"Order: {data.ordering}; ties: source order. "
+                f"Shown {len(selected)} of {len(data.points)}; omitted {len(data.points) - len(selected)}.",
+                fontproperties=font, fontsize=8)
+    figure.tight_layout(rect=(0, 0.06, 1, 1))
+    return figure
+
+
+def render_ranked(data: RankedData) -> RenderedFigure:
+    """Render explicitly selected supplied scores and disclose excluded rows."""
+    with rc_context({"text.usetex": False}):
+        figure = _make_ranked_figure(data)
+    return _export_figure(figure, template_version=RANKED_TEMPLATE_VERSION,
+                          dataset_hash=data.dataset_hash, parser_version=data.parser_version,
+                          figure_spec_hash=_spec_hash(data))
+
+
+def _make_composition_figure(data: CompositionData) -> Figure:
+    if (not isinstance(data, CompositionData) or data.template_id != "composition"
+            or not data.cells or data.display not in ("count", "percent")):
+        raise DatasetError("invalid_composition_contract")
+    groups = list(dict.fromkeys(c.group for c in data.cells))
+    components = list(dict.fromkeys(c.component for c in data.cells))
+    if len(groups) > MAX_COMPOSITION_GROUPS or len(components) > MAX_COMPOSITION_COMPONENTS:
+        raise DatasetError("composition_limit_exceeded")
+    lookup = {(c.group, c.component): c for c in data.cells}
+    if len(lookup) != len(data.cells) or len(lookup) != len(groups) * len(components):
+        raise DatasetError("invalid_composition_contract")
+    for group in groups:
+        cells = [lookup[group, component] for component in components]
+        for cell in cells:
+            if any(not v.is_finite() or not 0 <= v <= MAX_EXACT_COUNT or v != v.to_integral_value()
+                   for v in (cell.count, cell.denominator)):
+                raise DatasetError("invalid_composition_count")
+        denominator = cells[0].denominator
+        if (denominator <= 0 or any(c.denominator != denominator for c in cells)
+                or sum(int(c.count) for c in cells) != int(denominator)):
+            raise DatasetError("invalid_composition_denominator")
+    _check_font_coverage([data.count_unit, *groups, *components], "unsupported_composition_glyph")
+    font = FontProperties(fname=str(FONT_PATH))
+    figure = Figure(figsize=(max(8.0, 0.65 * len(groups) + 3), HEIGHT_INCHES), dpi=DPI, facecolor="white")
+    FigureCanvasAgg(figure)
+    axis = figure.subplots()
+    bottom = [0.0] * len(groups)
+    for index, component in enumerate(components):
+        cells = [lookup[group, component] for group in groups]
+        # Validated integers are exactly representable; ignore caller Decimal precision.
+        values = [float(c.count) if data.display == "count" else
+                  100.0 * (float(c.count) / float(c.denominator)) for c in cells]
+        axis.bar(range(len(groups)), values, bottom=bottom, width=0.7,
+                 color=COLORS[index], label=_literal_label(component))
+        bottom = [base + value for base, value in zip(bottom, values)]
+    axis.set_xticks(range(len(groups)), [f"{_literal_label(group)}\n(n={int(lookup[group, components[0]].denominator)})"
+                                       for group in groups])
+    axis.set_ylabel(_literal_label(data.count_unit if data.display == "count" else
+                                  f"Percent of {data.count_unit} within group"), fontproperties=font)
+    axis.set_ylim(0, 100 if data.display == "percent" else max(bottom) * 1.08)
+    axis.legend(frameon=False, loc="upper left", bbox_to_anchor=(1, 1),
+                prop=FontProperties(fname=str(FONT_PATH), size=9))
+    axis.spines["top"].set_visible(False)
+    axis.spines["right"].set_visible(False)
+    for label in (*axis.get_xticklabels(), *axis.get_yticklabels(), axis.yaxis.get_offset_text()):
+        label.set_fontproperties(font)
+    figure.text(0.02, 0.02, "Declared mutually exclusive, exhaustive categories; supplied within-group totals.",
+                fontproperties=font, fontsize=8)
+    figure.tight_layout(rect=(0, 0.06, 1, 1))
+    return figure
+
+
+def render_composition(data: CompositionData) -> RenderedFigure:
+    """Show counts or explicitly requested percentages using supplied denominators."""
+    with rc_context({"text.usetex": False}):
+        figure = _make_composition_figure(data)
+    return _export_figure(figure, template_version=COMPOSITION_TEMPLATE_VERSION,
+                          dataset_hash=data.dataset_hash, parser_version=data.parser_version,
+                          figure_spec_hash=_spec_hash(data))
+
+
+def _make_volcano_figure(data: VolcanoData) -> Figure:
+    if not isinstance(data, VolcanoData) or data.template_id != "volcano" or not data.points:
+        raise DatasetError("invalid_volcano_contract")
+    if len(data.points) > 5_000 or len({p.identifier for p in data.points}) != len(data.points):
+        raise DatasetError("invalid_volcano_contract")
+    validate_volcano_options(p_kind=data.p_kind, p_threshold=data.p_threshold,
+                             fold_threshold=data.fold_threshold, zero_p_floor=data.zero_p_floor)
+    ordinates = []
+    for point in data.points:
+        if not isfinite(float(point.log2fc)) or (point.log2fc != 0 and float(point.log2fc) == 0):
+            raise DatasetError("invalid_volcano_value")
+        if not point.p_value.is_finite() or not 0 <= point.p_value <= 1:
+            raise DatasetError("invalid_volcano_p")
+        if point.p_value == 0 and data.zero_p_floor is None:
+            raise DatasetError("volcano_zero_floor_required")
+        if point.p_value > 0 and data.zero_p_floor is not None and data.zero_p_floor > point.p_value:
+            raise DatasetError("volcano_floor_above_observed_p")
+        ordinates.append(volcano_ordinate(point.p_value if point.p_value > 0 else data.zero_p_floor))
+    categories = [0 if p.p_value > data.p_threshold or p.log2fc.copy_abs() < data.fold_threshold
+                  else 1 if p.log2fc < 0 else 2 for p in data.points]
+    figure = Figure(figsize=(8.0, HEIGHT_INCHES), dpi=DPI, facecolor="white")
+    FigureCanvasAgg(figure)
+    axis = figure.subplots()
+    for category, color, label in ((0, "#85939A", "Other"),
+                                   (1, COLORS[0], "Thresholds met / negative"),
+                                   (2, COLORS[1], "Thresholds met / positive")):
+        selected = [i for i, value in enumerate(categories) if value == category]
+        if selected:
+            axis.scatter([float(data.points[i].log2fc) for i in selected],
+                         [ordinates[i] for i in selected], s=22, color=color,
+                         label=label, alpha=0.8, edgecolors="none")
+    for threshold in (-float(data.fold_threshold), float(data.fold_threshold)):
+        axis.axvline(threshold, color="#67747B", linestyle="--", linewidth=0.7)
+    axis.axhline(volcano_ordinate(data.p_threshold), color="#67747B", linestyle="--", linewidth=0.7)
+    font = FontProperties(fname=str(FONT_PATH))
+    axis.set_xlabel("log2 fold change (supplied)", fontproperties=font)
+    p_label = "P" if data.p_kind == "p" else "adjusted P"
+    axis.set_ylabel(f"-log10({p_label})", fontproperties=font)
+    axis.set_ylim(bottom=0)
+    axis.legend(frameon=False, prop=FontProperties(fname=str(FONT_PATH), size=8))
+    axis.spines["top"].set_visible(False)
+    axis.spines["right"].set_visible(False)
+    for label in (*axis.get_xticklabels(), *axis.get_yticklabels(),
+                  axis.xaxis.get_offset_text(), axis.yaxis.get_offset_text()):
+        label.set_fontproperties(font)
+    zero_count = sum(p.p_value == 0 for p in data.points)
+    note = f"Existing {p_label}; no tests or correction. Zero P values: {zero_count}."
+    if zero_count:
+        note += f" Zeros displayed at declared floor {data.zero_p_floor}; source values unchanged."
+    figure.text(0.02, 0.02, "\n".join(wrap(note, width=105)), fontproperties=font, fontsize=8)
+    figure.tight_layout(rect=(0, 0.09, 1, 1))
+    return figure
+
+
+def render_volcano(data: VolcanoData) -> RenderedFigure:
+    """Plot supplied differential results, with explicit zero handling and thresholds."""
+    with rc_context({"text.usetex": False}):
+        figure = _make_volcano_figure(data)
+    return _export_figure(figure, template_version=VOLCANO_TEMPLATE_VERSION,
+                          dataset_hash=data.dataset_hash, parser_version=data.parser_version,
+                          figure_spec_hash=_spec_hash(data))
