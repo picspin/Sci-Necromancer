@@ -27,6 +27,7 @@ class FigureSpecTests(unittest.TestCase):
             ("forest", b"L,E,Low,High\nA,1.2,0.9,1.8\n", {"label": "col_1", "estimate": "col_2", "lower": "col_3", "upper": "col_4"}, {"value": "OR"}, {"interval": {"type": "CI", "ci_level": 95, "effect_type": "OR"}}),
             ("ranked-lollipop", b"L,V\nA,3\nB,5\n", {"label": "col_1", "value": "col_2"}, {"value": "score"}, {"ranking": {"ordering": "descending", "top_n": 1}}),
             ("composition", b"G,C,N,D\nA,X,2,5\nA,Y,3,5\n", {"group": "col_1", "component": "col_2", "count": "col_3", "denominator": "col_4"}, {"count": "patients"}, {"composition": {"display": "percent", "denominator_scope": "within-group", "mutually_exclusive": True, "exhaustive": True}}),
+            ("volcano", b"ID,FC,P\nA,-2,0.001\nB,2,0\n", {"identifier": "col_1", "log2fc": "col_2", "p": "col_3"}, {"log2fc": "log2 fold change", "p": "probability"}, {"volcano": {"p_kind": "adjusted_p", "p_threshold": "0.05", "fold_threshold": 1, "zero_p_floor": "0.0001"}}),
         ]
         self.assertEqual({case[0] for case in cases}, set(figures.TEMPLATE_VERSIONS))
         for template, payload, mapping, units, extra in cases:
@@ -119,6 +120,18 @@ class FigureSpecTests(unittest.TestCase):
                         {**valid, "denominator_scope": "global"}, {**valid, "script": "x"}):
             with self.subTest(options=options), self.assertRaises(DatasetError):
                 figures.render_csv_spec(payload, {**base, "composition": options})
+
+    def test_volcano_requires_supplied_log2fc_p_semantics_and_thresholds(self):
+        payload = b"ID,FC,P\nA,2,0.01\n"
+        base = self.plan(payload, "volcano", {"identifier": "col_1", "log2fc": "col_2", "p": "col_3"},
+                         {"log2fc": "log2 fold change", "p": "probability"})
+        valid = dict(p_kind="p", p_threshold="0.05", fold_threshold=1)
+        for options in (None, {**valid, "fold_threshold": True}, {**valid, "p_kind": "calculate_FDR"},
+                        {**valid, "script": "x"}, {**valid, "p_threshold": {"expr": "x"}}):
+            with self.subTest(options=options), self.assertRaises(DatasetError):
+                figures.render_csv_spec(payload, {**base, "volcano": options})
+        with self.assertRaises(DatasetError):
+            figures.render_csv_spec(payload, {**base, "volcano": valid, "units": {"log2fc": "raw FC", "p": "percent"}})
 
 
 if __name__ == "__main__":

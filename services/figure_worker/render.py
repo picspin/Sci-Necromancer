@@ -9,6 +9,7 @@ import json
 from math import isfinite
 from pathlib import Path
 from platform import python_version
+from textwrap import wrap
 
 import matplotlib
 from matplotlib import get_data_path, rc_context
@@ -21,6 +22,7 @@ from services.figure_worker.dataset import (
     CompositionData, DatasetError, GroupedBarData, HeatmapData, IntervalData,
     MAX_COMPOSITION_COMPONENTS, MAX_COMPOSITION_GROUPS, MAX_EXACT_COUNT,
     MAX_HEATMAP_DIMENSION, MAX_INTERVAL_POINTS, RankedData, ScatterData, TrendData,
+    VolcanoData, validate_volcano_options, volcano_ordinate,
 )
 
 
@@ -30,6 +32,7 @@ HEATMAP_TEMPLATE_VERSION = "heatmap-v1"
 TREND_TEMPLATE_VERSION = "trend-v1"
 RANKED_TEMPLATE_VERSION = "ranked-lollipop-v1"
 COMPOSITION_TEMPLATE_VERSION = "composition-v1"
+VOLCANO_TEMPLATE_VERSION = "volcano-v1"
 INTERVAL_TEMPLATE_VERSIONS = {"dot-interval": "dot-interval-v1", "forest": "forest-v1"}
 DPI = 160
 HEIGHT_INCHES = 5.5
@@ -72,7 +75,7 @@ def _literal_label(value: str) -> str:
     return value.replace("$", r"\$")
 
 
-def _spec_hash(data: GroupedBarData | ScatterData | HeatmapData | TrendData | IntervalData | RankedData | CompositionData) -> str:
+def _spec_hash(data: GroupedBarData | ScatterData | HeatmapData | TrendData | IntervalData | RankedData | CompositionData | VolcanoData) -> str:
     if isinstance(data, GroupedBarData):
         spec = {
             "template_version": GROUPED_BAR_TEMPLATE_VERSION,
@@ -136,6 +139,17 @@ def _spec_hash(data: GroupedBarData | ScatterData | HeatmapData | TrendData | In
             "denominator_scope": "within-group", "mutually_exclusive": True, "exhaustive": True,
             "ordering": "first-observed", "missing": "reject",
             "cells": [(c.group, c.component, str(c.count), str(c.denominator)) for c in data.cells],
+        }
+    elif isinstance(data, VolcanoData):
+        spec = {
+            "template_version": VOLCANO_TEMPLATE_VERSION, "dataset_hash": data.dataset_hash,
+            "identifier_column": data.identifier_column, "log2fc_column": data.log2fc_column,
+            "p_column": data.p_column, "p_kind": data.p_kind,
+            "p_threshold": str(data.p_threshold), "fold_threshold": str(data.fold_threshold),
+            "zero_p_floor": str(data.zero_p_floor) if data.zero_p_floor is not None else None,
+            "zero_count": sum(p.p_value == 0 for p in data.points),
+            "y_transform": "negative-decimal-log10-prec28-half-even", "correction": "none",
+            "points": [(p.identifier, str(p.log2fc), str(p.p_value)) for p in data.points],
         }
     else:
         spec = {
@@ -624,5 +638,68 @@ def render_composition(data: CompositionData) -> RenderedFigure:
     with rc_context({"text.usetex": False}):
         figure = _make_composition_figure(data)
     return _export_figure(figure, template_version=COMPOSITION_TEMPLATE_VERSION,
+                          dataset_hash=data.dataset_hash, parser_version=data.parser_version,
+                          figure_spec_hash=_spec_hash(data))
+
+
+def _make_volcano_figure(data: VolcanoData) -> Figure:
+    if not isinstance(data, VolcanoData) or data.template_id != "volcano" or not data.points:
+        raise DatasetError("invalid_volcano_contract")
+    if len(data.points) > 5_000 or len({p.identifier for p in data.points}) != len(data.points):
+        raise DatasetError("invalid_volcano_contract")
+    validate_volcano_options(p_kind=data.p_kind, p_threshold=data.p_threshold,
+                             fold_threshold=data.fold_threshold, zero_p_floor=data.zero_p_floor)
+    ordinates = []
+    for point in data.points:
+        if not isfinite(float(point.log2fc)) or (point.log2fc != 0 and float(point.log2fc) == 0):
+            raise DatasetError("invalid_volcano_value")
+        if not point.p_value.is_finite() or not 0 <= point.p_value <= 1:
+            raise DatasetError("invalid_volcano_p")
+        if point.p_value == 0 and data.zero_p_floor is None:
+            raise DatasetError("volcano_zero_floor_required")
+        if point.p_value > 0 and data.zero_p_floor is not None and data.zero_p_floor > point.p_value:
+            raise DatasetError("volcano_floor_above_observed_p")
+        ordinates.append(volcano_ordinate(point.p_value if point.p_value > 0 else data.zero_p_floor))
+    categories = [0 if p.p_value > data.p_threshold or p.log2fc.copy_abs() < data.fold_threshold
+                  else 1 if p.log2fc < 0 else 2 for p in data.points]
+    figure = Figure(figsize=(8.0, HEIGHT_INCHES), dpi=DPI, facecolor="white")
+    FigureCanvasAgg(figure)
+    axis = figure.subplots()
+    for category, color, label in ((0, "#85939A", "Other"),
+                                   (1, COLORS[0], "Thresholds met / negative"),
+                                   (2, COLORS[1], "Thresholds met / positive")):
+        selected = [i for i, value in enumerate(categories) if value == category]
+        if selected:
+            axis.scatter([float(data.points[i].log2fc) for i in selected],
+                         [ordinates[i] for i in selected], s=22, color=color,
+                         label=label, alpha=0.8, edgecolors="none")
+    for threshold in (-float(data.fold_threshold), float(data.fold_threshold)):
+        axis.axvline(threshold, color="#67747B", linestyle="--", linewidth=0.7)
+    axis.axhline(volcano_ordinate(data.p_threshold), color="#67747B", linestyle="--", linewidth=0.7)
+    font = FontProperties(fname=str(FONT_PATH))
+    axis.set_xlabel("log2 fold change (supplied)", fontproperties=font)
+    p_label = "P" if data.p_kind == "p" else "adjusted P"
+    axis.set_ylabel(f"-log10({p_label})", fontproperties=font)
+    axis.set_ylim(bottom=0)
+    axis.legend(frameon=False, prop=FontProperties(fname=str(FONT_PATH), size=8))
+    axis.spines["top"].set_visible(False)
+    axis.spines["right"].set_visible(False)
+    for label in (*axis.get_xticklabels(), *axis.get_yticklabels(),
+                  axis.xaxis.get_offset_text(), axis.yaxis.get_offset_text()):
+        label.set_fontproperties(font)
+    zero_count = sum(p.p_value == 0 for p in data.points)
+    note = f"Existing {p_label}; no tests or correction. Zero P values: {zero_count}."
+    if zero_count:
+        note += f" Zeros displayed at declared floor {data.zero_p_floor}; source values unchanged."
+    figure.text(0.02, 0.02, "\n".join(wrap(note, width=105)), fontproperties=font, fontsize=8)
+    figure.tight_layout(rect=(0, 0.09, 1, 1))
+    return figure
+
+
+def render_volcano(data: VolcanoData) -> RenderedFigure:
+    """Plot supplied differential results, with explicit zero handling and thresholds."""
+    with rc_context({"text.usetex": False}):
+        figure = _make_volcano_figure(data)
+    return _export_figure(figure, template_version=VOLCANO_TEMPLATE_VERSION,
                           dataset_hash=data.dataset_hash, parser_version=data.parser_version,
                           figure_spec_hash=_spec_hash(data))
