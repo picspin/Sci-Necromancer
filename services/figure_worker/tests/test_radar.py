@@ -86,6 +86,8 @@ class RadarInputTests(unittest.TestCase):
             axis = figure.axes[0]
             self.assertEqual(axis.get_ylim(), (0, 1))
             self.assertEqual(axis.lines[0].get_ydata().tolist(), [0.75, 0.75, 0.7, 0.75])
+            self.assertEqual([t.get_ha() for t in axis.get_xticklabels()], ["center", "left", "right"])
+            self.assertEqual([t.get_va() for t in axis.get_xticklabels()], ["bottom", "top", "top"])
             self.assertIn("No aggregate score", figure.texts[0].get_text())
         finally:
             figure.clear()

@@ -8,7 +8,7 @@ import csv
 from hashlib import sha256
 from io import BytesIO, StringIO
 import json
-from math import isfinite, pi
+from math import cos, isfinite, pi, sin
 from pathlib import Path
 from platform import python_version
 from textwrap import wrap
@@ -911,6 +911,10 @@ def _make_radar_figure(data: RadarData) -> Figure:
     for label in (*axis.get_xticklabels(), *axis.get_yticklabels()):
         label.set_fontproperties(font)
         label.set_fontsize(9)
+    for label, angle in zip(axis.get_xticklabels(), angles):
+        # Multiline labels must grow outwards, not across the data circle.
+        label.set_ha("left" if sin(angle) > 0.1 else "right" if sin(angle) < -0.1 else "center")
+        label.set_va("bottom" if cos(angle) > 0.1 else "top" if cos(angle) < -0.1 else "center")
     axis.legend(frameon=False, bbox_to_anchor=(1.3, 1.05), loc="upper left",
                 prop=FontProperties(fname=str(FONT_PATH), size=9))
     figure.text(0.02, 0.02, "Normalized 0-1 using supplied axis bounds; outer is better. Raw values/units in CSV.\n"
