@@ -47,6 +47,12 @@ Vercel 生产日志表明，`conferenceBlindReviewRules.js` 中未被改写的 `
 
 本增量 **Supabase：无迁移；Vercel：无需部署；Cloudflare Worker：无需重建/部署**。仅本地原型、测试、文档变化，无环境变量变更，尚未连接生产 API/UI。无需生产发布顺序或线上付费烟测，已执行生产操作：无。71 项 Python、586 项 JS/TS 测试、lint/build 通过；合并/push 不启用数据图入口。此前的会员 500 修复和后续完整数据图上线卡片仍分别适用。
 
+## 2026-10-02：分布与雷达基础模板
+
+本地新增分布箱线＋全观测和逐轴严格归一化雷达，后者提供原值 CSV 附件；十一类基础图型均有首个本地变体，87 项 Python、586 项 JS/TS 测试、lint/build 通过。具体限制、方法与待完成内容见[分布/雷达记录](./specs/2026-10-02-data-figure-distribution-radar.md)。
+
+**Supabase：无迁移；Vercel：无需部署；Cloudflare Worker：无需重建/部署。** 仅未接入生产的 Python 原型、测试和文档变更；无环境变量变化。无本增量的生产发布顺序或付费烟测需求；生产操作已执行：无。不得仅靠重部署移除会员数据图“开发中”。后续上传/隔离执行/持久任务/钱包/前端上线需单独审核与发布卡片。
+
 ## 迁移语法报错后继续执行
 
 `supabase db push --dry-run` 只列出待执行文件，不会在 PostgreSQL 中编译或执行 SQL，因此不能证明迁移语法正确。SQL 修复应先在隔离的本地数据库中验证完整迁移链；Jev 分析限流的运行时回归测试为 `supabase test db supabase/tests/jev_member_policy.test.sql`，需本地 Supabase 已启动并应用全部迁移。
