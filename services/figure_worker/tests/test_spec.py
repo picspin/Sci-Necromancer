@@ -20,6 +20,7 @@ class FigureSpecTests(unittest.TestCase):
     def test_every_installed_template_runs_csv_to_three_artifacts(self):
         cases = [
             ("distribution", b"V,G\n1,A\n4,A\n9,A\n", {"value": "col_1", "group": "col_2"}, {"value": "score"}, {}),
+            ("radar", b"M,T,V\nA,AUC,0.75\nA,Time,25\nA,Error,-2\n", {"method": "col_1", "metric": "col_2", "value": "col_3"}, {}, {"radar": {"axes": [dict(metric="AUC", unit="ratio", lower=0, upper=1, direction="higher"), dict(metric="Time", unit="seconds", lower=0, upper=100, direction="lower"), dict(metric="Error", unit="mm", lower=-5, upper=5, direction="lower")]}}),
             ("grouped-bar", b"C,V\nA,2\n", {"category": "col_1", "value": "col_2"}, {"value": "patients"}, {}),
             ("scatter", b"X,Y\n1,2\n", {"x": "col_1", "y": "col_2"}, {"x": "mm", "y": "score"}, {}),
             ("heatmap", b"R,C,V\nA,X,2\n", {"row": "col_1", "column": "col_2", "value": "col_3"}, {"value": "score"}, {}),

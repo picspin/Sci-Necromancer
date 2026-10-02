@@ -4,10 +4,11 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
 from decimal import Decimal
+import csv
 from hashlib import sha256
-from io import BytesIO
+from io import BytesIO, StringIO
 import json
-from math import isfinite
+from math import isfinite, pi
 from pathlib import Path
 from platform import python_version
 from textwrap import wrap
@@ -27,8 +28,8 @@ from matplotlib.text import Text
 from services.figure_worker.dataset import (
     CompositionData, DatasetError, DistributionData, GroupedBarData, HeatmapData, IntervalData,
     MAX_COMPOSITION_COMPONENTS, MAX_COMPOSITION_GROUPS, MAX_EXACT_COUNT,
-    MAX_HEATMAP_DIMENSION, MAX_INTERVAL_POINTS, RankedData, ScatterData, TrendData,
-    VolcanoData, distribution_box_stats, validate_volcano_options, volcano_ordinate,
+    MAX_HEATMAP_DIMENSION, MAX_INTERVAL_POINTS, RadarAxis, RadarData, RadarPoint, RankedData, ScatterData, TrendData,
+    VolcanoData, distribution_box_stats, radar_normalized, validate_radar_axes, validate_volcano_options, volcano_ordinate,
 )
 from services.figure_worker.styles import FigureStyle, STANDARD_STYLE, STYLES
 
@@ -41,6 +42,7 @@ RANKED_TEMPLATE_VERSION = "ranked-lollipop-v1"
 COMPOSITION_TEMPLATE_VERSION = "composition-v1"
 VOLCANO_TEMPLATE_VERSION = "volcano-v1"
 DISTRIBUTION_TEMPLATE_VERSION = "distribution-box-scatter-v1"
+RADAR_TEMPLATE_VERSION = "radar-explicit-axes-v1"
 INTERVAL_TEMPLATE_VERSIONS = {"dot-interval": "dot-interval-v1", "forest": "forest-v1"}
 DPI = 160
 HEIGHT_INCHES = 5.5
@@ -78,6 +80,7 @@ class RenderedFigure:
     style_version: str
     style_sha256: str
     artifacts: tuple[FigureArtifact, ...] = field(repr=False)
+    data_table: FigureArtifact | None = field(default=None, repr=False)
 
 
 def _literal_label(value: str) -> str:
@@ -85,7 +88,7 @@ def _literal_label(value: str) -> str:
     return value.replace("$", r"\$")
 
 
-def _spec_hash(data: GroupedBarData | ScatterData | HeatmapData | TrendData | IntervalData | RankedData | CompositionData | VolcanoData | DistributionData) -> str:
+def _spec_hash(data: GroupedBarData | ScatterData | HeatmapData | TrendData | IntervalData | RankedData | CompositionData | VolcanoData | DistributionData | RadarData) -> str:
     if isinstance(data, GroupedBarData):
         spec = {
             "template_version": GROUPED_BAR_TEMPLATE_VERSION,
@@ -150,6 +153,15 @@ def _spec_hash(data: GroupedBarData | ScatterData | HeatmapData | TrendData | In
             "ordering": "first-observed", "missing": "reject",
             "percent_arithmetic": "binary64-counts-divided-by-supplied-total",
             "cells": [(c.group, c.component, str(c.count), str(c.denominator)) for c in data.cells],
+        }
+    elif isinstance(data, RadarData):
+        spec = {
+            "template_version": RADAR_TEMPLATE_VERSION, "dataset_hash": data.dataset_hash,
+            "method_column": data.method_column, "metric_column": data.metric_column, "value_column": data.value_column,
+            "axes": [(a.metric, a.unit, str(a.lower), str(a.upper), a.direction) for a in data.axes],
+            "points": [(p.method, p.metric, str(p.value)) for p in data.points],
+            "normalization": "exact-rational-min-max-to-binary64;outer-is-better",
+            "missing": "reject", "clipping": "none", "ranking": "none", "csv_text_escape": "apostrophe-v1",
         }
     elif isinstance(data, DistributionData):
         spec = {
@@ -296,7 +308,7 @@ def _apply_style(figure: Figure, style: FigureStyle) -> None:
 
 def _export_figure(
     figure: Figure, *, template_version: str, dataset_hash: str,
-    parser_version: str, figure_spec_hash: str, style: FigureStyle = STANDARD_STYLE,
+    parser_version: str, figure_spec_hash: str, style: FigureStyle = STANDARD_STYLE, data_table: bytes | None = None,
 ) -> RenderedFigure:
     """Export a frozen figure to three formats with identical input provenance."""
     if type(style) is not FigureStyle or STYLES.get(style.id) is not style:
@@ -354,6 +366,8 @@ def _export_figure(
         style_version=style.version,
         style_sha256=style_hash,
         artifacts=tuple(outputs),
+        data_table=(FigureArtifact("csv", "text/csv; charset=utf-8", sha256(data_table).hexdigest(), data_table)
+                    if data_table is not None else None),
     )
 
 
@@ -835,3 +849,80 @@ def render_distribution(data: DistributionData, *, style: FigureStyle = STANDARD
     return _export_figure(figure, template_version=DISTRIBUTION_TEMPLATE_VERSION,
                           dataset_hash=data.dataset_hash, parser_version=data.parser_version,
                           figure_spec_hash=_spec_hash(data), style=style)
+
+
+def _radar_table_csv(data: RadarData) -> bytes:
+    """Preserve raw numeric values, axis metadata and plotted scores without active cells."""
+    stream = StringIO(newline="")
+    writer = csv.writer(stream, lineterminator="\n")
+    writer.writerow(["method", "metric", "unit", "lower", "upper", "direction", "raw_value", "normalized",
+                     "escaped_text_fields"])
+    axes = {a.metric: a for a in data.axes}
+    for point in data.points:
+        axis = axes[point.metric]
+        escaped, text = [], []
+        for field_name, value in (("method", point.method), ("metric", point.metric), ("unit", axis.unit)):
+            if value.startswith(("=", "+", "-", "@")):
+                value = "'" + value
+                escaped.append(field_name)
+            text.append(value)
+        writer.writerow([*text, str(axis.lower), str(axis.upper), axis.direction, str(point.value),
+                         str(radar_normalized(point.value, axis)), ";".join(escaped)])
+    return stream.getvalue().encode("utf-8")
+
+
+def _make_radar_figure(data: RadarData) -> Figure:
+    if (type(data) is not RadarData or data.template_id != "radar" or not data.points
+            or len(data.points) > 32 or not 3 <= len(data.axes) <= 8
+            or any(type(a) is not RadarAxis for a in data.axes)
+            or any(type(p) is not RadarPoint or type(p.method) is not str or not p.method
+                   or len(p.method) > 80 or type(p.metric) is not str for p in data.points)):
+        raise DatasetError("invalid_radar_contract")
+    frozen = validate_radar_axes([dict(metric=a.metric, unit=a.unit, lower=a.lower,
+                                      upper=a.upper, direction=a.direction) for a in data.axes])
+    if frozen != data.axes:
+        raise DatasetError("invalid_radar_contract")
+    methods = list(dict.fromkeys(p.method for p in data.points))
+    lookup = {(p.method, p.metric): p for p in data.points}
+    if (len(methods) > 4 or len(lookup) != len(data.points)
+            or any(p.metric not in {a.metric for a in frozen} for p in data.points)
+            or len(lookup) != len(methods) * len(frozen)):
+        raise DatasetError("incomplete_radar_matrix")
+    scores = [[radar_normalized(lookup[method, a.metric].value, a) for a in frozen] for method in methods]
+    _check_font_coverage([*methods, *(a.metric for a in frozen), *(a.unit for a in frozen)],
+                         "unsupported_radar_glyph")
+    figure = Figure(figsize=(8.0, HEIGHT_INCHES), dpi=DPI, facecolor="white")
+    FigureCanvasAgg(figure)
+    axis = figure.subplots(subplot_kw={"projection": "polar"})
+    angles = [2 * pi * i / len(frozen) for i in range(len(frozen))]
+    axis.set_theta_offset(pi / 2)
+    axis.set_theta_direction(-1)
+    for index, method in enumerate(methods):
+        axis.plot([*angles, angles[0]], [*scores[index], scores[index][0]],
+                  marker="o", markersize=4, color=COLORS[index], linewidth=1.2,
+                  label=_literal_label(method))
+    labels = ["\n".join(wrap(_literal_label(a.metric), width=18)) +
+              f"\n({_literal_label(a.unit)}; {'higher' if a.direction == 'higher' else 'lower'} is better)" for a in frozen]
+    axis.set_xticks(angles, labels)
+    axis.tick_params(axis="x", pad=18)
+    axis.set_ylim(0, 1)
+    axis.set_yticks([0.25, 0.5, 0.75, 1], ["0.25", "0.5", "0.75", "1"])
+    font = FontProperties(fname=str(FONT_PATH))
+    for label in (*axis.get_xticklabels(), *axis.get_yticklabels()):
+        label.set_fontproperties(font)
+        label.set_fontsize(9)
+    axis.legend(frameon=False, bbox_to_anchor=(1.3, 1.05), loc="upper left",
+                prop=FontProperties(fname=str(FONT_PATH), size=9))
+    figure.text(0.02, 0.02, "Normalized 0-1 using supplied axis bounds; outer is better. Raw values/units in CSV.\n"
+                "No aggregate score, ranking, clipping, missing-value filling or statistical tests.",
+                fontproperties=font, fontsize=8)
+    figure.tight_layout(rect=(0, 0.12, 1, 0.94))
+    return figure
+
+
+def render_radar(data: RadarData, *, style: FigureStyle = STANDARD_STYLE) -> RenderedFigure:
+    with rc_context({"text.usetex": False}):
+        figure = _make_radar_figure(data)
+    return _export_figure(figure, template_version=RADAR_TEMPLATE_VERSION,
+                          dataset_hash=data.dataset_hash, parser_version=data.parser_version,
+                          figure_spec_hash=_spec_hash(data), style=style, data_table=_radar_table_csv(data))

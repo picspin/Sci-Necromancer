@@ -6,12 +6,12 @@ import re
 
 from services.figure_worker.dataset import (
     DatasetError, parse_csv_bytes, validate_composition, validate_distribution, validate_grouped_bar, validate_heatmap,
-    validate_intervals, validate_ranked, validate_scatter, validate_trend, validate_volcano,
+    validate_intervals, validate_radar, validate_ranked, validate_scatter, validate_trend, validate_volcano,
 )
 from services.figure_worker.render import (
     COMPOSITION_TEMPLATE_VERSION, DISTRIBUTION_TEMPLATE_VERSION, GROUPED_BAR_TEMPLATE_VERSION, HEATMAP_TEMPLATE_VERSION, INTERVAL_TEMPLATE_VERSIONS,
-    RANKED_TEMPLATE_VERSION, SCATTER_TEMPLATE_VERSION, TREND_TEMPLATE_VERSION, VOLCANO_TEMPLATE_VERSION, RenderedFigure,
-    render_composition, render_distribution, render_grouped_bar, render_heatmap, render_intervals, render_ranked, render_scatter, render_trend, render_volcano,
+    RADAR_TEMPLATE_VERSION, RANKED_TEMPLATE_VERSION, SCATTER_TEMPLATE_VERSION, TREND_TEMPLATE_VERSION, VOLCANO_TEMPLATE_VERSION, RenderedFigure,
+    render_composition, render_distribution, render_grouped_bar, render_heatmap, render_intervals, render_radar, render_ranked, render_scatter, render_trend, render_volcano,
 )
 from services.figure_worker.styles import resolve_style, STANDARD_STYLE
 
@@ -19,6 +19,7 @@ from services.figure_worker.styles import resolve_style, STANDARD_STYLE
 SCHEMA_VERSION = "figure-spec-v1"
 TEMPLATE_VERSIONS = {
     "distribution": DISTRIBUTION_TEMPLATE_VERSION,
+    "radar": RADAR_TEMPLATE_VERSION,
     "grouped-bar": GROUPED_BAR_TEMPLATE_VERSION,
     "scatter": SCATTER_TEMPLATE_VERSION,
     "heatmap": HEATMAP_TEMPLATE_VERSION,
@@ -39,7 +40,7 @@ def render_csv_spec(payload: bytes, spec: dict) -> RenderedFigure:
     if type(spec) is not dict:
         raise DatasetError("invalid_figure_spec")
     required = {"schema_version", "template_id", "template_version", "dataset_sha256", "mapping", "units"}
-    if not required <= spec.keys() or spec.keys() - required - {"interval", "ranking", "composition", "volcano", "style"}:
+    if not required <= spec.keys() or spec.keys() - required - {"interval", "ranking", "composition", "volcano", "radar", "style"}:
         raise DatasetError("invalid_figure_spec_fields")
     if spec["schema_version"] != SCHEMA_VERSION:
         raise DatasetError("unsupported_figure_spec_version")
@@ -49,7 +50,8 @@ def render_csv_spec(payload: bytes, spec: dict) -> RenderedFigure:
     allowed_options = ({"interval"} if template in INTERVAL_TEMPLATE_VERSIONS else
                        {"ranking"} if template == "ranked-lollipop" else
                        {"composition"} if template == "composition" else
-                       {"volcano"} if template == "volcano" else set())
+                       {"volcano"} if template == "volcano" else
+                       {"radar"} if template == "radar" else set())
     if spec.keys() - required - allowed_options - {"style"}:
         raise DatasetError("invalid_figure_spec_fields")
     style = resolve_style(spec["style"]) if "style" in spec else STANDARD_STYLE
@@ -61,7 +63,9 @@ def render_csv_spec(payload: bytes, spec: dict) -> RenderedFigure:
     mapping, units = spec["mapping"], spec["units"]
     if type(mapping) is not dict or type(units) is not dict:
         raise DatasetError("invalid_figure_spec_mapping")
-    if template == "distribution":
+    if template == "radar":
+        roles, optional, unit_roles = {"method", "metric", "value"}, set(), set()
+    elif template == "distribution":
         roles, optional, unit_roles = {"value"}, {"group"}, {"value"}
     elif template == "grouped-bar":
         roles, optional, unit_roles = {"category", "value"}, {"group"}, {"value"}
@@ -86,7 +90,11 @@ def render_csv_spec(payload: bytes, spec: dict) -> RenderedFigure:
     if (units.keys() != unit_roles
             or any(type(unit) is not str or not unit.strip() or len(unit) > 48 for unit in units.values())):
         raise DatasetError("invalid_figure_spec_units")
-    if template in INTERVAL_TEMPLATE_VERSIONS:
+    if template == "radar":
+        radar = spec.get("radar")
+        if type(radar) is not dict or radar.keys() != {"axes"}:
+            raise DatasetError("invalid_figure_spec_radar")
+    elif template in INTERVAL_TEMPLATE_VERSIONS:
         interval = spec.get("interval")
         if (type(interval) is not dict or "type" not in interval
                 or interval.keys() - {"type", "ci_level", "effect_type"}
@@ -123,6 +131,11 @@ def render_csv_spec(payload: bytes, spec: dict) -> RenderedFigure:
     dataset = parse_csv_bytes(payload)
     if dataset.sha256 != source_hash:
         raise DatasetError("figure_dataset_hash_mismatch")
+    if template == "radar":
+        return render_radar(validate_radar(
+            dataset, method_column=mapping["method"], metric_column=mapping["metric"],
+            value_column=mapping["value"], axes=radar["axes"],
+        ), style=style)
     if template == "distribution":
         return render_distribution(validate_distribution(
             dataset, value_column=mapping["value"], group_column=mapping.get("group"), value_unit=units["value"],
