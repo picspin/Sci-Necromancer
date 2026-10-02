@@ -19,6 +19,7 @@ class FigureSpecTests(unittest.TestCase):
 
     def test_every_installed_template_runs_csv_to_three_artifacts(self):
         cases = [
+            ("distribution", b"V,G\n1,A\n4,A\n9,A\n", {"value": "col_1", "group": "col_2"}, {"value": "score"}, {}),
             ("grouped-bar", b"C,V\nA,2\n", {"category": "col_1", "value": "col_2"}, {"value": "patients"}, {}),
             ("scatter", b"X,Y\n1,2\n", {"x": "col_1", "y": "col_2"}, {"x": "mm", "y": "score"}, {}),
             ("heatmap", b"R,C,V\nA,X,2\n", {"row": "col_1", "column": "col_2", "value": "col_3"}, {"value": "score"}, {}),

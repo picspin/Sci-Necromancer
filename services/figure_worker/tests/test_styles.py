@@ -27,6 +27,7 @@ def cases():
         ("ranked-lollipop", b"L,V,G\nA,3,X\nB,5,Y\nC,2,X\n", {"label": "col_1", "value": "col_2", "group": "col_3"}, {"value": "score"}, {"ranking": {"ordering": "descending", "top_n": 2}}),
         ("composition", b"G,C,N,D\nA,X,2,5\nA,Y,3,5\nB,X,6,8\nB,Y,2,8\n", {"group": "col_1", "component": "col_2", "count": "col_3", "denominator": "col_4"}, {"count": "patients"}, {"composition": {"display": "percent", "denominator_scope": "within-group", "mutually_exclusive": True, "exhaustive": True}}),
         ("volcano", b"ID,FC,P\nA,-2,0.001\nB,2,0\nC,0.5,0.3\n", {"identifier": "col_1", "log2fc": "col_2", "p": "col_3"}, {"log2fc": "log2 fold change", "p": "probability"}, {"volcano": {"p_kind": "adjusted_p", "p_threshold": "0.05", "fold_threshold": 1, "zero_p_floor": "0.0001"}}),
+        ("distribution", b"V,G\n1,A\n4,A\n9,A\n7,B\n", {"value": "col_1", "group": "col_2"}, {"value": "score"}, {}),
     ]
 
 

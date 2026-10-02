@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
+from decimal import Decimal
 from hashlib import sha256
 from io import BytesIO
 import json
@@ -24,10 +25,10 @@ from matplotlib.patches import Patch
 from matplotlib.text import Text
 
 from services.figure_worker.dataset import (
-    CompositionData, DatasetError, GroupedBarData, HeatmapData, IntervalData,
+    CompositionData, DatasetError, DistributionData, GroupedBarData, HeatmapData, IntervalData,
     MAX_COMPOSITION_COMPONENTS, MAX_COMPOSITION_GROUPS, MAX_EXACT_COUNT,
     MAX_HEATMAP_DIMENSION, MAX_INTERVAL_POINTS, RankedData, ScatterData, TrendData,
-    VolcanoData, validate_volcano_options, volcano_ordinate,
+    VolcanoData, distribution_box_stats, validate_volcano_options, volcano_ordinate,
 )
 from services.figure_worker.styles import FigureStyle, STANDARD_STYLE, STYLES
 
@@ -39,6 +40,7 @@ TREND_TEMPLATE_VERSION = "trend-v1"
 RANKED_TEMPLATE_VERSION = "ranked-lollipop-v1"
 COMPOSITION_TEMPLATE_VERSION = "composition-v1"
 VOLCANO_TEMPLATE_VERSION = "volcano-v1"
+DISTRIBUTION_TEMPLATE_VERSION = "distribution-box-scatter-v1"
 INTERVAL_TEMPLATE_VERSIONS = {"dot-interval": "dot-interval-v1", "forest": "forest-v1"}
 DPI = 160
 HEIGHT_INCHES = 5.5
@@ -83,7 +85,7 @@ def _literal_label(value: str) -> str:
     return value.replace("$", r"\$")
 
 
-def _spec_hash(data: GroupedBarData | ScatterData | HeatmapData | TrendData | IntervalData | RankedData | CompositionData | VolcanoData) -> str:
+def _spec_hash(data: GroupedBarData | ScatterData | HeatmapData | TrendData | IntervalData | RankedData | CompositionData | VolcanoData | DistributionData) -> str:
     if isinstance(data, GroupedBarData):
         spec = {
             "template_version": GROUPED_BAR_TEMPLATE_VERSION,
@@ -148,6 +150,15 @@ def _spec_hash(data: GroupedBarData | ScatterData | HeatmapData | TrendData | In
             "ordering": "first-observed", "missing": "reject",
             "percent_arithmetic": "binary64-counts-divided-by-supplied-total",
             "cells": [(c.group, c.component, str(c.count), str(c.denominator)) for c in data.cells],
+        }
+    elif isinstance(data, DistributionData):
+        spec = {
+            "template_version": DISTRIBUTION_TEMPLATE_VERSION, "dataset_hash": data.dataset_hash,
+            "value_column": data.value_column, "group_column": data.group_column, "value_unit": data.value_unit,
+            "quartiles": "HF7-exact-rational-to-binary64", "whiskers": "observed-within-1.5-IQR",
+            "jitter": "source-order-even-spread-width0.3", "ordering": "first-observed",
+            "sampling": "none", "deletion": "none", "kde": "none", "tests": "none",
+            "points": [(str(p.value), p.group) for p in data.points],
         }
     elif isinstance(data, VolcanoData):
         spec = {
@@ -764,5 +775,63 @@ def render_volcano(data: VolcanoData, *, style: FigureStyle = STANDARD_STYLE) ->
     with rc_context({"text.usetex": False}):
         figure = _make_volcano_figure(data)
     return _export_figure(figure, template_version=VOLCANO_TEMPLATE_VERSION,
+                          dataset_hash=data.dataset_hash, parser_version=data.parser_version,
+                          figure_spec_hash=_spec_hash(data), style=style)
+
+
+def _make_distribution_figure(data: DistributionData) -> Figure:
+    if (not isinstance(data, DistributionData) or data.template_id != "distribution" or not data.points
+            or len(data.points) > 5_000
+            or any(type(p.value) is not Decimal or not p.value.is_finite() or len(str(p.value)) > 128
+                   or not isfinite(float(p.value)) or (p.value != 0 and float(p.value) == 0)
+                   or (p.group is None) != (data.group_column is None) for p in data.points)):
+        raise DatasetError("invalid_distribution_contract")
+    groups = list(dict.fromkeys(p.group for p in data.points))
+    if len(groups) > len(COLORS):
+        raise DatasetError("distribution_limit_exceeded")
+    _check_font_coverage([data.value_unit, *(g for g in groups if g is not None)],
+                         "unsupported_distribution_glyph")
+    values = [float(p.value) for p in data.points]
+    span = max(values) - min(values)
+    padding = max(span * 0.1, 5e-324) if span else (abs(values[0]) * 0.05 if values[0] else 1.0)
+    if not isfinite(span) or not all(isfinite(v) for v in (min(values) - padding, max(values) + padding)):
+        raise DatasetError("unplottable_distribution_range")
+    figure = Figure(figsize=(8.0, HEIGHT_INCHES), dpi=DPI, facecolor="white")
+    FigureCanvasAgg(figure)
+    axis = figure.subplots()
+    labels, singleton, constant = [], 0, 0
+    for index, group in enumerate(groups):
+        members = tuple(p.value for p in data.points if p.group == group)
+        stats = distribution_box_stats(members)
+        axis.bxp([stats], positions=[index], widths=0.48, patch_artist=True, showfliers=False,
+                 boxprops=dict(facecolor=COLORS[index], edgecolor=COLORS[index], alpha=0.25),
+                 whiskerprops=dict(color=COLORS[index]), capprops=dict(color=COLORS[index]),
+                 medianprops=dict(color=COLORS[index], linewidth=1.5))
+        # All rows plotted once; lateral displacement conveys no numerical measurement.
+        offsets = [index + (0.3 * (i / (len(members) - 1) - 0.5) if len(members) > 1 else 0)
+                   for i in range(len(members))]
+        axis.scatter(offsets, [float(v) for v in members], s=18, color=COLORS[index], alpha=0.65, zorder=3)
+        labels.append(f"{_literal_label(group) if group is not None else 'All observations'}\n(n={len(members)})")
+        singleton += len(members) == 1
+        constant += min(members) == max(members)
+    font = FontProperties(fname=str(FONT_PATH))
+    axis.set_xticks(range(len(groups)), labels)
+    axis.set_ylabel(_literal_label(data.value_unit), fontproperties=font)
+    axis.set_ylim(min(values) - padding, max(values) + padding)
+    axis.spines["top"].set_visible(False)
+    axis.spines["right"].set_visible(False)
+    for label in (*axis.get_xticklabels(), *axis.get_yticklabels(), axis.yaxis.get_offset_text()):
+        label.set_fontproperties(font)
+    figure.text(0.02, 0.02, "HF type 7 quartiles; observed 1.5-IQR whiskers; all rows shown (no outlier deletion).\n"
+                f"Singleton groups: {singleton}; constant groups (including singletons): {constant}. No KDE or tests.",
+                fontproperties=font, fontsize=8)
+    figure.tight_layout(rect=(0, 0.09, 1, 1))
+    return figure
+
+
+def render_distribution(data: DistributionData, *, style: FigureStyle = STANDARD_STYLE) -> RenderedFigure:
+    with rc_context({"text.usetex": False}):
+        figure = _make_distribution_figure(data)
+    return _export_figure(figure, template_version=DISTRIBUTION_TEMPLATE_VERSION,
                           dataset_hash=data.dataset_hash, parser_version=data.parser_version,
                           figure_spec_hash=_spec_hash(data), style=style)

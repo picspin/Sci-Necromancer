@@ -5,19 +5,20 @@ from __future__ import annotations
 import re
 
 from services.figure_worker.dataset import (
-    DatasetError, parse_csv_bytes, validate_composition, validate_grouped_bar, validate_heatmap,
+    DatasetError, parse_csv_bytes, validate_composition, validate_distribution, validate_grouped_bar, validate_heatmap,
     validate_intervals, validate_ranked, validate_scatter, validate_trend, validate_volcano,
 )
 from services.figure_worker.render import (
-    COMPOSITION_TEMPLATE_VERSION, GROUPED_BAR_TEMPLATE_VERSION, HEATMAP_TEMPLATE_VERSION, INTERVAL_TEMPLATE_VERSIONS,
+    COMPOSITION_TEMPLATE_VERSION, DISTRIBUTION_TEMPLATE_VERSION, GROUPED_BAR_TEMPLATE_VERSION, HEATMAP_TEMPLATE_VERSION, INTERVAL_TEMPLATE_VERSIONS,
     RANKED_TEMPLATE_VERSION, SCATTER_TEMPLATE_VERSION, TREND_TEMPLATE_VERSION, VOLCANO_TEMPLATE_VERSION, RenderedFigure,
-    render_composition, render_grouped_bar, render_heatmap, render_intervals, render_ranked, render_scatter, render_trend, render_volcano,
+    render_composition, render_distribution, render_grouped_bar, render_heatmap, render_intervals, render_ranked, render_scatter, render_trend, render_volcano,
 )
 from services.figure_worker.styles import resolve_style, STANDARD_STYLE
 
 
 SCHEMA_VERSION = "figure-spec-v1"
 TEMPLATE_VERSIONS = {
+    "distribution": DISTRIBUTION_TEMPLATE_VERSION,
     "grouped-bar": GROUPED_BAR_TEMPLATE_VERSION,
     "scatter": SCATTER_TEMPLATE_VERSION,
     "heatmap": HEATMAP_TEMPLATE_VERSION,
@@ -60,7 +61,9 @@ def render_csv_spec(payload: bytes, spec: dict) -> RenderedFigure:
     mapping, units = spec["mapping"], spec["units"]
     if type(mapping) is not dict or type(units) is not dict:
         raise DatasetError("invalid_figure_spec_mapping")
-    if template == "grouped-bar":
+    if template == "distribution":
+        roles, optional, unit_roles = {"value"}, {"group"}, {"value"}
+    elif template == "grouped-bar":
         roles, optional, unit_roles = {"category", "value"}, {"group"}, {"value"}
     elif template == "scatter":
         roles, optional, unit_roles = {"x", "y"}, {"group"}, {"x", "y"}
@@ -120,6 +123,10 @@ def render_csv_spec(payload: bytes, spec: dict) -> RenderedFigure:
     dataset = parse_csv_bytes(payload)
     if dataset.sha256 != source_hash:
         raise DatasetError("figure_dataset_hash_mismatch")
+    if template == "distribution":
+        return render_distribution(validate_distribution(
+            dataset, value_column=mapping["value"], group_column=mapping.get("group"), value_unit=units["value"],
+        ), style=style)
     if template == "grouped-bar":
         return render_grouped_bar(validate_grouped_bar(
             dataset, category_column=mapping["category"], value_column=mapping["value"],
