@@ -2,6 +2,9 @@
 
 from decimal import Decimal, localcontext
 from dataclasses import replace
+from copy import deepcopy
+from hashlib import sha256
+import json
 import unittest
 
 from services.figure_worker.dataset import (
@@ -9,6 +12,7 @@ from services.figure_worker.dataset import (
 )
 from services.figure_worker.render import _apply_style, _make_histogram_figure, render_distribution
 from services.figure_worker.styles import STYLES
+from services.figure_worker.spec import render_csv_spec
 from services.figure_worker.tests.test_styles import scientific_snapshot
 
 
@@ -48,9 +52,93 @@ class HistogramInputTests(unittest.TestCase):
         self.assertEqual(first.template_version, "distribution-histogram-v1")
         self.assertEqual([a.format for a in first.artifacts], ["png", "pdf", "svg"])
         for invalid in (replace(data, bin_edges=(Decimal(0), Decimal(2))),
-                        replace(data, bin_edges=(Decimal(0), Decimal(0))), replace(data, group_column=None)):
+                        replace(data, bin_edges=(Decimal(0), Decimal(0))), replace(data, group_column=None),
+                        replace(data, bin_edges=("0", "10")), replace(data, value_unit=None)):
             with self.assertRaises(DatasetError):
                 render_distribution(invalid)
+
+    def test_constant_ungrouped_and_unplottable_range(self):
+        data = validate_distribution(parse_csv_bytes(b"V\n2\n2\n2\n"), value_column="col_1",
+                                     value_unit="score", bin_edges=[0, 1, 2, 3])
+        figure = _make_histogram_figure(data)
+        try:
+            self.assertEqual(figure.axes[0].patches[0].get_data().values.tolist(), [0, 0, 3])
+            self.assertEqual(figure.axes[0].get_legend().get_texts()[0].get_text(), "All observations (n=3)")
+        finally:
+            figure.clear()
+        tiny = validate_distribution(parse_csv_bytes(b"V\n0\n"), value_column="col_1",
+                                     value_unit="score", bin_edges=[0, "1e-308"])
+        with self.assertRaises(DatasetError) as error:
+            render_distribution(tiny)
+        self.assertEqual(error.exception.code, "unplottable_histogram_range")
+
+    def test_maximum_bins_groups_rows_and_excess_rejection(self):
+        payload = ("V,G\n" + "".join(f"{i % 51},G{i % 8}\n" for i in range(5000))).encode()
+        kwargs = dict(value_column="col_1", group_column="col_2", value_unit="score", bin_edges=list(range(51)))
+        data = validate_distribution(parse_csv_bytes(payload), **kwargs)
+        figure = _make_histogram_figure(data)
+        try:
+            self.assertEqual(len(figure.axes[0].patches), 8)
+            self.assertEqual(sum(sum(p.get_data().values) for p in figure.axes[0].patches), 5000)
+        finally:
+            figure.clear()
+        with self.assertRaises(DatasetError):
+            validate_distribution(parse_csv_bytes(payload + b"1,G0\n"), **kwargs)
+        with self.assertRaises(DatasetError):
+            validate_distribution(parse_csv_bytes(b"V,G\n1,A\n1,B\n1,C\n1,D\n1,E\n1,F\n1,G\n1,H\n1,I\n"), **kwargs)
+
+    def test_frozen_plan_versions_hash_style_and_legacy_box(self):
+        payload = b"V,G\n0,A\n1,A\n2,B\n"
+        spec = dict(schema_version="figure-spec-v1", template_id="distribution",
+                    template_version="distribution-histogram-v1", dataset_sha256=sha256(payload).hexdigest(),
+                    mapping={"value": "col_1", "group": "col_2"}, units={"value": "mg"},
+                    distribution={"variant": "histogram", "bin_edges": [0, 1, 2]})
+        frozen = deepcopy(spec)
+        first = render_csv_spec(payload, spec)
+        self.assertEqual(spec, frozen)
+        self.assertEqual(first, render_csv_spec(payload, spec))
+        changed = deepcopy(spec)
+        changed["distribution"]["bin_edges"] = [0, 0.5, 2]
+        self.assertNotEqual(first.figure_spec_hash, render_csv_spec(payload, changed).figure_spec_hash)
+        for style in STYLES.values():
+            changed = {**spec, "style": {"id": style.id, "version": style.version}}
+            result = render_csv_spec(payload, changed)
+            self.assertEqual(result.style_id, style.id)
+            self.assertEqual([a.format for a in result.artifacts], ["png", "pdf", "svg"])
+            self.assertEqual(result, render_csv_spec(payload, changed))
+        legacy = {k: v for k, v in spec.items() if k != "distribution"}
+        legacy["template_version"] = "distribution-box-scatter-v1"
+        box = validate_distribution(parse_csv_bytes(payload), value_column="col_1", group_column="col_2", value_unit="mg")
+        self.assertEqual(render_csv_spec(payload, legacy), render_distribution(box))
+        # Independent snapshot of the pre-histogram scientific hash contract.
+        expected = dict(template_version="distribution-box-scatter-v1", dataset_hash=box.dataset_hash,
+                        value_column="col_1", group_column="col_2", value_unit="mg",
+                        quartiles="HF7-exact-rational-to-binary64", whiskers="observed-within-1.5-IQR",
+                        jitter="source-order-even-spread-width0.3", ordering="first-observed",
+                        sampling="none", deletion="none", kde="none", tests="none",
+                        points=[(str(p.value), p.group) for p in box.points])
+        self.assertEqual(render_distribution(box).figure_spec_hash,
+                         sha256(json.dumps(expected, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode()).hexdigest())
+
+    def test_invalid_plan_options_and_cross_template_options_fail(self):
+        payload = b"V\n1\n"
+        spec = dict(schema_version="figure-spec-v1", template_id="distribution",
+                    template_version="distribution-histogram-v1", dataset_sha256=sha256(payload).hexdigest(),
+                    mapping={"value": "col_1"}, units={"value": "mg"},
+                    distribution={"variant": "histogram", "bin_edges": [0, 2]})
+        for option in (None, {}, {"variant": "kde", "bin_edges": [0, 2]},
+                       {"variant": "histogram", "bin_edges": "auto"},
+                       {"variant": "histogram", "bin_edges": [0, 2], "density": True},
+                       {"variant": "histogram", "bin_edges": [False, 2]}):
+            with self.subTest(option=option), self.assertRaises(DatasetError):
+                render_csv_spec(payload, {**spec, "distribution": option})
+        for changes in ({"template_version": "distribution-box-scatter-v1"},
+                        {"template_id": "scatter", "template_version": "scatter-v1"},
+                        {"dataset_sha256": "0" * 64}):
+            with self.assertRaises(DatasetError):
+                render_csv_spec(payload, {**spec, **changes})
+        with self.assertRaises(DatasetError):
+            render_csv_spec(payload, {k: v for k, v in spec.items() if k != "distribution"})
     def test_exact_boundaries_empty_bins_final_endpoint_and_context(self):
         edges = tuple(map(Decimal, (0, 1, 2, 4, 10)))
         values = tuple(map(Decimal, (0, 1, 1, 4, 10)))
@@ -69,6 +157,8 @@ class HistogramInputTests(unittest.TestCase):
             with self.subTest(edges=edges), self.assertRaises(DatasetError):
                 validate_histogram_edges(edges)
         self.assertEqual(len(validate_histogram_edges(list(range(51)))), 51)
+        with self.assertRaises(DatasetError):
+            validate_histogram_edges([0, 10**5000])
 
     def test_intake_retains_all_rows_and_rejects_outside_or_missing(self):
         dataset = parse_csv_bytes(b"V,G\n0,A\n1,A\n2,A\n2,B\n")

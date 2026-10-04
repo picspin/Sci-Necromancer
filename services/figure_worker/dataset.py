@@ -877,6 +877,8 @@ def validate_histogram_edges(raw: list | tuple) -> tuple[Decimal, ...]:
         raise DatasetError("invalid_histogram_edges")
     edges = []
     for item in raw:
+        if type(item) is int and abs(item) >= 10**128:
+            raise DatasetError("invalid_histogram_edges")
         if type(item) not in (str, int, float, Decimal) or len(str(item)) > 128:
             raise DatasetError("invalid_histogram_edges")
         try:

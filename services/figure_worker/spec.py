@@ -9,7 +9,8 @@ from services.figure_worker.dataset import (
     validate_intervals, validate_radar, validate_ranked, validate_scatter, validate_trend, validate_volcano,
 )
 from services.figure_worker.render import (
-    COMPOSITION_TEMPLATE_VERSION, DISTRIBUTION_TEMPLATE_VERSION, GROUPED_BAR_TEMPLATE_VERSION, HEATMAP_TEMPLATE_VERSION, INTERVAL_TEMPLATE_VERSIONS,
+    COMPOSITION_TEMPLATE_VERSION, DISTRIBUTION_TEMPLATE_VERSION, GROUPED_BAR_TEMPLATE_VERSION, HEATMAP_TEMPLATE_VERSION,
+    HISTOGRAM_TEMPLATE_VERSION, INTERVAL_TEMPLATE_VERSIONS,
     RADAR_TEMPLATE_VERSION, RANKED_TEMPLATE_VERSION, SCATTER_TEMPLATE_VERSION, TREND_TEMPLATE_VERSION, VOLCANO_TEMPLATE_VERSION, RenderedFigure,
     render_composition, render_distribution, render_grouped_bar, render_heatmap, render_intervals, render_radar, render_ranked, render_scatter, render_trend, render_volcano,
 )
@@ -40,7 +41,7 @@ def render_csv_spec(payload: bytes, spec: dict) -> RenderedFigure:
     if type(spec) is not dict:
         raise DatasetError("invalid_figure_spec")
     required = {"schema_version", "template_id", "template_version", "dataset_sha256", "mapping", "units"}
-    if not required <= spec.keys() or spec.keys() - required - {"interval", "ranking", "composition", "volcano", "radar", "style"}:
+    if not required <= spec.keys() or spec.keys() - required - {"interval", "ranking", "composition", "volcano", "radar", "distribution", "style"}:
         raise DatasetError("invalid_figure_spec_fields")
     if spec["schema_version"] != SCHEMA_VERSION:
         raise DatasetError("unsupported_figure_spec_version")
@@ -51,11 +52,19 @@ def render_csv_spec(payload: bytes, spec: dict) -> RenderedFigure:
                        {"ranking"} if template == "ranked-lollipop" else
                        {"composition"} if template == "composition" else
                        {"volcano"} if template == "volcano" else
+                       {"distribution"} if template == "distribution" else
                        {"radar"} if template == "radar" else set())
     if spec.keys() - required - allowed_options - {"style"}:
         raise DatasetError("invalid_figure_spec_fields")
     style = resolve_style(spec["style"]) if "style" in spec else STANDARD_STYLE
-    if spec["template_version"] != TEMPLATE_VERSIONS[template]:
+    distribution = spec.get("distribution")
+    if "distribution" in spec:
+        if (type(distribution) is not dict or distribution.keys() != {"variant", "bin_edges"}
+                or distribution["variant"] != "histogram" or type(distribution["bin_edges"]) is not list
+                or any(type(edge) not in (int, float, str) for edge in distribution["bin_edges"])):
+            raise DatasetError("invalid_figure_spec_distribution")
+    version = HISTOGRAM_TEMPLATE_VERSION if distribution is not None else TEMPLATE_VERSIONS[template]
+    if spec["template_version"] != version:
         raise DatasetError("unsupported_figure_template_version")
     source_hash = spec["dataset_sha256"]
     if type(source_hash) is not str or re.fullmatch(r"[a-f0-9]{64}", source_hash) is None:
@@ -139,6 +148,7 @@ def render_csv_spec(payload: bytes, spec: dict) -> RenderedFigure:
     if template == "distribution":
         return render_distribution(validate_distribution(
             dataset, value_column=mapping["value"], group_column=mapping.get("group"), value_unit=units["value"],
+            bin_edges=distribution["bin_edges"] if distribution is not None else None,
         ), style=style)
     if template == "grouped-bar":
         return render_grouped_bar(validate_grouped_bar(

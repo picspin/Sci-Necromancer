@@ -859,8 +859,10 @@ def _make_distribution_figure(data: DistributionData) -> Figure:
 def _make_histogram_figure(data: DistributionData) -> Figure:
     if (not isinstance(data, DistributionData) or data.template_id != "distribution" or not data.points
             or len(data.points) > 5_000 or type(data.bin_edges) is not tuple
+            or any(type(edge) is not Decimal for edge in data.bin_edges)
+            or type(data.value_unit) is not str or not data.value_unit.strip() or len(data.value_unit) > 48
             or any((p.group is None) != (data.group_column is None)
-                   or (p.group is not None and (type(p.group) is not str or len(p.group) > 80))
+                   or (p.group is not None and (type(p.group) is not str or not p.group.strip() or len(p.group) > 80))
                    for p in data.points)):
         raise DatasetError("invalid_histogram_contract")
     edges = validate_histogram_edges(data.bin_edges)
