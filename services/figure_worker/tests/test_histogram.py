@@ -1,14 +1,56 @@
 """Exact fixed-bin counts: no automatic bins, weights or omitted observations."""
 
 from decimal import Decimal, localcontext
+from dataclasses import replace
 import unittest
 
 from services.figure_worker.dataset import (
     DatasetError, histogram_bin_counts, parse_csv_bytes, validate_distribution, validate_histogram_edges,
 )
+from services.figure_worker.render import _apply_style, _make_histogram_figure, render_distribution
+from services.figure_worker.styles import STYLES
+from services.figure_worker.tests.test_styles import scientific_snapshot
 
 
 class HistogramInputTests(unittest.TestCase):
+    def data(self):
+        return validate_distribution(parse_csv_bytes(b"V,G\n0,A\n1,A\n1,A\n4,A\n10,A\n2,B\n2,B\n"),
+                                     value_column="col_1", group_column="col_2", value_unit="mg",
+                                     bin_edges=[0, 1, 2, 4, 10])
+
+    def test_rendered_counts_shared_edges_labels_and_all_styles(self):
+        figure = _make_histogram_figure(self.data())
+        try:
+            axis = figure.axes[0]
+            self.assertEqual(axis.patches[0].get_data().values.tolist(), [1, 2, 0, 2])
+            self.assertEqual(axis.patches[1].get_data().values.tolist(), [0, 0, 2, 0])
+            for curve in axis.patches:
+                self.assertEqual(curve.get_data().edges.tolist(), [0, 1, 2, 4, 10])
+                self.assertFalse(curve.get_fill())
+            self.assertEqual(axis.get_ylim()[0], 0)
+            self.assertEqual([t.get_text() for t in axis.get_legend().get_texts()], ["A (n=5)", "B (n=2)"])
+            self.assertIn("Every observation counted once", figure.texts[0].get_text())
+        finally:
+            figure.clear()
+        for style in STYLES.values():
+            figure = _make_histogram_figure(self.data())
+            try:
+                baseline = scientific_snapshot(figure)
+                _apply_style(figure, style)
+                self.assertEqual(scientific_snapshot(figure), baseline)
+            finally:
+                figure.clear()
+
+    def test_exports_and_forged_contracts(self):
+        data = self.data()
+        first = render_distribution(data)
+        self.assertEqual(first, render_distribution(data))
+        self.assertEqual(first.template_version, "distribution-histogram-v1")
+        self.assertEqual([a.format for a in first.artifacts], ["png", "pdf", "svg"])
+        for invalid in (replace(data, bin_edges=(Decimal(0), Decimal(2))),
+                        replace(data, bin_edges=(Decimal(0), Decimal(0))), replace(data, group_column=None)):
+            with self.assertRaises(DatasetError):
+                render_distribution(invalid)
     def test_exact_boundaries_empty_bins_final_endpoint_and_context(self):
         edges = tuple(map(Decimal, (0, 1, 2, 4, 10)))
         values = tuple(map(Decimal, (0, 1, 1, 4, 10)))
