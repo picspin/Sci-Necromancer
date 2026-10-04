@@ -795,6 +795,7 @@ def render_volcano(data: VolcanoData, *, style: FigureStyle = STANDARD_STYLE) ->
 
 def _make_distribution_figure(data: DistributionData) -> Figure:
     if (not isinstance(data, DistributionData) or data.template_id != "distribution" or not data.points
+            or data.bin_edges is not None
             or len(data.points) > 5_000
             or any(type(p.value) is not Decimal or not p.value.is_finite() or len(str(p.value)) > 128
                    or not isfinite(float(p.value)) or (p.value != 0 and float(p.value) == 0)
