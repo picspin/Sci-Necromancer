@@ -41,6 +41,12 @@ Vercel 生产日志表明，`conferenceBlindReviewRules.js` 中未被改写的 `
 
 与本增量分开的会员 500 导入修复仍需用户部署 Vercel。当前数据图没有自动部署动作；后续 worker 承载平台、成本、区域和任务/计费方案通过审核后，另附数据库→后端/worker→前端的上线卡片，不能仅重部署 Vercel 就移除“开发中”。
 
+## 2026-10-01：数据图期刊风格增量
+
+新增本地 Python worker 的 Standard/Lancet/Nature/Cell/NEJM-inspired 白名单风格、FigureSpec 冻结版本和哈希；九类模板共用外观层，统计输入与计费规则不变。详细边界与合成验证见[期刊风格记录](./specs/2026-10-01-data-figure-journal-styles.md)。
+
+本增量 **Supabase：无迁移；Vercel：无需部署；Cloudflare Worker：无需重建/部署**。仅本地原型、测试、文档变化，无环境变量变更，尚未连接生产 API/UI。无需生产发布顺序或线上付费烟测，已执行生产操作：无。71 项 Python、586 项 JS/TS 测试、lint/build 通过；合并/push 不启用数据图入口。此前的会员 500 修复和后续完整数据图上线卡片仍分别适用。
+
 ## 迁移语法报错后继续执行
 
 `supabase db push --dry-run` 只列出待执行文件，不会在 PostgreSQL 中编译或执行 SQL，因此不能证明迁移语法正确。SQL 修复应先在隔离的本地数据库中验证完整迁移链；Jev 分析限流的运行时回归测试为 `supabase test db supabase/tests/jev_member_policy.test.sql`，需本地 Supabase 已启动并应用全部迁移。
