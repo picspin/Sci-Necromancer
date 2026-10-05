@@ -25,6 +25,9 @@ class FigureSpecTests(unittest.TestCase):
             ("trend", b"X,V\n1,3\n2,8\n", {"x": "col_1", "value": "col_2"}, {"x": "weeks", "value": "patients"}, {}),
             ("dot-interval", b"L,E,Low,High\nA,2,1,3\n", {"label": "col_1", "estimate": "col_2", "lower": "col_3", "upper": "col_4"}, {"value": "score"}, {"interval": {"type": "CI", "ci_level": 95}}),
             ("forest", b"L,E,Low,High\nA,1.2,0.9,1.8\n", {"label": "col_1", "estimate": "col_2", "lower": "col_3", "upper": "col_4"}, {"value": "OR"}, {"interval": {"type": "CI", "ci_level": 95, "effect_type": "OR"}}),
+            ("ranked-lollipop", b"L,V\nA,3\nB,5\n", {"label": "col_1", "value": "col_2"}, {"value": "score"}, {"ranking": {"ordering": "descending", "top_n": 1}}),
+            ("composition", b"G,C,N,D\nA,X,2,5\nA,Y,3,5\n", {"group": "col_1", "component": "col_2", "count": "col_3", "denominator": "col_4"}, {"count": "patients"}, {"composition": {"display": "percent", "denominator_scope": "within-group", "mutually_exclusive": True, "exhaustive": True}}),
+            ("volcano", b"ID,FC,P\nA,-2,0.001\nB,2,0\n", {"identifier": "col_1", "log2fc": "col_2", "p": "col_3"}, {"log2fc": "log2 fold change", "p": "probability"}, {"volcano": {"p_kind": "adjusted_p", "p_threshold": "0.05", "fold_threshold": 1, "zero_p_floor": "0.0001"}}),
         ]
         self.assertEqual({case[0] for case in cases}, set(figures.TEMPLATE_VERSIONS))
         for template, payload, mapping, units, extra in cases:
@@ -70,7 +73,7 @@ class FigureSpecTests(unittest.TestCase):
         for change, code in [
             ({"schema_version": "figure-spec-v2"}, "unsupported_figure_spec_version"),
             ({"template_version": "grouped-bar-v9"}, "unsupported_figure_template_version"),
-            ({"template_id": "volcano"}, "unavailable_figure_template"),
+            ({"template_id": "not-installed"}, "unavailable_figure_template"),
             ({"template_id": []}, "unavailable_figure_template"),
             ({"dataset_sha256": "not-a-hash"}, "invalid_figure_dataset_hash"),
             ({"mapping": {"category": "col_1", "value": "col_2", "url": "x"}}, "invalid_figure_spec_mapping"),
@@ -93,6 +96,42 @@ class FigureSpecTests(unittest.TestCase):
         with self.assertRaises(DatasetError) as context:
             figures.render_csv_spec(payload, {**base, "interval": {"type": "CI"}})
         self.assertEqual(context.exception.code, "invalid_interval_ci_level")
+
+    def test_ranking_requires_explicit_bounded_selection_and_rejects_cross_template_options(self):
+        payload = b"L,V\nA,2\n"
+        base = self.plan(payload, "ranked-lollipop", {"label": "col_1", "value": "col_2"}, {"value": "score"})
+        for ranking in (None, {"ordering": "descending"}, {"ordering": "source", "top_n": True},
+                        {"ordering": "source", "top_n": 1, "script": "x"}):
+            with self.subTest(ranking=ranking), self.assertRaises(DatasetError):
+                figures.render_csv_spec(payload, {**base, "ranking": ranking})
+        for ranking in ({"ordering": "best", "top_n": 1}, {"ordering": "source", "top_n": 25}):
+            with self.assertRaises(DatasetError):
+                figures.render_csv_spec(payload, {**base, "ranking": ranking})
+        with self.assertRaises(DatasetError):
+            figures.render_csv_spec(payload, {**base, "ranking": {"ordering": "source", "top_n": 1},
+                                             "interval": {"type": "CI"}})
+
+    def test_composition_requires_confirmation_not_a_model_assumed_denominator(self):
+        payload = b"G,C,N,D\nA,X,2,2\n"
+        base = self.plan(payload, "composition", {"group": "col_1", "component": "col_2",
+                         "count": "col_3", "denominator": "col_4"}, {"count": "patients"})
+        valid = dict(display="count", denominator_scope="within-group", mutually_exclusive=True, exhaustive=True)
+        for options in (None, {**valid, "exhaustive": False}, {**valid, "mutually_exclusive": 1},
+                        {**valid, "denominator_scope": "global"}, {**valid, "script": "x"}):
+            with self.subTest(options=options), self.assertRaises(DatasetError):
+                figures.render_csv_spec(payload, {**base, "composition": options})
+
+    def test_volcano_requires_supplied_log2fc_p_semantics_and_thresholds(self):
+        payload = b"ID,FC,P\nA,2,0.01\n"
+        base = self.plan(payload, "volcano", {"identifier": "col_1", "log2fc": "col_2", "p": "col_3"},
+                         {"log2fc": "log2 fold change", "p": "probability"})
+        valid = dict(p_kind="p", p_threshold="0.05", fold_threshold=1)
+        for options in (None, {**valid, "fold_threshold": True}, {**valid, "p_kind": "calculate_FDR"},
+                        {**valid, "script": "x"}, {**valid, "p_threshold": {"expr": "x"}}):
+            with self.subTest(options=options), self.assertRaises(DatasetError):
+                figures.render_csv_spec(payload, {**base, "volcano": options})
+        with self.assertRaises(DatasetError):
+            figures.render_csv_spec(payload, {**base, "volcano": valid, "units": {"log2fc": "raw FC", "p": "percent"}})
 
 
 if __name__ == "__main__":

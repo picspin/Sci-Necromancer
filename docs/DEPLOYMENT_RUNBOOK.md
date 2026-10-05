@@ -35,7 +35,7 @@ Vercel 生产日志表明，`conferenceBlindReviewRules.js` 中未被改写的 `
 
 ## 2026-10-01：数据统计图本地模板增量
 
-新增原始热力图、数值趋势、点区间和森林图，连接严格的 CSV/FigureSpec 校验与三格式导出，并将合成数据 Python 测试加入 CI。六类基础模板的本地验证通过，不代表完整模板目录或会员执行链路已经实现；详细状态见[数据图设计与进度](./specs/2026-09-20-member-data-figures-design.md)。
+上一批新增原始热力图、数值趋势、点区间和森林图，并将合成数据 Python 测试加入 CI。本轮继续增加排名棒棒糖、严格分母的计数/百分比构成图、已有结果火山图，均连接严格 CSV/FigureSpec 校验与三格式导出。九类基础模板、66 项 Python 合成数据测试的本地验证通过，不代表完整模板目录或会员执行链路已经实现；详细状态见[数据图设计与进度](./specs/2026-09-20-member-data-figures-design.md)。
 
 本增量 **Supabase：无迁移；Vercel：无需部署；Cloudflare Worker：无需重建或部署**。原因是仅修改尚未被生产 API 调用的本地 Python 原型、测试、CI 与文档；没有环境变量变化、生产开关变化或在线资源创建。当前无生产发布顺序或线上付费烟测需求。验证命令为 `uv sync --project services/figure_worker --locked`，再运行 `uv run --project services/figure_worker --no-sync python -m unittest discover -s services/figure_worker/tests -v`；同时保留 JS/TS test、lint、build 检查。CI 运行与 push 都不启用会员数据图入口。
 
