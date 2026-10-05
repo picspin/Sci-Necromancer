@@ -4,8 +4,14 @@ import hashlib
 import unittest
 from decimal import Decimal
 
-from services.figure_worker.dataset import DatasetError, parse_csv_bytes, validate_grouped_bar, validate_scatter
-from services.figure_worker.render import _make_figure, _make_scatter_figure, render_grouped_bar, render_scatter
+from services.figure_worker.dataset import (
+    DatasetError, parse_csv_bytes, validate_grouped_bar, validate_heatmap, validate_intervals,
+    validate_scatter, validate_trend,
+)
+from services.figure_worker.render import (
+    _make_figure, _make_heatmap_figure, _make_interval_figure, _make_scatter_figure, _make_trend_figure,
+    render_grouped_bar, render_heatmap, render_intervals, render_scatter, render_trend,
+)
 
 
 def grouped_data(payload: bytes, *, grouped: bool = False):
@@ -140,6 +146,162 @@ class ScatterRenderTests(unittest.TestCase):
         with self.assertRaises(DatasetError) as context:
             render_scatter(data)
         self.assertEqual(context.exception.code, "unsupported_scatter_glyph")
+
+
+class HeatmapRenderTests(unittest.TestCase):
+    def test_raw_matrix_keeps_first_observed_order_and_shared_scale(self):
+        parsed = parse_csv_bytes(b"Row,Column,Value\nB,Y,-2\nA,Y,3\nB,X,4\nA,X,5\n")
+        data = validate_heatmap(parsed, row_column="col_1", column_column="col_2",
+                                value_column="col_3", value_unit="score")
+        figure = _make_heatmap_figure(data)
+        try:
+            axis = figure.axes[0]
+            self.assertEqual(axis.images[0].get_array().tolist(), [[-2.0, 4.0], [3.0, 5.0]])
+            self.assertEqual([t.get_text() for t in axis.get_xticklabels()], ["Y", "X"])
+            self.assertEqual([t.get_text() for t in axis.get_yticklabels()], ["B", "A"])
+            self.assertEqual(axis.images[0].get_clim(), (-2, 5))
+            self.assertEqual(figure.axes[1].get_ylabel(), "score")
+            self.assertEqual(len(axis.lines), 0)
+        finally:
+            figure.clear()
+
+    def test_three_formats_are_repeatable_and_unit_changes_spec_identity(self):
+        parsed = parse_csv_bytes(b"R,C,V\nA,X,1\nA,Y,2\n")
+        data = validate_heatmap(parsed, row_column="col_1", column_column="col_2",
+                                value_column="col_3", value_unit="score")
+        first, second = render_heatmap(data), render_heatmap(data)
+        self.assertEqual(first.template_version, "heatmap-v1")
+        self.assertEqual([(a.format, a.sha256) for a in first.artifacts],
+                         [(a.format, a.sha256) for a in second.artifacts])
+        artifacts = {a.format: a.content for a in first.artifacts}
+        self.assertTrue(artifacts["png"].startswith(b"\x89PNG\r\n\x1a\n"))
+        self.assertTrue(artifacts["pdf"].startswith(b"%PDF-"))
+        self.assertIn(b"<svg", artifacts["svg"][:2000])
+        other = validate_heatmap(parsed, row_column="col_1", column_column="col_2",
+                                 value_column="col_3", value_unit="count")
+        self.assertNotEqual(first.figure_spec_hash, render_heatmap(other).figure_spec_hash)
+
+    def test_unsupported_labels_fail_before_export(self):
+        parsed = parse_csv_bytes("R,C,V\n患者,X,1\n".encode())
+        data = validate_heatmap(parsed, row_column="col_1", column_column="col_2",
+                                value_column="col_3", value_unit="score")
+        with self.assertRaises(DatasetError) as context:
+            render_heatmap(data)
+        self.assertEqual(context.exception.code, "unsupported_heatmap_glyph")
+
+
+class TrendRenderTests(unittest.TestCase):
+    def test_no_smoothing_accumulation_or_missing_time_imputation(self):
+        parsed = parse_csv_bytes(b"Series,Week,Count\nA,1,3\nB,1,7\nA,3,8\nB,4,9\n")
+        data = validate_trend(parsed, x_column="col_2", value_column="col_3",
+                              series_column="col_1", x_unit="weeks", value_unit="patients")
+        figure = _make_trend_figure(data)
+        try:
+            lines = figure.axes[0].lines
+            self.assertEqual(len(lines), 2)
+            self.assertEqual(lines[0].get_xdata().tolist(), [1.0, 3.0])
+            self.assertEqual(lines[0].get_ydata().tolist(), [3.0, 8.0])
+            self.assertEqual(lines[1].get_ydata().tolist(), [7.0, 9.0])
+            self.assertEqual(len(figure.axes[0].collections), 0)
+            self.assertEqual(figure.axes[0].get_xlabel(), "Week (weeks)")
+        finally:
+            figure.clear()
+
+    def test_three_formats_are_repeatable_without_fit_or_bootstrap(self):
+        data = validate_trend(parse_csv_bytes(b"Week,Count\n1,3\n2,8\n"),
+                              x_column="col_1", value_column="col_2",
+                              x_unit="weeks", value_unit="patients")
+        first, second = render_trend(data), render_trend(data)
+        self.assertEqual(first.template_version, "trend-v1")
+        self.assertEqual(first.randomness, "none")
+        self.assertEqual([(a.format, a.sha256) for a in first.artifacts],
+                         [(a.format, a.sha256) for a in second.artifacts])
+        artifacts = {a.format: a.content for a in first.artifacts}
+        self.assertTrue(artifacts["png"].startswith(b"\x89PNG\r\n\x1a\n"))
+        self.assertTrue(artifacts["pdf"].startswith(b"%PDF-"))
+        self.assertIn(b"<svg", artifacts["svg"][:2000])
+
+    def test_unplottable_float_collision_and_unavailable_glyph_are_rejected(self):
+        data = validate_trend(parse_csv_bytes(b"X,Y\n1,2\n1.00000000000000000001,3\n"),
+                              x_column="col_1", value_column="col_2",
+                              x_unit="days", value_unit="score")
+        with self.assertRaises(DatasetError) as context:
+            render_trend(data)
+        self.assertEqual(context.exception.code, "unordered_or_duplicate_trend_x")
+        data = validate_trend(parse_csv_bytes("时间,Y\n1,2\n".encode()),
+                              x_column="col_1", value_column="col_2",
+                              x_unit="days", value_unit="score")
+        with self.assertRaises(DatasetError) as context:
+            render_trend(data)
+        self.assertEqual(context.exception.code, "unsupported_trend_glyph")
+
+
+class IntervalRenderTests(unittest.TestCase):
+    def data(self, **options):
+        parsed = parse_csv_bytes(b"Label,Estimate,Lower,Upper\nTrial A,1.2,0.9,1.8\nTrial B,0.8,0.5,1.1\n")
+        defaults = dict(template_id="forest", label_column="col_1", estimate_column="col_2",
+                        lower_column="col_3", upper_column="col_4", value_unit="OR",
+                        interval_type="CI", ci_level=95, effect_type="OR")
+        defaults.update(options)
+        return validate_intervals(parsed, **defaults)
+
+    def test_ratio_forest_uses_given_endpoints_log_axis_and_no_pooled_estimate(self):
+        figure = _make_interval_figure(self.data())
+        try:
+            axis = figure.axes[0]
+            self.assertEqual(axis.get_xscale(), "log")
+            self.assertEqual(axis.collections[0].get_segments()[0].tolist(), [[0.9, 0.0], [1.8, 0.0]])
+            self.assertEqual(axis.collections[1].get_offsets().tolist(), [[1.2, 0.0], [0.8, 1.0]])
+            self.assertEqual(len(axis.lines), 1)
+            self.assertEqual(list(axis.lines[0].get_xdata()), [1, 1])
+            self.assertEqual(len(axis.patches), 0)
+            self.assertEqual(axis.get_xlabel(), "OR (95% CI)")
+        finally:
+            figure.clear()
+
+    def test_mean_difference_is_linear_and_dot_interval_does_not_add_null_reference(self):
+        for options, reference in [({"effect_type": "MD", "value_unit": "mm"}, 0),
+                                   ({"template_id": "dot-interval", "effect_type": None,
+                                     "value_unit": "score", "interval_type": "SE", "ci_level": None}, None)]:
+            figure = _make_interval_figure(self.data(**options))
+            try:
+                axis = figure.axes[0]
+                self.assertEqual(axis.get_xscale(), "linear")
+                self.assertEqual(len(axis.lines), 0 if reference is None else 1)
+                if reference is not None:
+                    self.assertEqual(list(axis.lines[0].get_xdata()), [reference, reference])
+                else:
+                    self.assertEqual(axis.get_xlabel(), "score (SE)")
+            finally:
+                figure.clear()
+
+    def test_both_templates_have_repeatable_png_pdf_svg_and_ci_affects_identity(self):
+        for options, version in [({}, "forest-v1"),
+                                 ({"template_id": "dot-interval", "effect_type": None,
+                                   "value_unit": "score"}, "dot-interval-v1")]:
+            first, second = render_intervals(self.data(**options)), render_intervals(self.data(**options))
+            self.assertEqual(first.template_version, version)
+            self.assertEqual([(a.format, a.sha256) for a in first.artifacts],
+                             [(a.format, a.sha256) for a in second.artifacts])
+            artifacts = {a.format: a.content for a in first.artifacts}
+            self.assertTrue(artifacts["png"].startswith(b"\x89PNG\r\n\x1a\n"))
+            self.assertTrue(artifacts["pdf"].startswith(b"%PDF-"))
+            self.assertIn(b"<svg", artifacts["svg"][:2000])
+        self.assertNotEqual(render_intervals(self.data()).figure_spec_hash,
+                            render_intervals(self.data(ci_level=90)).figure_spec_hash)
+
+    def test_invalid_direct_contracts_fail_before_export(self):
+        from dataclasses import replace
+        data = self.data()
+        for forged in [replace(data, interval_type="SE"), replace(data, effect_type="OR/RR"),
+                       replace(data, ci_level=None), replace(data, value_unit="HR")]:
+            with self.assertRaises(DatasetError) as context:
+                render_intervals(forged)
+            self.assertEqual(context.exception.code, "invalid_interval_contract")
+        forged = replace(data, points=(replace(data.points[0], label="患者"),))
+        with self.assertRaises(DatasetError) as context:
+            render_intervals(forged)
+        self.assertEqual(context.exception.code, "unsupported_interval_glyph")
 
 
 if __name__ == "__main__":

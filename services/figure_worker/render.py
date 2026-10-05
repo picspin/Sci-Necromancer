@@ -17,11 +17,17 @@ from matplotlib.figure import Figure
 from matplotlib.font_manager import FontProperties
 from matplotlib.ft2font import FT2Font
 
-from services.figure_worker.dataset import DatasetError, GroupedBarData, ScatterData
+from services.figure_worker.dataset import (
+    DatasetError, GroupedBarData, HeatmapData, IntervalData,
+    MAX_HEATMAP_DIMENSION, MAX_INTERVAL_POINTS, ScatterData, TrendData,
+)
 
 
 GROUPED_BAR_TEMPLATE_VERSION = "grouped-bar-v1"
 SCATTER_TEMPLATE_VERSION = "scatter-v1"
+HEATMAP_TEMPLATE_VERSION = "heatmap-v1"
+TREND_TEMPLATE_VERSION = "trend-v1"
+INTERVAL_TEMPLATE_VERSIONS = {"dot-interval": "dot-interval-v1", "forest": "forest-v1"}
 DPI = 160
 HEIGHT_INCHES = 5.5
 FONT_NAME = "DejaVu Sans"
@@ -63,7 +69,7 @@ def _literal_label(value: str) -> str:
     return value.replace("$", r"\$")
 
 
-def _spec_hash(data: GroupedBarData | ScatterData) -> str:
+def _spec_hash(data: GroupedBarData | ScatterData | HeatmapData | TrendData | IntervalData) -> str:
     if isinstance(data, GroupedBarData):
         spec = {
             "template_version": GROUPED_BAR_TEMPLATE_VERSION,
@@ -73,6 +79,41 @@ def _spec_hash(data: GroupedBarData | ScatterData) -> str:
             "group_column": data.group_column,
             "value_unit": data.value_unit,
             "points": [(point.category, point.group, str(point.value)) for point in data.points],
+        }
+    elif isinstance(data, HeatmapData):
+        spec = {
+            "template_version": HEATMAP_TEMPLATE_VERSION,
+            "dataset_hash": data.dataset_hash,
+            "row_column": data.row_column,
+            "column_column": data.column_column,
+            "value_column": data.value_column,
+            "value_unit": data.value_unit,
+            "cells": [(cell.row_label, cell.column_label, str(cell.value)) for cell in data.cells],
+            "transform": "none", "ordering": "first-observed", "clustering": "none",
+        }
+    elif isinstance(data, TrendData):
+        spec = {
+            "template_version": TREND_TEMPLATE_VERSION,
+            "dataset_hash": data.dataset_hash,
+            "x_column": data.x_column, "value_column": data.value_column,
+            "series_column": data.series_column,
+            "x_unit": data.x_unit, "value_unit": data.value_unit,
+            "x_label": data.x_label, "value_label": data.value_label,
+            "points": [(str(p.x), str(p.y), p.group) for p in data.points],
+            "transform": "none", "ordering": "source-increasing-per-series",
+            "smoothing": "none", "aggregation": "none",
+        }
+    elif isinstance(data, IntervalData):
+        spec = {
+            "template_version": INTERVAL_TEMPLATE_VERSIONS[data.template_id],
+            "dataset_hash": data.dataset_hash,
+            "label_column": data.label_column, "estimate_column": data.estimate_column,
+            "lower_column": data.lower_column, "upper_column": data.upper_column,
+            "value_unit": data.value_unit, "interval_type": data.interval_type,
+            "ci_level": str(data.ci_level) if data.ci_level is not None else None,
+            "effect_type": data.effect_type,
+            "points": [(p.label, str(p.estimate), str(p.lower), str(p.upper)) for p in data.points],
+            "transform": "none", "pooling": "none", "ordering": "source",
         }
     else:
         spec = {
@@ -212,8 +253,10 @@ def render_grouped_bar(data: GroupedBarData) -> RenderedFigure:
     """Render one validated grouped-bar version to PNG/PDF/SVG bytes in memory."""
     if not isinstance(data, GroupedBarData):
         raise DatasetError("invalid_grouped_bar_contract")
+    with rc_context({"text.usetex": False}):
+        figure = _make_figure(data)
     return _export_figure(
-        _make_figure(data), template_version=GROUPED_BAR_TEMPLATE_VERSION,
+        figure, template_version=GROUPED_BAR_TEMPLATE_VERSION,
         dataset_hash=data.dataset_hash, parser_version=data.parser_version,
         figure_spec_hash=_spec_hash(data),
     )
@@ -268,8 +311,180 @@ def render_scatter(data: ScatterData) -> RenderedFigure:
     """Render raw x/y observations only; never infer a fit or significance."""
     if not isinstance(data, ScatterData):
         raise DatasetError("invalid_scatter_contract")
+    with rc_context({"text.usetex": False}):
+        figure = _make_scatter_figure(data)
     return _export_figure(
-        _make_scatter_figure(data), template_version=SCATTER_TEMPLATE_VERSION,
+        figure, template_version=SCATTER_TEMPLATE_VERSION,
+        dataset_hash=data.dataset_hash, parser_version=data.parser_version,
+        figure_spec_hash=_spec_hash(data),
+    )
+
+
+def _make_heatmap_figure(data: HeatmapData) -> Figure:
+    if not isinstance(data, HeatmapData) or data.template_id != "heatmap" or not data.cells:
+        raise DatasetError("invalid_heatmap_contract")
+    rows = list(dict.fromkeys(cell.row_label for cell in data.cells))
+    columns = list(dict.fromkeys(cell.column_label for cell in data.cells))
+    if max(len(rows), len(columns)) > MAX_HEATMAP_DIMENSION:
+        raise DatasetError("heatmap_limit_exceeded")
+    lookup = {(cell.row_label, cell.column_label): cell.value for cell in data.cells}
+    if len(lookup) != len(data.cells) or len(lookup) != len(rows) * len(columns):
+        raise DatasetError("invalid_heatmap_contract")
+    _check_font_coverage([*rows, *columns, data.value_unit], "unsupported_heatmap_glyph")
+    matrix = [[float(lookup[(row, column)]) for column in columns] for row in rows]
+    if any(not isfinite(value) for row in matrix for value in row):
+        raise DatasetError("invalid_heatmap_value")
+    figure = Figure(figsize=(max(8.0, len(columns) * 0.7), HEIGHT_INCHES),
+                    dpi=DPI, facecolor="white")
+    FigureCanvasAgg(figure)
+    axis = figure.subplots()
+    image = axis.imshow(matrix, cmap="viridis", aspect="auto", interpolation="nearest")
+    axis.set_xticks(range(len(columns)), [_literal_label(label) for label in columns],
+                    rotation=45, ha="right")
+    axis.set_yticks(range(len(rows)), [_literal_label(label) for label in rows])
+    colorbar = figure.colorbar(image, ax=axis)
+    font = FontProperties(fname=str(FONT_PATH))
+    colorbar.set_label(_literal_label(data.value_unit), fontproperties=font)
+    for label in (*axis.get_xticklabels(), *axis.get_yticklabels(),
+                  *colorbar.ax.get_yticklabels(), colorbar.ax.yaxis.get_offset_text()):
+        label.set_fontproperties(font)
+    figure.tight_layout()
+    return figure
+
+
+def render_heatmap(data: HeatmapData) -> RenderedFigure:
+    """Export the supplied raw matrix on one shared color scale, without statistics."""
+    if not isinstance(data, HeatmapData):
+        raise DatasetError("invalid_heatmap_contract")
+    with rc_context({"text.usetex": False}):
+        figure = _make_heatmap_figure(data)
+    return _export_figure(
+        figure, template_version=HEATMAP_TEMPLATE_VERSION,
+        dataset_hash=data.dataset_hash, parser_version=data.parser_version,
+        figure_spec_hash=_spec_hash(data),
+    )
+
+
+def _make_trend_figure(data: TrendData) -> Figure:
+    if not isinstance(data, TrendData) or data.template_id != "trend" or not data.points:
+        raise DatasetError("invalid_trend_contract")
+    groups = list(dict.fromkeys(point.group for point in data.points))
+    if len(data.points) > 5_000 or len(groups) > len(COLORS):
+        raise DatasetError("trend_limit_exceeded")
+    if any((point.group is None) != (data.series_column is None) for point in data.points):
+        raise DatasetError("invalid_trend_contract")
+    _check_font_coverage([data.x_label, data.value_label, data.x_unit, data.value_unit,
+                          *(group for group in groups if group is not None)],
+                         "unsupported_trend_glyph")
+    previous: dict[str | None, float] = {}
+    for point in data.points:
+        x, y = float(point.x), float(point.y)
+        if not isfinite(x) or not isfinite(y):
+            raise DatasetError("invalid_trend_value")
+        if point.group in previous and x <= previous[point.group]:
+            raise DatasetError("unordered_or_duplicate_trend_x")
+        previous[point.group] = x
+    figure = Figure(figsize=(8.0, HEIGHT_INCHES), dpi=DPI, facecolor="white")
+    FigureCanvasAgg(figure)
+    axis = figure.subplots()
+    for index, group in enumerate(groups):
+        points = [point for point in data.points if point.group == group]
+        axis.plot([float(p.x) for p in points], [float(p.y) for p in points],
+                  marker="o", markersize=4, linewidth=1.2, color=COLORS[index],
+                  label=_literal_label(group) if group is not None else None)
+    font = FontProperties(fname=str(FONT_PATH))
+    axis.set_xlabel(_literal_label(f"{data.x_label} ({data.x_unit})"), fontproperties=font)
+    axis.set_ylabel(_literal_label(f"{data.value_label} ({data.value_unit})"), fontproperties=font)
+    if data.series_column is not None:
+        axis.legend(frameon=False, prop=FontProperties(fname=str(FONT_PATH), size=9))
+    axis.grid(color="#D9E1E5", linewidth=0.6)
+    axis.set_axisbelow(True)
+    axis.spines["top"].set_visible(False)
+    axis.spines["right"].set_visible(False)
+    for label in (*axis.get_xticklabels(), *axis.get_yticklabels(),
+                  axis.xaxis.get_offset_text(), axis.yaxis.get_offset_text()):
+        label.set_fontproperties(font)
+    figure.tight_layout()
+    return figure
+
+
+def render_trend(data: TrendData) -> RenderedFigure:
+    """Render only supplied vertices, including already cumulative input unchanged."""
+    if not isinstance(data, TrendData):
+        raise DatasetError("invalid_trend_contract")
+    with rc_context({"text.usetex": False}):
+        figure = _make_trend_figure(data)
+    return _export_figure(
+        figure, template_version=TREND_TEMPLATE_VERSION,
+        dataset_hash=data.dataset_hash, parser_version=data.parser_version,
+        figure_spec_hash=_spec_hash(data),
+    )
+
+
+def _make_interval_figure(data: IntervalData) -> Figure:
+    if (not isinstance(data, IntervalData) or data.template_id not in INTERVAL_TEMPLATE_VERSIONS
+            or not data.points):
+        raise DatasetError("invalid_interval_contract")
+    if len(data.points) > MAX_INTERVAL_POINTS:
+        raise DatasetError("interval_limit_exceeded")
+    ratio = data.effect_type in ("OR", "RR", "HR")
+    if (data.interval_type not in ("CI", "SD", "SE")
+            or (data.interval_type == "CI" and
+                (data.ci_level is None or not data.ci_level.is_finite() or not 0 < data.ci_level < 100))
+            or (data.interval_type != "CI" and data.ci_level is not None)
+            or (data.template_id == "forest" and
+                (data.interval_type != "CI" or data.effect_type not in ("OR", "RR", "HR", "MD", "SMD")))
+            or (data.template_id == "dot-interval" and data.effect_type is not None)
+            or (data.effect_type in ("OR", "RR", "HR", "SMD") and data.value_unit != data.effect_type)):
+        raise DatasetError("invalid_interval_contract")
+    labels = [point.label for point in data.points]
+    if len(set(labels)) != len(labels):
+        raise DatasetError("duplicate_interval_label")
+    _check_font_coverage([*labels, data.value_unit], "unsupported_interval_glyph")
+    for point in data.points:
+        if any(not isfinite(float(v)) or (v != 0 and float(v) == 0)
+               for v in (point.estimate, point.lower, point.upper)):
+            raise DatasetError("invalid_interval_value")
+        if not point.lower <= point.estimate <= point.upper:
+            raise DatasetError("invalid_interval_bounds")
+        if ratio and point.lower <= 0:
+            raise DatasetError("nonpositive_forest_ratio")
+    figure = Figure(figsize=(8.0, HEIGHT_INCHES), dpi=DPI, facecolor="white")
+    FigureCanvasAgg(figure)
+    axis = figure.subplots()
+    positions = list(range(len(data.points)))
+    # Endpoints are supplied by the author, not derived from an error magnitude.
+    axis.hlines(positions, [float(p.lower) for p in data.points],
+                [float(p.upper) for p in data.points], color=COLORS[0], linewidth=1.2)
+    axis.scatter([float(p.estimate) for p in data.points], positions,
+                 s=30, color=COLORS[0], zorder=3)
+    if ratio:
+        axis.set_xscale("log")
+    if data.template_id == "forest":
+        axis.axvline(1 if ratio else 0, color="#67747B", linestyle="--", linewidth=0.8)
+    axis.set_yticks(positions, [_literal_label(label) for label in labels])
+    axis.invert_yaxis()
+    interval_label = f"{data.ci_level}% CI" if data.interval_type == "CI" else data.interval_type
+    font = FontProperties(fname=str(FONT_PATH))
+    axis.set_xlabel(_literal_label(f"{data.value_unit} ({interval_label})"), fontproperties=font)
+    axis.spines["top"].set_visible(False)
+    axis.spines["right"].set_visible(False)
+    axis.grid(axis="x", color="#D9E1E5", linewidth=0.6)
+    axis.set_axisbelow(True)
+    for label in (*axis.get_xticklabels(), *axis.get_yticklabels(), axis.xaxis.get_offset_text()):
+        label.set_fontproperties(font)
+    figure.tight_layout()
+    return figure
+
+
+def render_intervals(data: IntervalData) -> RenderedFigure:
+    """Export dot intervals or forest results with explicit type and CI disclosure."""
+    if not isinstance(data, IntervalData) or data.template_id not in INTERVAL_TEMPLATE_VERSIONS:
+        raise DatasetError("invalid_interval_contract")
+    with rc_context({"text.usetex": False}):
+        figure = _make_interval_figure(data)
+    return _export_figure(
+        figure, template_version=INTERVAL_TEMPLATE_VERSIONS[data.template_id],
         dataset_hash=data.dataset_hash, parser_version=data.parser_version,
         figure_spec_hash=_spec_hash(data),
     )
