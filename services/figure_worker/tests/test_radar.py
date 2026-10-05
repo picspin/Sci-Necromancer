@@ -12,6 +12,7 @@ from services.figure_worker.dataset import DatasetError, parse_csv_bytes, radar_
 from services.figure_worker.render import _make_radar_figure, render_radar
 from services.figure_worker import spec
 from services.figure_worker.styles import STYLES
+from services.figure_worker.render import _apply_style
 
 
 def axes():
@@ -69,6 +70,31 @@ class RadarInputTests(unittest.TestCase):
                         b"M,T,V\nA,AUC,0.5\nA,Time,25\nA,Error,\n"):
             with self.subTest(payload=invalid), self.assertRaises(DatasetError):
                 self.data(invalid)
+
+    def test_legend_stays_inside_canvas_above_footer_for_all_method_counts_and_styles(self):
+        for count in range(1, 5):
+            names = ["Method" + "W" * 73 + str(i) for i in range(count)]
+            payload = ("M,T,V\n" + "".join(f"{name},AUC,0.75\n{name},Time,25\n{name},Error,-2\n"
+                                          for name in names)).encode()
+            for style in STYLES.values():
+                with self.subTest(count=count, style=style.id):
+                    figure = _make_radar_figure(self.data(payload))
+                    try:
+                        _apply_style(figure, style)
+                        figure.canvas.draw()
+                        renderer = figure.canvas.get_renderer()
+                        legend = figure.legends[0] if figure.legends else figure.axes[0].get_legend()
+                        bounds = legend.get_window_extent(renderer).transformed(figure.transFigure.inverted())
+                        self.assertGreaterEqual(bounds.x0, 0)
+                        self.assertGreaterEqual(bounds.y0, 0)
+                        self.assertLessEqual(bounds.x1, 1)
+                        self.assertLessEqual(bounds.y1, 1)
+                        self.assertLess(bounds.y1, figure.axes[0].get_position().y0)
+                        footer = figure.texts[0].get_window_extent(renderer).transformed(figure.transFigure.inverted())
+                        self.assertGreater(bounds.y0, footer.y1)
+                        self.assertEqual([t.get_text().replace("\n", "") for t in legend.get_texts()], names)
+                    finally:
+                        figure.clear()
 
     def test_no_method_sampling_or_mapping_guess(self):
         with self.assertRaises(DatasetError):

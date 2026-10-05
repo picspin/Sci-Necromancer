@@ -86,6 +86,28 @@ class DistributionInputTests(unittest.TestCase):
         with self.assertRaises(DatasetError):
             render_distribution(self.data(b"V,G\n-1.7e308,A\n1.7e308,A\n"))
 
+    def test_tiny_ranges_are_rejected_not_silently_expanded(self):
+        for values in (("1e-320", "2e-320"), ("-2e-320", "-1e-320"),
+                       ("1e-300", "1e-300"), ("-1e-300", "-1e-300"),
+                       ("-1e-300", "1e-300"), ("5e-324",)):
+            with self.subTest(values=values):
+                data = self.data(("V,G\n" + "".join(f"{value},A\n" for value in values)).encode())
+                with self.assertRaises(DatasetError) as error:
+                    render_distribution(data)
+                self.assertEqual(error.exception.code, "unplottable_distribution_range")
+        # Zero constants have an explicit +/-1 range; small but usable data stays at its own scale.
+        for values in (("0", "0"), ("1e-280", "2e-280"), ("-2e-280", "-1e-280")):
+            data = self.data(("V,G\n" + "".join(f"{value},A\n" for value in values)).encode())
+            figure = _make_distribution_figure(data)
+            try:
+                axis = figure.axes[0]
+                expected = [float(Decimal(value)) for value in values]
+                self.assertEqual([float(y) for c in axis.collections for _, y in c.get_offsets()], expected)
+                if expected[0]:
+                    self.assertLess(max(abs(v) for v in axis.get_ylim()), 3e-280)
+            finally:
+                figure.clear()
+
 
 if __name__ == "__main__":
     unittest.main()
