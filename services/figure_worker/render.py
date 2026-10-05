@@ -27,7 +27,7 @@ from matplotlib.text import Text
 
 from services.figure_worker.dataset import (
     CompositionData, DatasetError, DistributionData, GroupedBarData, HeatmapData, IntervalData,
-    MAX_COMPOSITION_COMPONENTS, MAX_COMPOSITION_GROUPS, MAX_EXACT_COUNT,
+    MAX_COMPOSITION_COMPONENTS, MAX_COMPOSITION_GROUPS, MAX_EXACT_COUNT, MAX_SCATTER_POINTS,
     MAX_HEATMAP_DIMENSION, MAX_INTERVAL_POINTS, RadarAxis, RadarData, RadarPoint, RankedData, ScatterData, TrendData,
     VolcanoData, distribution_box_stats, histogram_bin_counts, radar_normalized, validate_histogram_edges,
     validate_radar_axes, validate_volcano_options, volcano_ordinate,
@@ -808,7 +808,7 @@ def render_volcano(data: VolcanoData, *, style: FigureStyle = STANDARD_STYLE) ->
 def _make_distribution_figure(data: DistributionData) -> Figure:
     if (not isinstance(data, DistributionData) or data.template_id != "distribution" or not data.points
             or data.bin_edges is not None
-            or len(data.points) > 5_000
+            or len(data.points) > MAX_SCATTER_POINTS
             or any(type(p.value) is not Decimal or not p.value.is_finite() or len(str(p.value)) > 128
                    or not isfinite(float(p.value)) or (p.value != 0 and float(p.value) == 0)
                    or (p.group is None) != (data.group_column is None) for p in data.points)):
@@ -821,7 +821,8 @@ def _make_distribution_figure(data: DistributionData) -> Figure:
     values = [float(p.value) for p in data.points]
     span = max(values) - min(values)
     padding = max(span * 0.1, 5e-324) if span else (abs(values[0]) * 0.05 if values[0] else 1.0)
-    if not isfinite(span) or not all(isfinite(v) for v in (min(values) - padding, max(values) + padding)):
+    limits = (min(values) - padding, max(values) + padding)
+    if not isfinite(span) or not all(isfinite(v) for v in limits) or limits[0] >= limits[1]:
         raise DatasetError("unplottable_distribution_range")
     figure = Figure(figsize=(8.0, HEIGHT_INCHES), dpi=DPI, facecolor="white")
     FigureCanvasAgg(figure)
@@ -844,13 +845,18 @@ def _make_distribution_figure(data: DistributionData) -> Figure:
     font = FontProperties(fname=str(FONT_PATH))
     axis.set_xticks(range(len(groups)), labels)
     axis.set_ylabel(_literal_label(data.value_unit), fontproperties=font)
-    axis.set_ylim(min(values) - padding, max(values) + padding)
+    axis.set_ylim(*limits)
+    # Matplotlib expands tiny finite ranges; reject that silent change of scale.
+    if axis.get_ylim() != limits:
+        figure.clear()
+        raise DatasetError("unplottable_distribution_range")
     axis.spines["top"].set_visible(False)
     axis.spines["right"].set_visible(False)
     for label in (*axis.get_xticklabels(), *axis.get_yticklabels(), axis.yaxis.get_offset_text()):
         label.set_fontproperties(font)
     figure.text(0.02, 0.02, "HF type 7 quartiles; observed 1.5-IQR whiskers; all rows shown (no outlier deletion).\n"
-                f"Singleton groups: {singleton}; constant groups (including singletons): {constant}. No KDE or tests.",
+                f"Singleton groups: {singleton}; constant groups (including singletons): {constant}. No KDE or tests.\n"
+                "Horizontal jitter follows source-row order, not a measured variable.",
                 fontproperties=font, fontsize=8)
     figure.tight_layout(rect=(0, 0.09, 1, 1))
     return figure
@@ -975,12 +981,19 @@ def _make_radar_figure(data: RadarData) -> Figure:
         # Multiline labels must grow outwards, not across the data circle.
         label.set_ha("left" if sin(angle) > 0.1 else "right" if sin(angle) < -0.1 else "center")
         label.set_va("bottom" if cos(angle) > 0.1 else "top" if cos(angle) < -0.1 else "center")
-    axis.legend(frameon=False, bbox_to_anchor=(1.3, 1.05), loc="upper left",
-                prop=FontProperties(fname=str(FONT_PATH), size=9))
+    # Keep up to four 80-character method labels in a dedicated figure band.
+    legend = figure.legend(axis.lines, ["\n".join(wrap(_literal_label(method), width=24)) for method in methods],
+                           frameon=False, bbox_to_anchor=(0.5, 0.14), loc="lower center",
+                           ncol=min(2, len(methods)), prop=FontProperties(fname=str(FONT_PATH), size=9))
+    legend.set_in_layout(False)
+    legend_bounds = legend.get_window_extent(figure.canvas.get_renderer()).transformed(figure.transFigure.inverted())
+    if legend_bounds.x0 < 0 or legend_bounds.x1 > 1 or legend_bounds.y1 + 0.05 >= 0.94:
+        figure.clear()
+        raise DatasetError("unplottable_radar_layout")
     figure.text(0.02, 0.02, "Normalized 0-1 using supplied axis bounds; outer is better. Raw values/units in CSV.\n"
                 "No aggregate score, ranking, clipping, missing-value filling or statistical tests.",
                 fontproperties=font, fontsize=8)
-    figure.tight_layout(rect=(0, 0.12, 1, 0.94))
+    figure.tight_layout(rect=(0, legend_bounds.y1 + 0.05, 1, 0.94))
     return figure
 
 
