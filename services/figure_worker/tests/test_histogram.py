@@ -1,6 +1,6 @@
 """Exact fixed-bin counts: no automatic bins, weights or omitted observations."""
 
-from decimal import Decimal, localcontext
+from decimal import Decimal, Inexact, Rounded, localcontext
 from dataclasses import replace
 from copy import deepcopy
 from hashlib import sha256
@@ -44,6 +44,51 @@ class HistogramInputTests(unittest.TestCase):
                 self.assertEqual(scientific_snapshot(figure), baseline)
             finally:
                 figure.clear()
+
+    def test_documented_clinical_preview_counts_and_nejm_exports(self):
+        observations = (("A", (0, 3, 5, 10, 10, 17, 25, 40)),
+                        ("B", (2, 7, 7, 14, 22, 25, 31, 39)))
+        payload = ("Diameter,Group\n" + "".join(f"{value},Synthetic {group}\n"
+                   for group, values in observations for value in values)).encode()
+        edges = [0, 5, 10, 20, 30, 40]
+        data = validate_distribution(parse_csv_bytes(payload), value_column="col_1", group_column="col_2",
+                                     value_unit="Synthetic lesion diameter (mm)", bin_edges=edges)
+        expected = [(2, 1, 3, 1, 1), (1, 2, 1, 2, 2)]
+        for (group, _), counts in zip(observations, expected):
+            members = tuple(p.value for p in data.points if p.group == f"Synthetic {group}")
+            self.assertEqual(histogram_bin_counts(members, data.bin_edges), counts)
+            self.assertEqual(sum(counts), 8)
+        figure = _make_histogram_figure(data)
+        try:
+            self.assertEqual([tuple(p.get_data().values) for p in figure.axes[0].patches], expected)
+            self.assertEqual([t.get_text() for t in figure.axes[0].get_legend().get_texts()],
+                             ["Synthetic A (n=8)", "Synthetic B (n=8)"])
+        finally:
+            figure.clear()
+        plan = dict(schema_version="figure-spec-v1", template_id="distribution",
+                    template_version="distribution-histogram-v1", dataset_sha256=sha256(payload).hexdigest(),
+                    mapping={"value": "col_1", "group": "col_2"}, units={"value": data.value_unit},
+                    distribution={"variant": "histogram", "bin_edges": edges},
+                    style={"id": "nejm", "version": "nejm-inspired-v1"})
+        result = render_csv_spec(payload, plan)
+        self.assertEqual(result, render_distribution(data, style=STYLES["nejm"]))
+        self.assertEqual([artifact.format for artifact in result.artifacts], ["png", "pdf", "svg"])
+
+    def test_low_precision_noninteger_intake_edges_and_counts_are_exact(self):
+        payload = b"Value\n100.6\n100.74\n100.75\n100.99\n101\n"
+        raw_edges = ["100.5", "100.75", "101"]
+        for precision in (1, 2):
+            with self.subTest(precision=precision), localcontext() as context:
+                context.prec = precision
+                context.traps[Inexact] = True
+                context.traps[Rounded] = True
+                data = validate_distribution(parse_csv_bytes(payload), value_column="col_1", value_unit="mg",
+                                             bin_edges=raw_edges)
+                self.assertEqual([str(p.value) for p in data.points], ["100.6", "100.74", "100.75", "100.99", "101"])
+                self.assertEqual([str(edge) for edge in data.bin_edges], raw_edges)
+                self.assertEqual(histogram_bin_counts(tuple(p.value for p in data.points), data.bin_edges), (2, 3))
+                self.assertFalse(context.flags[Inexact])
+                self.assertFalse(context.flags[Rounded])
 
     def test_exports_and_forged_contracts(self):
         data = self.data()

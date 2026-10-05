@@ -866,6 +866,7 @@ def validate_distribution(
         raise DatasetError("empty_distribution")
     edges = validate_histogram_edges(bin_edges) if bin_edges is not None else None
     if edges is not None:
+        # Validate complete coverage; per-group counts are derived during rendering.
         histogram_bin_counts(tuple(p.value for p in points), edges)
     return DistributionData("distribution", dataset.parser_version, dataset.sha256,
                             value_column, group_column, unit, tuple(points), edges)
