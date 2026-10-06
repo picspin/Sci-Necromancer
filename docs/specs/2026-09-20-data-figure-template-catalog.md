@@ -2,6 +2,8 @@
 
 日期：2026-09-20。状态：范围已确认，局部本地实现；与[主设计](./2026-09-20-member-data-figures-design.md)共同约束上线验收。
 
+2026-10-06 增量：首个 radiology-validation 已有独立合成 CSV、字段字典、冻结多面板方案和可运行本地 demo；两至四面板仅允许 grouped-bar、dot-interval、heatmap，原始行与全文件 hash 可追溯。其余十一例仍待做，尚无公开画廊/会员工作区；115 项 Python 回归通过不代表上线。参见[多面板记录](./2026-10-06-data-figure-multipanel.md)。
+
 2026-10-02 实现进度：十一类基础图型已有本地 CSV/FigureSpec 校验与 PNG/PDF/SVG 渲染，新增分布箱线＋全部观测、明确逐轴范围/方向的雷达及原值 CSV 附件。构成首个变体仅支持已有整数计数和组内明确分母；排名需显式排序/top-N 并披露省略数量；火山只显示已有差异结果并披露 P=0 的显示处理。下表所列完整变体、十二个画廊案例与线上会员执行链路仍未完成；87 项 Python 合成数据测试通过不等于本站已开放数据作图。新增边界见[分布/雷达记录](./2026-10-02-data-figure-distribution-radar.md)，整体以[当前实现状态](./2026-09-20-member-data-figures-design.md)为准。
 
 ## 1. 纳入方式与范围

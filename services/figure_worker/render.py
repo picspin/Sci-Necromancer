@@ -219,7 +219,7 @@ def _check_font_coverage(labels: list[str], error_code: str) -> None:
         raise DatasetError(error_code)
 
 
-def _draw_grouped_bar(data: GroupedBarData, axis: Axes) -> None:
+def _draw_grouped_bar(data: GroupedBarData, axis: Axes) -> tuple[float, float]:
     if not isinstance(data, GroupedBarData) or data.template_id != "grouped-bar" or not data.points:
         raise DatasetError("invalid_grouped_bar_contract")
     categories = list(dict.fromkeys(point.category for point in data.points))
@@ -276,6 +276,7 @@ def _draw_grouped_bar(data: GroupedBarData, axis: Axes) -> None:
     axis.spines["right"].set_visible(False)
     for label in (*axis.get_xticklabels(), *axis.get_yticklabels(), axis.yaxis.get_offset_text()):
         label.set_fontproperties(font)
+    return lower, upper
 
 
 def _make_figure(data: GroupedBarData) -> Figure:
@@ -379,7 +380,7 @@ def _export_figure(
         font_sha256=FONT_SHA256,
         dpi=style.dpi,
         width_inches=float(figure.get_size_inches()[0]),
-        height_inches=HEIGHT_INCHES,
+        height_inches=float(figure.get_size_inches()[1]),
         randomness="none",
         style_id=style.id,
         style_version=style.version,
@@ -461,7 +462,7 @@ def render_scatter(data: ScatterData, *, style: FigureStyle = STANDARD_STYLE) ->
     )
 
 
-def _draw_heatmap(data: HeatmapData, axis: Axes) -> None:
+def _draw_heatmap(data: HeatmapData, axis: Axes) -> tuple[float, float]:
     if not isinstance(data, HeatmapData) or data.template_id != "heatmap" or not data.cells:
         raise DatasetError("invalid_heatmap_contract")
     rows = list(dict.fromkeys(cell.row_label for cell in data.cells))
@@ -476,6 +477,7 @@ def _draw_heatmap(data: HeatmapData, axis: Axes) -> None:
     if any(not isfinite(value) for row in matrix for value in row):
         raise DatasetError("invalid_heatmap_value")
     image = axis.imshow(matrix, cmap="viridis", aspect="auto", interpolation="nearest")
+    limits = image.get_clim()
     axis.set_xticks(range(len(columns)), [_literal_label(label) for label in columns],
                     rotation=45, ha="right")
     axis.set_yticks(range(len(rows)), [_literal_label(label) for label in rows])
@@ -485,6 +487,7 @@ def _draw_heatmap(data: HeatmapData, axis: Axes) -> None:
     for label in (*axis.get_xticklabels(), *axis.get_yticklabels(),
                   *colorbar.ax.get_yticklabels(), colorbar.ax.yaxis.get_offset_text()):
         label.set_fontproperties(font)
+    return limits
 
 
 def _make_heatmap_figure(data: HeatmapData) -> Figure:
