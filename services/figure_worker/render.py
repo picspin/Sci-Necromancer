@@ -29,7 +29,8 @@ from services.figure_worker.dataset import (
     CompositionData, DatasetError, DistributionData, GroupedBarData, HeatmapData, IntervalData,
     MAX_COMPOSITION_COMPONENTS, MAX_COMPOSITION_GROUPS, MAX_EXACT_COUNT, MAX_SCATTER_POINTS,
     MAX_HEATMAP_DIMENSION, MAX_INTERVAL_POINTS, RadarAxis, RadarData, RadarPoint, RankedData, ScatterData, TrendData,
-    VolcanoData, distribution_box_stats, radar_normalized, validate_radar_axes, validate_volcano_options, volcano_ordinate,
+    VolcanoData, distribution_box_stats, histogram_bin_counts, radar_normalized, validate_histogram_edges,
+    validate_radar_axes, validate_volcano_options, volcano_ordinate,
 )
 from services.figure_worker.styles import FigureStyle, STANDARD_STYLE, STYLES
 
@@ -42,6 +43,7 @@ RANKED_TEMPLATE_VERSION = "ranked-lollipop-v1"
 COMPOSITION_TEMPLATE_VERSION = "composition-v1"
 VOLCANO_TEMPLATE_VERSION = "volcano-v1"
 DISTRIBUTION_TEMPLATE_VERSION = "distribution-box-scatter-v1"
+HISTOGRAM_TEMPLATE_VERSION = "distribution-histogram-v1"
 RADAR_TEMPLATE_VERSION = "radar-explicit-axes-v1"
 INTERVAL_TEMPLATE_VERSIONS = {"dot-interval": "dot-interval-v1", "forest": "forest-v1"}
 DPI = 160
@@ -162,6 +164,16 @@ def _spec_hash(data: GroupedBarData | ScatterData | HeatmapData | TrendData | In
             "points": [(p.method, p.metric, str(p.value)) for p in data.points],
             "normalization": "exact-rational-min-max-to-binary64;outer-is-better",
             "missing": "reject", "clipping": "none", "ranking": "none", "csv_text_escape": "apostrophe-v1",
+        }
+    elif isinstance(data, DistributionData) and data.bin_edges is not None:
+        spec = {
+            "template_version": HISTOGRAM_TEMPLATE_VERSION, "dataset_hash": data.dataset_hash,
+            "value_column": data.value_column, "group_column": data.group_column, "value_unit": data.value_unit,
+            "bin_edges": [str(edge) for edge in data.bin_edges],
+            "bin_assignment": "decimal-left-closed-right-open;final-right-closed",
+            "display": "shared-bin-count-outlines", "ordering": "first-observed",
+            "sampling": "none", "deletion": "none", "density": False, "weights": "none", "tests": "none",
+            "points": [(str(p.value), p.group) for p in data.points],
         }
     elif isinstance(data, DistributionData):
         spec = {
@@ -795,6 +807,7 @@ def render_volcano(data: VolcanoData, *, style: FigureStyle = STANDARD_STYLE) ->
 
 def _make_distribution_figure(data: DistributionData) -> Figure:
     if (not isinstance(data, DistributionData) or data.template_id != "distribution" or not data.points
+            or data.bin_edges is not None
             or len(data.points) > MAX_SCATTER_POINTS
             or any(type(p.value) is not Decimal or not p.value.is_finite() or len(str(p.value)) > 128
                    or not isfinite(float(p.value)) or (p.value != 0 and float(p.value) == 0)
@@ -849,10 +862,57 @@ def _make_distribution_figure(data: DistributionData) -> Figure:
     return figure
 
 
+def _make_histogram_figure(data: DistributionData) -> Figure:
+    if (not isinstance(data, DistributionData) or data.template_id != "distribution" or not data.points
+            or len(data.points) > 5_000 or type(data.bin_edges) is not tuple
+            or any(type(edge) is not Decimal for edge in data.bin_edges)
+            or type(data.value_unit) is not str or not data.value_unit.strip() or len(data.value_unit) > 48
+            or any((p.group is None) != (data.group_column is None)
+                   or (p.group is not None and (type(p.group) is not str or not p.group.strip() or len(p.group) > 80))
+                   for p in data.points)):
+        raise DatasetError("invalid_histogram_contract")
+    edges = validate_histogram_edges(data.bin_edges)
+    groups = list(dict.fromkeys(p.group for p in data.points))
+    if len(groups) > len(COLORS):
+        raise DatasetError("distribution_limit_exceeded")
+    _check_font_coverage([data.value_unit, *(g for g in groups if g is not None)],
+                         "unsupported_distribution_glyph")
+    counts = [histogram_bin_counts(tuple(p.value for p in data.points if p.group == group), edges)
+              for group in groups]
+    figure = Figure(figsize=(8.0, HEIGHT_INCHES), dpi=DPI, facecolor="white")
+    FigureCanvasAgg(figure)
+    axis = figure.subplots()
+    for index, (group, bins) in enumerate(zip(groups, counts)):
+        label = _literal_label(group) if group is not None else "All observations"
+        axis.stairs(bins, [float(edge) for edge in edges], baseline=0, fill=False,
+                    color=COLORS[index], linewidth=1.5, label=f"{label} (n={sum(bins)})")
+    font = FontProperties(fname=str(FONT_PATH))
+    axis.set_xlabel(_literal_label(data.value_unit), fontproperties=font)
+    axis.set_ylabel("Observation count (not density)", fontproperties=font)
+    axis.set_xlim(float(edges[0]), float(edges[-1]))
+    if axis.get_xlim() != (float(edges[0]), float(edges[-1])):
+        figure.clear()
+        raise DatasetError("unplottable_histogram_range")
+    maximum = max(max(bins) for bins in counts)
+    axis.set_ylim(0, maximum + max(1, maximum * 0.1))
+    axis.yaxis.get_major_locator().set_params(integer=True)
+    axis.spines["top"].set_visible(False)
+    axis.spines["right"].set_visible(False)
+    axis.legend(prop=font)
+    for label in (*axis.get_xticklabels(), *axis.get_yticklabels(), axis.xaxis.get_offset_text()):
+        label.set_fontproperties(font)
+    figure.text(0.02, 0.02, "Explicit shared bins: [left, right); final bin includes the right edge.\n"
+                "Every observation counted once; no out-of-range deletion, weights, density, KDE or tests.",
+                fontproperties=font, fontsize=8)
+    figure.tight_layout(rect=(0, 0.09, 1, 1))
+    return figure
+
+
 def render_distribution(data: DistributionData, *, style: FigureStyle = STANDARD_STYLE) -> RenderedFigure:
     with rc_context({"text.usetex": False}):
-        figure = _make_distribution_figure(data)
-    return _export_figure(figure, template_version=DISTRIBUTION_TEMPLATE_VERSION,
+        figure = _make_histogram_figure(data) if data.bin_edges is not None else _make_distribution_figure(data)
+    version = HISTOGRAM_TEMPLATE_VERSION if data.bin_edges is not None else DISTRIBUTION_TEMPLATE_VERSION
+    return _export_figure(figure, template_version=version,
                           dataset_hash=data.dataset_hash, parser_version=data.parser_version,
                           figure_spec_hash=_spec_hash(data), style=style)
 

@@ -7,6 +7,7 @@ Raw rows remain inside ``ParsedCsv`` and must not be forwarded to Jev or an LLM.
 from __future__ import annotations
 
 import csv
+from bisect import bisect_right
 from dataclasses import dataclass, field
 from decimal import Context, Decimal, InvalidOperation, ROUND_HALF_EVEN
 from fractions import Fraction
@@ -241,6 +242,7 @@ class DistributionData:
     group_column: str | None
     value_unit: str
     points: tuple[DistributionPoint, ...] = field(repr=False)
+    bin_edges: tuple[Decimal, ...] | None = field(default=None, repr=False)
 
 
 @dataclass(frozen=True)
@@ -826,6 +828,7 @@ def validate_volcano(
 
 def validate_distribution(
     dataset: ParsedCsv, *, value_column: str, value_unit: str, group_column: str | None = None,
+    bin_edges: list | tuple | None = None,
 ) -> DistributionData:
     """Keep every observation; no deletion, weighting, pooling or group inference."""
     ids = {column.id: index for index, column in enumerate(dataset.columns)}
@@ -861,8 +864,52 @@ def validate_distribution(
         points.append(DistributionPoint(value, group))
     if not points:
         raise DatasetError("empty_distribution")
+    edges = validate_histogram_edges(bin_edges) if bin_edges is not None else None
+    if edges is not None:
+        # Validate complete coverage; per-group counts are derived during rendering.
+        histogram_bin_counts(tuple(p.value for p in points), edges)
     return DistributionData("distribution", dataset.parser_version, dataset.sha256,
-                            value_column, group_column, unit, tuple(points))
+                            value_column, group_column, unit, tuple(points), edges)
+
+
+def validate_histogram_edges(raw: list | tuple) -> tuple[Decimal, ...]:
+    """Explicit shared boundaries, representable without collapsed plot bins."""
+    if type(raw) not in (list, tuple) or not 2 <= len(raw) <= 51:
+        raise DatasetError("invalid_histogram_edges")
+    edges = []
+    for item in raw:
+        if type(item) is int and abs(item) >= 10**128:
+            raise DatasetError("invalid_histogram_edges")
+        if type(item) not in (str, int, float, Decimal) or len(str(item)) > 128:
+            raise DatasetError("invalid_histogram_edges")
+        try:
+            value = Decimal(str(item))
+        except InvalidOperation as error:
+            raise DatasetError("invalid_histogram_edges") from error
+        if not value.is_finite() or not isfinite(float(value)) or (value != 0 and float(value) == 0):
+            raise DatasetError("invalid_histogram_edges")
+        if edges and (value <= edges[-1] or float(value) <= float(edges[-1])):
+            raise DatasetError("invalid_histogram_edges")
+        edges.append(value)
+    if not isfinite(float(edges[-1]) - float(edges[0])):
+        raise DatasetError("unplottable_histogram_range")
+    return tuple(edges)
+
+
+def histogram_bin_counts(values: tuple[Decimal, ...], bin_edges: tuple[Decimal, ...]) -> tuple[int, ...]:
+    """Count exactly, including the final edge; never silently exclude a row."""
+    edges = validate_histogram_edges(bin_edges)
+    if not values or len(values) > MAX_SCATTER_POINTS:
+        raise DatasetError("invalid_histogram_values")
+    counts = [0] * (len(edges) - 1)
+    for value in values:
+        if (type(value) is not Decimal or not value.is_finite() or len(str(value)) > 128
+                or not isfinite(float(value)) or (value != 0 and float(value) == 0)):
+            raise DatasetError("invalid_histogram_values")
+        if not edges[0] <= value <= edges[-1]:
+            raise DatasetError("histogram_value_outside_bins")
+        counts[min(bisect_right(edges, value) - 1, len(counts) - 1)] += 1
+    return tuple(counts)
 
 
 def distribution_box_stats(values: tuple[Decimal, ...]) -> dict[str, float]:
