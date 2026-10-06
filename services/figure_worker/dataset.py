@@ -9,6 +9,7 @@ from __future__ import annotations
 import csv
 from dataclasses import dataclass, field
 from decimal import Context, Decimal, InvalidOperation, ROUND_HALF_EVEN
+from fractions import Fraction
 from hashlib import sha256
 from io import StringIO
 from math import isfinite
@@ -223,6 +224,51 @@ class VolcanoData:
     fold_threshold: Decimal
     zero_p_floor: Decimal | None
     points: tuple[VolcanoPoint, ...] = field(repr=False)
+
+
+@dataclass(frozen=True)
+class DistributionPoint:
+    value: Decimal
+    group: str | None = field(repr=False)
+
+
+@dataclass(frozen=True)
+class DistributionData:
+    template_id: str
+    parser_version: str
+    dataset_hash: str
+    value_column: str
+    group_column: str | None
+    value_unit: str
+    points: tuple[DistributionPoint, ...] = field(repr=False)
+
+
+@dataclass(frozen=True)
+class RadarAxis:
+    metric: str = field(repr=False)
+    unit: str = field(repr=False)
+    lower: Decimal
+    upper: Decimal
+    direction: str
+
+
+@dataclass(frozen=True)
+class RadarPoint:
+    method: str = field(repr=False)
+    metric: str = field(repr=False)
+    value: Decimal
+
+
+@dataclass(frozen=True)
+class RadarData:
+    template_id: str
+    parser_version: str
+    dataset_hash: str
+    method_column: str
+    metric_column: str
+    value_column: str
+    axes: tuple[RadarAxis, ...] = field(repr=False)
+    points: tuple[RadarPoint, ...] = field(repr=False)
 
 
 def validate_volcano_options(
@@ -776,3 +822,163 @@ def validate_volcano(
     return VolcanoData("volcano", dataset.parser_version, dataset.sha256,
                        identifier_column, log2fc_column, p_column, p_kind,
                        p_limit, fold_limit, floor, tuple(points))
+
+
+def validate_distribution(
+    dataset: ParsedCsv, *, value_column: str, value_unit: str, group_column: str | None = None,
+) -> DistributionData:
+    """Keep every observation; no deletion, weighting, pooling or group inference."""
+    ids = {column.id: index for index, column in enumerate(dataset.columns)}
+    chosen = [value_column, *([group_column] if group_column is not None else [])]
+    if (any(type(column) is not str or column not in ids for column in chosen)
+            or len(set(chosen)) != len(chosen)):
+        raise DatasetError("invalid_distribution_mapping")
+    if type(value_unit) is not str:
+        raise DatasetError("invalid_distribution_unit")
+    unit = _safe_label(value_unit, max_length=48, error_code="invalid_distribution_unit")
+    points, groups = [], set()
+    for row_number, row in enumerate(dataset._rows, start=2):
+        if len(points) >= MAX_SCATTER_POINTS:
+            raise DatasetError("distribution_limit_exceeded", row=row_number)
+        raw = row[ids[value_column]].strip()
+        if len(raw) > 128:
+            raise DatasetError("invalid_distribution_value", row=row_number, column=value_column)
+        try:
+            value = Decimal(raw)
+        except InvalidOperation as error:
+            raise DatasetError("invalid_distribution_value", row=row_number, column=value_column) from error
+        if not value.is_finite() or not isfinite(float(value)) or (value != 0 and float(value) == 0):
+            raise DatasetError("invalid_distribution_value", row=row_number, column=value_column)
+        try:
+            group = (_safe_label(row[ids[group_column]], max_length=80, error_code="missing_distribution_group")
+                     if group_column is not None else None)
+        except DatasetError as error:
+            raise DatasetError(error.code, row=row_number, column=group_column) from error
+        if group is not None:
+            groups.add(group)
+        if len(groups) > MAX_SCATTER_GROUPS:
+            raise DatasetError("distribution_limit_exceeded", row=row_number)
+        points.append(DistributionPoint(value, group))
+    if not points:
+        raise DatasetError("empty_distribution")
+    return DistributionData("distribution", dataset.parser_version, dataset.sha256,
+                            value_column, group_column, unit, tuple(points))
+
+
+def distribution_box_stats(values: tuple[Decimal, ...]) -> dict[str, float]:
+    """H&F type 7 quartiles and observed 1.5-IQR whiskers; no outlier deletion."""
+    if (not values or len(values) > MAX_SCATTER_POINTS
+            or any(type(v) is not Decimal or not v.is_finite() or len(str(v)) > 128
+                   or not isfinite(float(v)) or (v != 0 and float(v) == 0) for v in values)):
+        raise DatasetError("invalid_distribution_value")
+    # Canonicalize zero before Fraction conversion; a huge zero exponent has no meaning.
+    ordered = [Decimal(0) if v == 0 else v for v in sorted(values)]
+
+    def quantile(numerator):
+        index, remainder = divmod((len(ordered) - 1) * numerator, 4)
+        if remainder == 0:
+            return Fraction(ordered[index])
+        return (Fraction(ordered[index]) * (4 - remainder) + Fraction(ordered[index + 1]) * remainder) / 4
+
+    q1, median, q3 = quantile(1), quantile(2), quantile(3)
+    iqr = q3 - q1
+    lower, upper = q1 - Fraction(3, 2) * iqr, q3 + Fraction(3, 2) * iqr
+    inside = [v for v in ordered if lower <= v <= upper]
+    stats = dict(q1=q1, med=median, q3=q3, whislo=min(inside), whishi=max(inside))
+    if any(not isfinite(float(v)) or (v != 0 and float(v) == 0) for v in stats.values()):
+        raise DatasetError("unplottable_distribution_summary")
+    return {key: float(v) for key, v in stats.items()}
+
+
+def validate_radar_axes(axes: list[dict]) -> tuple[RadarAxis, ...]:
+    """Require explicit axis units, ranges and direction; never infer from a column."""
+    if type(axes) is not list or not 3 <= len(axes) <= 8:
+        raise DatasetError("invalid_radar_axes")
+    result, labels = [], set()
+    for axis in axes:
+        if (type(axis) is not dict or axis.keys() != {"metric", "unit", "lower", "upper", "direction"}
+                or type(axis["metric"]) is not str or type(axis["unit"]) is not str
+                or axis["direction"] not in ("higher", "lower")):
+            raise DatasetError("invalid_radar_axes")
+        metric = _safe_label(axis["metric"], max_length=48, error_code="invalid_radar_metric")
+        unit = _safe_label(axis["unit"], max_length=24, error_code="invalid_radar_unit")
+        if metric in labels:
+            raise DatasetError("duplicate_radar_axis")
+        bounds = []
+        for raw in (axis["lower"], axis["upper"]):
+            if type(raw) not in (int, float, str, Decimal) or len(str(raw)) > 128:
+                raise DatasetError("invalid_radar_bounds")
+            try:
+                value = Decimal(str(raw))
+            except InvalidOperation as error:
+                raise DatasetError("invalid_radar_bounds") from error
+            if not value.is_finite() or not isfinite(float(value)) or (value != 0 and float(value) == 0):
+                raise DatasetError("invalid_radar_bounds")
+            bounds.append(value)
+        lower, upper = bounds
+        if lower >= upper:
+            raise DatasetError("invalid_radar_bounds")
+        labels.add(metric)
+        result.append(RadarAxis(metric, unit, lower, upper, axis["direction"]))
+    return tuple(result)
+
+
+def radar_normalized(value: Decimal, axis: RadarAxis) -> float:
+    """Exact-rational min-max normalization, then binary64; no clipping or ranking."""
+    if (type(axis) is not RadarAxis
+            or any(type(v) is not Decimal or not v.is_finite() or len(str(v)) > 128
+                   or not isfinite(float(v)) or (v != 0 and float(v) == 0) for v in (axis.lower, axis.upper))
+            or type(value) is not Decimal or not value.is_finite() or len(str(value)) > 128
+            or not isfinite(float(value)) or (value != 0 and float(value) == 0)
+            or not axis.lower <= value <= axis.upper or axis.lower >= axis.upper
+            or axis.direction not in ("higher", "lower")):
+        raise DatasetError("invalid_radar_value")
+    low, high, raw = (Fraction(v) if v else Fraction(0) for v in (axis.lower, axis.upper, value))
+    score = ((raw - low) if axis.direction == "higher" else (high - raw)) / (high - low)
+    plotted = float(score)
+    if score != 0 and plotted == 0:
+        raise DatasetError("unplottable_radar_normalization")
+    return plotted
+
+
+def validate_radar(
+    dataset: ParsedCsv, *, method_column: str, metric_column: str, value_column: str, axes: list[dict],
+) -> RadarData:
+    frozen_axes = validate_radar_axes(axes)
+    lookup = {axis.metric: axis for axis in frozen_axes}
+    ids = {column.id: index for index, column in enumerate(dataset.columns)}
+    chosen = [method_column, metric_column, value_column]
+    if (any(type(column) is not str or column not in ids for column in chosen)
+            or len(set(chosen)) != len(chosen)):
+        raise DatasetError("invalid_radar_mapping")
+    points, keys, methods = [], set(), set()
+    for row_number, row in enumerate(dataset._rows, start=2):
+        if len(points) >= 32:
+            raise DatasetError("radar_limit_exceeded", row=row_number)
+        try:
+            method = _safe_label(row[ids[method_column]], max_length=80, error_code="missing_radar_method")
+            metric = _safe_label(row[ids[metric_column]], max_length=48, error_code="missing_radar_metric")
+        except DatasetError as error:
+            raise DatasetError(error.code, row=row_number) from error
+        if metric not in lookup:
+            raise DatasetError("undeclared_radar_metric", row=row_number, column=metric_column)
+        if (method, metric) in keys:
+            raise DatasetError("duplicate_radar_cell", row=row_number)
+        raw = row[ids[value_column]].strip()
+        if len(raw) > 128:
+            raise DatasetError("invalid_radar_value", row=row_number, column=value_column)
+        try:
+            value = Decimal(raw)
+            radar_normalized(value, lookup[metric])
+        except (InvalidOperation, DatasetError) as error:
+            code = error.code if isinstance(error, DatasetError) else "invalid_radar_value"
+            raise DatasetError(code, row=row_number, column=value_column) from error
+        methods.add(method)
+        keys.add((method, metric))
+        if len(methods) > 4:
+            raise DatasetError("radar_limit_exceeded", row=row_number)
+        points.append(RadarPoint(method, metric, value))
+    if not methods or len(keys) != len(methods) * len(frozen_axes):
+        raise DatasetError("incomplete_radar_matrix")
+    return RadarData("radar", dataset.parser_version, dataset.sha256,
+                     method_column, metric_column, value_column, frozen_axes, tuple(points))
