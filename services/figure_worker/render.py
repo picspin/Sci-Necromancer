@@ -15,6 +15,7 @@ from textwrap import wrap
 
 import matplotlib
 from matplotlib import get_data_path, rc_context
+from matplotlib.axes import Axes
 from matplotlib.backends.backend_agg import FigureCanvasAgg
 from matplotlib.collections import Collection
 from matplotlib.colors import to_rgba
@@ -218,7 +219,7 @@ def _check_font_coverage(labels: list[str], error_code: str) -> None:
         raise DatasetError(error_code)
 
 
-def _make_figure(data: GroupedBarData) -> Figure:
+def _draw_grouped_bar(data: GroupedBarData, axis: Axes) -> None:
     if not isinstance(data, GroupedBarData) or data.template_id != "grouped-bar" or not data.points:
         raise DatasetError("invalid_grouped_bar_contract")
     categories = list(dict.fromkeys(point.category for point in data.points))
@@ -239,10 +240,6 @@ def _make_figure(data: GroupedBarData) -> Figure:
     values = [float(point.value) for point in data.points]
     if any(not isfinite(value) for value in values):
         raise DatasetError("invalid_grouped_bar_value")
-    width = min(16.0, max(8.0, 4.0 + 0.5 * len(categories)))
-    figure = Figure(figsize=(width, HEIGHT_INCHES), dpi=DPI, facecolor="white")
-    FigureCanvasAgg(figure)
-    axis = figure.subplots()
     category_positions = {category: index for index, category in enumerate(categories)}
     if groups:
         slot = 0.8 / len(groups)
@@ -279,6 +276,16 @@ def _make_figure(data: GroupedBarData) -> Figure:
     axis.spines["right"].set_visible(False)
     for label in (*axis.get_xticklabels(), *axis.get_yticklabels(), axis.yaxis.get_offset_text()):
         label.set_fontproperties(font)
+
+
+def _make_figure(data: GroupedBarData) -> Figure:
+    if not isinstance(data, GroupedBarData) or data.template_id != "grouped-bar" or not data.points:
+        raise DatasetError("invalid_grouped_bar_contract")
+    categories = set(point.category for point in data.points)
+    width = min(16.0, max(8.0, 4.0 + 0.5 * len(categories)))
+    figure = Figure(figsize=(width, HEIGHT_INCHES), dpi=DPI, facecolor="white")
+    FigureCanvasAgg(figure)
+    _draw_grouped_bar(data, figure.subplots())
     figure.tight_layout()
     return figure
 
@@ -454,7 +461,7 @@ def render_scatter(data: ScatterData, *, style: FigureStyle = STANDARD_STYLE) ->
     )
 
 
-def _make_heatmap_figure(data: HeatmapData) -> Figure:
+def _draw_heatmap(data: HeatmapData, axis: Axes) -> None:
     if not isinstance(data, HeatmapData) or data.template_id != "heatmap" or not data.cells:
         raise DatasetError("invalid_heatmap_contract")
     rows = list(dict.fromkeys(cell.row_label for cell in data.cells))
@@ -468,20 +475,26 @@ def _make_heatmap_figure(data: HeatmapData) -> Figure:
     matrix = [[float(lookup[(row, column)]) for column in columns] for row in rows]
     if any(not isfinite(value) for row in matrix for value in row):
         raise DatasetError("invalid_heatmap_value")
-    figure = Figure(figsize=(max(8.0, len(columns) * 0.7), HEIGHT_INCHES),
-                    dpi=DPI, facecolor="white")
-    FigureCanvasAgg(figure)
-    axis = figure.subplots()
     image = axis.imshow(matrix, cmap="viridis", aspect="auto", interpolation="nearest")
     axis.set_xticks(range(len(columns)), [_literal_label(label) for label in columns],
                     rotation=45, ha="right")
     axis.set_yticks(range(len(rows)), [_literal_label(label) for label in rows])
-    colorbar = figure.colorbar(image, ax=axis)
+    colorbar = axis.figure.colorbar(image, ax=axis)
     font = FontProperties(fname=str(FONT_PATH))
     colorbar.set_label(_literal_label(data.value_unit), fontproperties=font)
     for label in (*axis.get_xticklabels(), *axis.get_yticklabels(),
                   *colorbar.ax.get_yticklabels(), colorbar.ax.yaxis.get_offset_text()):
         label.set_fontproperties(font)
+
+
+def _make_heatmap_figure(data: HeatmapData) -> Figure:
+    if not isinstance(data, HeatmapData) or data.template_id != "heatmap" or not data.cells:
+        raise DatasetError("invalid_heatmap_contract")
+    columns = set(cell.column_label for cell in data.cells)
+    figure = Figure(figsize=(max(8.0, len(columns) * 0.7), HEIGHT_INCHES),
+                    dpi=DPI, facecolor="white")
+    FigureCanvasAgg(figure)
+    _draw_heatmap(data, figure.subplots())
     figure.tight_layout()
     return figure
 
@@ -555,7 +568,7 @@ def render_trend(data: TrendData, *, style: FigureStyle = STANDARD_STYLE) -> Ren
     )
 
 
-def _make_interval_figure(data: IntervalData) -> Figure:
+def _draw_intervals(data: IntervalData, axis: Axes) -> None:
     if (not isinstance(data, IntervalData) or data.template_id not in INTERVAL_TEMPLATE_VERSIONS
             or not data.points):
         raise DatasetError("invalid_interval_contract")
@@ -583,9 +596,6 @@ def _make_interval_figure(data: IntervalData) -> Figure:
             raise DatasetError("invalid_interval_bounds")
         if ratio and point.lower <= 0:
             raise DatasetError("nonpositive_forest_ratio")
-    figure = Figure(figsize=(8.0, HEIGHT_INCHES), dpi=DPI, facecolor="white")
-    FigureCanvasAgg(figure)
-    axis = figure.subplots()
     positions = list(range(len(data.points)))
     # Endpoints are supplied by the author, not derived from an error magnitude.
     axis.hlines(positions, [float(p.lower) for p in data.points],
@@ -607,6 +617,12 @@ def _make_interval_figure(data: IntervalData) -> Figure:
     axis.set_axisbelow(True)
     for label in (*axis.get_xticklabels(), *axis.get_yticklabels(), axis.xaxis.get_offset_text()):
         label.set_fontproperties(font)
+
+
+def _make_interval_figure(data: IntervalData) -> Figure:
+    figure = Figure(figsize=(8.0, HEIGHT_INCHES), dpi=DPI, facecolor="white")
+    FigureCanvasAgg(figure)
+    _draw_intervals(data, figure.subplots())
     figure.tight_layout()
     return figure
 
