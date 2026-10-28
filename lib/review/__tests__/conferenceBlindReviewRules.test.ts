@@ -51,7 +51,7 @@ describe('conference blind-review rule context', () => {
     const rules = getConferenceBlindReviewRules('ISMRM');
 
     expect(rules).toContain('platform-configured');
-    expect(rules).toContain('https://www.ismrm.org/26m/call/');
+    expect(rules).toContain('https://www.ismrm.org/27m/call/');
     expect(rules).toContain('authors must recheck the official call');
   });
 });
