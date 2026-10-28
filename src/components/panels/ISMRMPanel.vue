@@ -1,5 +1,16 @@
 <template>
   <div>
+    <div class="m-4 p-3 rounded-lg border border-base-300 text-sm text-text-secondary">
+      <p>{{ t('ismrm2027.rules_summary') }}</p>
+      <p>{{ t('ismrm2027.deep_dive_help') }}</p>
+      <a
+        href="https://www.ismrm.org/27m/call/"
+        target="_blank"
+        rel="noopener noreferrer"
+        class="text-brand-primary underline"
+        >{{ t('ismrm2027.official_rules') }}</a
+      >
+    </div>
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
       <div class="flex flex-col gap-6 p-4">
         <div class="flex border-b border-base-300">
@@ -186,6 +197,7 @@
         :result="analysisResult"
         :impact="impact"
         :synopsis="synopsis"
+        :jev-classification-only="jevAnalysisUsed"
         @confirm="handleAnalysisConfirmation"
       />
       <TypeSuggestionStep v-else :suggestions="typeSuggestions" @select="handleTypeSelection" />
