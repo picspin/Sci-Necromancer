@@ -4,6 +4,8 @@
 
 ## 先判断本次改了哪一层
 
+2026-10-29 Pyodide正式执行层/数据图工作区本地接入：**Supabase无需迁移；Vercel无需部署；若发布本前端切片，Cloudflare Worker需重建并部署；仅提交/推送/PR、不执行生产操作。** 固定npm Pyodide314.0.7，新增`figures:prepare`/`figures:check`及predev/prebuild同源资源准备。首次构建机需联网下载并校验锁定wheel，用户浏览器只加载同源资源；无新增密钥/套餐。开发变量`VITE_BROWSER_DATA_FIGURES_ENABLED=true`用于有余额测试会员，正式生产构建仍硬性关闭入口，不能当作会员结算/官方免费导出已完成。安全顺序：审核提交→npm ci→prepare/test/lint/build/check→未来另行获准后才部署Worker；检查生产入口关闭、原功能无回归和WASM/锁/包资源非SPA HTML，本地合成验证不消耗学分。完整边界、未完成项与依赖审计见[工作区接入卡片](./specs/2026-10-29-browser-data-figures.md)。以下兼容探针记录属于此前切片，不代表本次没有依赖或前端改动。 独立PR回归599项JS/TS、120项Python；已补核心资源完整性与2/3/4面板浏览器验证。
+
 2026-10-06 多面板和首个放射影像合成案例：**Supabase 无迁移；Vercel 无需部署；Cloudflare Worker 无需重建/部署**。仅未接入生产的 Python 组合入口、例子、测试和文档，无新依赖/环境变量/开关/扣费变化。无本增量的生产发布顺序或付费烟测需求；锁定 Python 115 项回归、例子三格式/manifest 导出、JS/TS test/lint/build 为本地验收。生产操作已执行：无，分支尚未 push；后续 push 会受现有 Git 集成影响，需另行确认，不据构建成功移除“开发中”。详情见[本地多面板记录](./specs/2026-10-06-data-figure-multipanel.md)。
 
 2026-10-05 PR #13/#14 审查修复仍限于本地 Python 图件、测试和文档，**Supabase 无迁移；Vercel 无需部署；Cloudflare Worker 无需重建/部署**，无环境变量变更，也不启用会员数据图入口。锁定 Python 回归、三格式合成导出和前端 test/lint/build 是本地验收步骤，无本修复的生产发布顺序或付费烟测需求；未运行生产迁移/部署命令。注意现有 PR bot 已显示 Vercel/Cloudflare 自动构建记录（Cloudflare 链接含 production）：push 前确认外部 Git 集成的发布范围，不能把“未手动执行部署”写成“没有自动部署”，也不能把自动构建成功视为会员功能已上线。
