@@ -22,6 +22,8 @@ CLAUDE_FIX_REQUEST.md
 .vscode
 .DS_Store
 dist
+# Generated, integrity-checked Pyodide static assets (npm run figures:prepare).
+public/runtime/pyodide/
 __pycache__/
 *.pyc
 .venv/

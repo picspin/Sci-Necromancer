@@ -18,7 +18,7 @@ from services.figure_worker.dataset import (
     parse_csv_bytes, validate_grouped_bar, validate_heatmap, validate_intervals,
 )
 from services.figure_worker.render import (
-    DPI, FONT_PATH, GROUPED_BAR_TEMPLATE_VERSION, HEATMAP_TEMPLATE_VERSION, INTERVAL_TEMPLATE_VERSIONS,
+    BROWSER_EXPORT, DPI, FONT_PATH, GROUPED_BAR_TEMPLATE_VERSION, HEATMAP_TEMPLATE_VERSION, INTERVAL_TEMPLATE_VERSIONS,
     FigureArtifact, RenderedFigure, _check_font_coverage, _draw_grouped_bar, _draw_heatmap,
     _draw_intervals, _export_figure, _literal_label, _spec_hash,
 )
@@ -136,7 +136,10 @@ def _make_multipanel_figure(plan: MultipanelPlan) -> Figure:
     """Reuse vector artists; do not paste single-panel raster exports into a canvas."""
     _check_font_coverage([plan.title, *(p.title for p in plan.panels)], "unsupported_multipanel_glyph")
     rows = 1 if len(plan.panels) == 2 else 2
-    figure = Figure(figsize=(16, 5.5 * rows), dpi=DPI, facecolor="white")
+    # Browser composite profile is full-page width, keeps the original grid aspect,
+    # and runs the existing layout checks at its real export size before publication.
+    size = (10, 10 * 5.5 * rows / 16) if BROWSER_EXPORT.get() else (16, 5.5 * rows)
+    figure = Figure(figsize=size, dpi=DPI, facecolor="white")
     FigureCanvasAgg(figure)
     grid = figure.add_gridspec(rows, 2)
     font = FontProperties(fname=str(FONT_PATH))
@@ -151,7 +154,8 @@ def _make_multipanel_figure(plan: MultipanelPlan) -> Figure:
                 if axis.get_legend() is not None:
                     handles, labels = axis.get_legend_handles_labels()
                     axis.legend(handles, labels, frameon=False, loc="lower right", bbox_to_anchor=(1, 1.02),
-                                ncol=min(4, len(handles)), prop=FontProperties(fname=str(FONT_PATH), size=9))
+                                ncol=min(4, len(handles)), prop=FontProperties(fname=str(FONT_PATH), size=9),
+                                **({"borderaxespad": 0, "borderpad": 0} if BROWSER_EXPORT.get() else {}))
             elif isinstance(panel.data, HeatmapData):
                 limits = _draw_heatmap(panel.data, axis)
                 raw_values = [c.value for c in panel.data.cells]
@@ -190,6 +194,11 @@ def _make_multipanel_figure(plan: MultipanelPlan) -> Figure:
         figure.tight_layout(rect=(0.015, 0.085, 0.985, 0.91), pad=2, h_pad=4, w_pad=4)
         figure.canvas.draw()
         renderer = figure.canvas.get_renderer()
+        if BROWSER_EXPORT.get():
+            for axis in figure.axes:
+                legend = axis.get_legend()
+                if legend is not None and legend.get_window_extent(renderer).overlaps(axis._left_title.get_window_extent(renderer)):
+                    raise DatasetError("overlapping_multipanel_layout")
         bounds = [Bbox.union([a.get_tightbbox(renderer) for a in axes]).transformed(figure.transFigure.inverted())
                   for axes in panel_axes]
         if any(b.x0 < 0.015 or b.x1 > 0.985 or b.y0 < 0.085 or b.y1 > 0.91 for b in bounds):
