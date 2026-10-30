@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
+from contextvars import ContextVar
 from decimal import Decimal
 import csv
 from hashlib import sha256
@@ -54,6 +55,8 @@ FONT_PATH = Path(get_data_path()) / "fonts" / "ttf" / "DejaVuSans.ttf"
 FONT_SHA256 = sha256(FONT_PATH.read_bytes()).hexdigest()
 LOCK_SHA256 = sha256(Path(__file__).with_name("uv.lock").read_bytes()).hexdigest()
 COLORS = STANDARD_STYLE.palette
+# Trusted local browser adapter only; not a user-controlled spec option.
+BROWSER_EXPORT = ContextVar("browser_export", default=False)
 
 
 @dataclass(frozen=True)
@@ -340,6 +343,17 @@ def _export_figure(
         figure_spec_hash = sha256(json.dumps({"data_spec_hash": figure_spec_hash,
                                              "style_sha256": style_hash},
                                             sort_keys=True).encode()).hexdigest()
+    export_dpi = style.dpi
+    if BROWSER_EXPORT.get():
+        # Redraw vector artists at a fixed physical size, never upscale a raster.
+        if template_version != "multipanel-grid-v1":
+            figure.set_size_inches(178 / 25.4, 100 / 25.4)
+        width_mm, height_mm = (float(v) * 25.4 for v in figure.get_size_inches())
+        export_dpi = 600
+        figure_spec_hash = sha256(json.dumps({
+            "source_spec_hash": figure_spec_hash, "export_profile": "browser-600dpi-v1",
+            "width_mm": width_mm, "height_mm": height_mm, "dpi": export_dpi,
+        }, sort_keys=True).encode()).hexdigest()
     with rc_context({
         "font.family": FONT_NAME,
         "text.usetex": False,
@@ -359,7 +373,7 @@ def _export_figure(
                 if style is not STANDARD_STYLE:
                     key = {"png": "Description", "pdf": "Subject", "svg": "Description"}[format_name]
                     metadata[key] = f"{style.version}; style_sha256={style_hash}; figure_spec_hash={figure_spec_hash}"
-                figure.savefig(stream, format=format_name, dpi=style.dpi, metadata=metadata,
+                figure.savefig(stream, format=format_name, dpi=export_dpi, metadata=metadata,
                                facecolor="white")
                 content = stream.getvalue()
                 outputs.append(FigureArtifact(
@@ -378,7 +392,7 @@ def _export_figure(
         dependency_lock_sha256=LOCK_SHA256,
         font=FONT_NAME,
         font_sha256=FONT_SHA256,
-        dpi=style.dpi,
+        dpi=export_dpi,
         width_inches=float(figure.get_size_inches()[0]),
         height_inches=float(figure.get_size_inches()[1]),
         randomness="none",

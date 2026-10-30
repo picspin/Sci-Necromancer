@@ -551,6 +551,7 @@
     "mode_standard": "标准模式 (图生图)",
     "mode_text_to_image": "文生图 (创意模式)",
     "data_chart_mode": "数据统计图 · 开发中",
+    "data_chart_workspace": "数据统计图 · 本地验证",
     "data_chart_unavailable": "数据统计图需要独立的数据校验与 Python 渲染流程，不能由示意图模型代生成。",
     "upload_reference": "上传参考图像",
     "generate_figure": "生成图像",

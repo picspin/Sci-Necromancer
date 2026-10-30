@@ -551,6 +551,7 @@
     "mode_standard": "Standard (Image-to-Image)",
     "mode_text_to_image": "Text-to-Image (Creative)",
     "data_chart_mode": "Data charts · in development",
+    "data_chart_workspace": "Data figures · local validation",
     "data_chart_unavailable": "Data charts need a separate validated data and Python rendering workflow; image models do not generate them.",
     "upload_reference": "Upload Reference Images",
     "generate_figure": "Generate image",
