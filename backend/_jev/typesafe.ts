@@ -1,4 +1,5 @@
 import type { AnalysisResult, Category } from '../../types.js';
+import { ISMRM_SUBCATEGORIES, ISMRM_GENERAL_KEYWORDS } from '../../lib/llm/prompts/ismrmData.js';
 
 const TYPESAFE_ENDPOINT = 'https://api.typesafe.ai/v1/systemone';
 const TYPESAFE_MODEL = 'jev-1.13.0';
@@ -7,6 +8,7 @@ const MAX_CONFERENCE_LENGTH = 64;
 const MAX_CANDIDATES = 64;
 const MAX_LABEL_LENGTH = 160;
 const MAX_SERIALIZED_REQUEST_BYTES = 120_000;
+const MAX_ISMRM_SERIALIZED_REQUEST_BYTES = 192_000;
 const CATEGORY_SELECTION_THRESHOLD = 0.6;
 const KEYWORD_SELECTION_THRESHOLD = 0.6;
 const ACCEPTANCE_THRESHOLD = 0.8;
@@ -80,11 +82,14 @@ export function sanitizeJevAnalysisInput(value: unknown): JevAnalysisInput {
   if (!Array.isArray(body?.categories) || !Array.isArray(body?.keywords)) {
     throw new TypesafeJevError('invalid_jev_analysis_candidates', 400);
   }
+  // The annual ISMRM catalog is larger; other conferences retain their bound.
+  const categoryLimit = conference === 'ISMRM' ? ISMRM_SUBCATEGORIES.length : MAX_CANDIDATES;
+  const keywordLimit = conference === 'ISMRM' ? ISMRM_GENERAL_KEYWORDS.length : MAX_CANDIDATES;
   if (
     body.categories.length < 2 ||
-    body.categories.length > MAX_CANDIDATES ||
+    body.categories.length > categoryLimit ||
     body.keywords.length < 2 ||
-    body.keywords.length > MAX_CANDIDATES
+    body.keywords.length > keywordLimit
   )
     throw new TypesafeJevError('invalid_jev_analysis_candidates', 400);
 
@@ -116,9 +121,11 @@ export function sanitizeJevAnalysisInput(value: unknown): JevAnalysisInput {
     throw new TypesafeJevError('invalid_jev_analysis_candidates', 400);
 
   const input = { text, conference, categories, keywords };
+  const requestByteLimit =
+    conference === 'ISMRM' ? MAX_ISMRM_SERIALIZED_REQUEST_BYTES : MAX_SERIALIZED_REQUEST_BYTES;
   if (
     new TextEncoder().encode(JSON.stringify(buildJevAnalysisRequestUnchecked(input))).byteLength >
-    MAX_SERIALIZED_REQUEST_BYTES
+    requestByteLimit
   ) {
     throw new TypesafeJevError('invalid_jev_analysis_request_size', 400);
   }

@@ -64,7 +64,9 @@ describe('member blind-review Jev preflight', () => {
         sourceText: SOURCE,
         conference: 'ISMRM',
         target: 'manuscript',
-        conferenceRules: expect.stringContaining('ISMRM platform-configured rule set'),
+        conferenceRules: expect.stringContaining(
+          'ISMRM-2027-2026-10-11 platform-configured rule set'
+        ),
       })
     );
     expect(prepared.prompt).toContain(PROMPT);

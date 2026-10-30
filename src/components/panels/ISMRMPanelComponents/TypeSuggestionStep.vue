@@ -7,6 +7,7 @@
       {{ hasModelSuggestions ? t('abstract_types.description') : t('membership.jev_choose_type') }}
     </p>
     <p class="sr-only">{{ t('accessibility.navigation_instructions') }}</p>
+    <p class="text-sm text-text-secondary">{{ t('ismrm2027.type_help') }}</p>
     <div
       class="space-y-2"
       role="radiogroup"
@@ -53,6 +54,7 @@
 import { ref, computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import type { AbstractTypeSuggestion, AbstractType } from '@/types';
+import { ISMRM_2027_RULES } from '@/lib/llm/prompts/ismrmData';
 
 const { t } = useI18n();
 
@@ -69,17 +71,15 @@ const emit = defineEmits<{
 const selectedIndex = ref(0);
 
 const hasModelSuggestions = computed(
-  () => Array.isArray(props.suggestions) && props.suggestions.length > 0
+  () =>
+    Array.isArray(props.suggestions) &&
+    props.suggestions.some((s) => ISMRM_2027_RULES.abstractTypes.includes(s.type))
 );
 const validSuggestions = computed<Array<{ type: AbstractType; probability: number | null }>>(() =>
-  hasModelSuggestions.value
-    ? props.suggestions
-    : [
-        { type: 'Standard Abstract', probability: null },
-        { type: 'MRI in Clinical Practice Abstract', probability: null },
-        { type: 'ISMRT Abstract', probability: null },
-        { type: 'Registered Abstract', probability: null },
-      ]
+  ISMRM_2027_RULES.abstractTypes.map((type) => ({
+    type,
+    probability: props.suggestions?.find((s) => s.type === type)?.probability ?? null,
+  }))
 );
 
 const handleSelect = (type: AbstractType) => {

@@ -1,17 +1,20 @@
 import type { Conference } from '../../types.js';
 import { RSNA_RULESET } from '../conference/rsnaRules.js';
 import { getOncologyProfile } from '../conference/oncologyRules.js';
+import {
+  callForAbstractsGuidance,
+  getISMRMTypeGuidance,
+  ISMRM_2027_RULES,
+} from '../llm/prompts/ismrmData.js';
 
 type ReviewConference = Exclude<Conference, 'IMAGE' | 'JACC' | 'ESC'>;
 
 export function getConferenceBlindReviewRules(conference: ReviewConference): string {
   if (conference === 'ISMRM') {
     return [
-      'ISMRM platform-configured rule set (no verified rule version is stored; authors must recheck the official call):',
-      '- Source: https://www.ismrm.org/26m/call/',
-      '- Abstract body: maximum 300 words; impact statement: 40 words; synopsis: 100 words.',
-      '- Submission types: Standard Abstract, MRI in Clinical Practice Abstract, ISMRT Abstract, and Registered Abstract.',
-      '- Use a clear structured format and include quantitative results where possible.',
+      `${ISMRM_2027_RULES.version} platform-configured rule set (verified 2026-10-11; authors must recheck the official call):`,
+      callForAbstractsGuidance,
+      ...ISMRM_2027_RULES.abstractTypes.map(getISMRMTypeGuidance),
       '- Assess anonymity, ethics, consent, conflicts, funding, and reporting-guideline fit.',
     ].join('\n');
   }

@@ -120,7 +120,7 @@ const abstractTypeSchema = {
           'Standard Abstract',
           'MRI in Clinical Practice Abstract',
           'ISMRT Abstract',
-          'Registered Abstract',
+          'MD-PhD Tandem Abstract',
         ],
       },
       probability: { type: TypeRef.NUMBER },

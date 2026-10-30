@@ -1,14 +1,21 @@
 import { Category, AbstractType, AbstractTypeSuggestion, Conference } from '../../../types';
 import { getCreativeECRAbstractPrompt, getECRAbstractByTypePrompt } from './ecrPrompts';
+import {
+  abstractCategoryGuidance,
+  callForAbstractsGuidance,
+  categoryAndKeywordsList,
+  getISMRMTypeGuidance,
+  ISMRM_2027_RULES,
+} from './ismrmData';
 
 /**
  * ISMRM Prompt System and Guideline Router
  *
  * This module implements:
  * - Analysis and classification prompts for ISMRM abstracts
- * - Guideline file loading from public/ directory
+ * - Embedded annual ISMRM guidance and fallback public guideline loading
  * - Occam's Razor classification logic (simplest explanation preferred)
- * - Routing rules based on categories (body/neuro → Clinical Practice, etc.)
+ * - Type suggestions based on study and author eligibility, not organ names
  * - Probability calculation with ≥30% threshold
  */
 
@@ -20,6 +27,19 @@ import { getCreativeECRAbstractPrompt, getECRAbstractByTypePrompt } from './ecrP
  * Load guideline files from public/ directory
  */
 export const loadGuidelineFile = async (filename: string): Promise<string> => {
+  const embedded: Record<string, string> = {
+    'ismrm abstract categories & keywords.md': categoryAndKeywordsList,
+    'abstract category guidance.md': abstractCategoryGuidance,
+    'call for abstracts global guidance.md': callForAbstractsGuidance,
+    'impact & synopsis sections.md': callForAbstractsGuidance,
+    'standard abstract guidance.md': getISMRMTypeGuidance('Standard Abstract'),
+    'mri in clinical practice abstract guidance.md': getISMRMTypeGuidance(
+      'MRI in Clinical Practice Abstract'
+    ),
+    'md-phd tandem abstract guidance.md': getISMRMTypeGuidance('MD-PhD Tandem Abstract'),
+    'ISMRT abstract.md': getISMRMTypeGuidance('ISMRT Abstract'),
+  };
+  if (embedded[filename]) return embedded[filename];
   // In test environments, avoid fetch consumption to keep mocks for API calls
   if (typeof process !== 'undefined' && process.env.NODE_ENV === 'test') {
     return '';
@@ -83,8 +103,8 @@ You are an expert in ISMRM conference abstract classification. Your task is to a
 **Analysis Task:**
 1. Read the text carefully to understand the core research focus
 2. Identify the PRIMARY category and subcategory (the main focus)
-3. Identify a SECONDARY category and subcategory (if genuinely relevant)
-4. Extract 3-7 specific keywords from the text
+3. Suggest a SECONDARY category/subcategory for author confirmation; it may share the primary category but must have a different subcategory
+4. Include one General keyword and at most 5 total relevant keywords, from the list or custom source terms
 5. Assign probability scores (0.0 to 1.0) for each category
 
 **Probability Guidelines:**
@@ -132,83 +152,11 @@ Return a JSON object with:
 // ABSTRACT TYPE ROUTING
 // ============================================================================
 
-/**
- * Routing rules based on category analysis
- * Implements intelligent routing to suggest appropriate abstract types
- */
-export const routeAbstractType = (categories: Category[]): AbstractTypeSuggestion[] => {
-  const suggestions: AbstractTypeSuggestion[] = [];
-
-  // Extract category names for analysis
-  const categoryNames = categories.map((c) => c.name.toLowerCase());
-  const mainCategory = categories.find((c) => c.type === 'main');
-
-  // Rule 1: Body or Neuro categories → Clinical Practice Abstract
-  const clinicalCategories = ['body', 'neuro', 'cardiovascular', 'musculoskeletal'];
-  const hasClinicalFocus = categoryNames.some((name) =>
-    clinicalCategories.some((clinical) => name.includes(clinical))
-  );
-
-  if (hasClinicalFocus) {
-    const clinicalProb = mainCategory ? mainCategory.probability * 0.7 : 0.5;
-    suggestions.push({
-      type: 'MRI in Clinical Practice Abstract',
-      probability: Math.min(clinicalProb, 0.85),
-    });
-  }
-
-  // Rule 2: Methods/Technical focus → Standard Abstract
-  const technicalCategories = [
-    'acquisition & reconstruction',
-    'analysis methods',
-    'contrast mechanisms',
-    'diffusion',
-    'physics & engineering',
-  ];
-  const hasTechnicalFocus = categoryNames.some((name) =>
-    technicalCategories.some((tech) => name.includes(tech))
-  );
-
-  if (hasTechnicalFocus) {
-    const techProb = mainCategory ? mainCategory.probability * 0.8 : 0.6;
-    suggestions.push({
-      type: 'Standard Abstract',
-      probability: Math.min(techProb, 0.9),
-    });
-  }
-
-  // Rule 3: Interventional → ISMRT Abstract (technologist focus)
-  const hasInterventional = categoryNames.some((name) => name.includes('interventional'));
-  if (hasInterventional) {
-    suggestions.push({
-      type: 'ISMRT Abstract',
-      probability: 0.6,
-    });
-  }
-
-  // Rule 4: Future work indicators → Registered Abstract
-  // This would need text analysis, so we provide a lower baseline probability
-  suggestions.push({
-    type: 'Registered Abstract',
-    probability: 0.3,
-  });
-
-  // Default: Standard Abstract if no specific routing matched
-  if (suggestions.length === 0) {
-    suggestions.push({
-      type: 'Standard Abstract',
-      probability: 0.7,
-    });
-  }
-
-  // Filter by threshold (≥30%) and sort by probability
-  return suggestions
-    .filter((s) => s.probability >= 0.3)
-    .sort((a, b) => b.probability - a.probability);
-};
+/** Categories alone cannot establish clinical, Tandem or ISMRT eligibility. */
+export const routeAbstractType = (_categories: Category[]): AbstractTypeSuggestion[] => [];
 
 /**
- * Enhanced routing with text analysis for better Registered Abstract detection
+ * Type eligibility requires source evidence, not category labels alone.
  */
 export const getAbstractTypeRoutingPrompt = async (
   text: string,
@@ -228,28 +176,31 @@ You are an expert in ISMRM abstract classification. Based on the research text a
    - Reports completed work with data and findings
    - 750 words maximum
 
-2. **Registered Abstract**: Prospective study not yet completed
-   - States a clear, testable hypothesis
-   - Describes methods in future tense
-   - Work not yet completed but feasible by meeting date
-   - 500 words maximum
+2. **MD-PhD Tandem Abstract**: Clinical/technical collaboration
+   - Requires two joint first authors/presenters: a clinical expert and a technical expert
+   - Only recommend if author-role evidence is provided; author verifies eligibility
+   - Standard research body and Synopsis format; 750 words maximum
 
 3. **MRI in Clinical Practice Abstract**: Clinical case or application
    - Demonstrates added value of MRI in patient care
    - Focuses on diagnosis, management, or treatment impact
-   - Includes clinical background and teaching points
+   - Clinical Presentation and Assessment, Diagnosis and Treatment, Significance, at least 3 Key Points
+   - Unstructured 100-word clinical Synopsis
    - 750 words maximum
 
 4. **ISMRT Abstract**: For MR Technologists/Radiographers
    - Emphasizes practical application and workflow
    - Written for technologist audience
-   - Can be clinical practice or research focused
+   - Separate ISMRT route; requires practicing technologist/radiographer eligibility and CV
+   - Can be clinical practice or research focused; 750 words maximum
 
 **Routing Rules:**
-- Body/Neuro/Cardiovascular/MSK categories → likely Clinical Practice
-- Acquisition/Analysis/Physics categories → likely Standard
-- Interventional category → consider ISMRT
-- Future tense, hypothesis statements → Registered
+- Choose by study content and author eligibility, not by organ/category alone
+- Standard research can belong to Body, Neuro or another clinical category
+- Clinical Practice requires a de-identified case narrative or case series showing MRI care impact
+- Interventional content alone does not establish ISMRT eligibility
+- Registered Abstract is not a verified 2027 route; do not recommend it
+- An idea without results is an incomplete draft, never a reason to invent findings
 
 **Research Text:**
 ---
@@ -258,8 +209,8 @@ ${text}
 
 **Task:**
 Analyze the text for:
-1. Tense (past = completed, future = prospective)
-2. Presence of results/data (yes = Standard/Clinical, no = Registered)
+1. Study maturity and supplied author-role evidence
+2. Presence of actual results/data; identify missing information without inventing it
 3. Clinical vs. technical focus
 4. Target audience (researchers vs. technologists)
 
@@ -307,9 +258,7 @@ export const applyOccamsRazor = (categories: Category[]): Category[] => {
 
     // Skip if too similar to existing categories
     const isSimilar = simplified.some((existing) => {
-      const existingBase = existing.name.split(':')[0].trim();
-      const categoryBase = category.name.split(':')[0].trim();
-      return existingBase === categoryBase;
+      return existing.name.trim().toLowerCase() === category.name.trim().toLowerCase();
     });
 
     if (!isSimilar && category.probability >= 0.4) {
@@ -417,6 +366,7 @@ ${impactGuidance}
 ---
 
 **Requirements:**
+${callForAbstractsGuidance}
 1. **Impact** (40 words max): A compelling statement about the significance and potential impact of this research.
    - Answer: "What will be different because of this research? Who will care and why?"
    - Be specific and concrete, not vague
@@ -461,24 +411,10 @@ export const getFinalAbstractPrompt = async (
   const categoryNames = categories.map((c) => c.name).join(', ');
   const keywordList = keywords.join(', ');
 
-  // Load type-specific guidance
-  let guidanceFile = '';
-  switch (type) {
-    case 'Standard Abstract':
-      guidanceFile = 'standard abstract guidance.md';
-      break;
-    case 'Registered Abstract':
-      guidanceFile = 'registered abstract guidance.md';
-      break;
-    case 'MRI in Clinical Practice Abstract':
-      guidanceFile = 'mri in clinical practice abstract guidance.md';
-      break;
-    case 'ISMRT Abstract':
-      guidanceFile = 'ISMRT abstract.md';
-      break;
-  }
-
-  const guidance = guidanceFile ? await loadGuidelineFile(guidanceFile) : '';
+  const guidance =
+    ISMRM_2027_RULES.abstractTypes.includes(type) || type === 'Registered Abstract'
+      ? getISMRMTypeGuidance(type)
+      : '';
   const globalGuidance = await loadGuidelineFile('call for abstracts global guidance.md');
 
   return `
@@ -512,15 +448,15 @@ ${text}
 **Requirements:**
 1. Generate the complete abstract body following the structure for ${type}
 2. Use the provided Impact and Synopsis as context
-3. Include proper sections (INTRODUCTION, METHODS, RESULTS, etc.)
+3. Follow the type-specific structure above; revise Impact/Synopsis to its format and limits, even if earlier drafts differ
 4. Follow word limits and formatting requirements
 
 **Output Format:**
 Return a JSON object with:
 {
   "abstract": "Complete abstract body with sections",
-  "impact": "${impact}",
-  "synopsis": "${synopsis}",
+  "impact": "Source-grounded statement, at most 40 words",
+  "synopsis": "At most 100 words, in the selected type-specific format",
   "keywords": ["${keywords.join('", "')}"]
 }
 
@@ -561,9 +497,9 @@ ${impactGuidance}
 ---
 
 **Task:**
-1. Expand the core idea into a plausible research study
-2. Invent scientifically sound details (methods, results, etc.)
-3. Generate Impact (40 words), Synopsis (100 words), and Keywords (3-7)
+1. Expand the core idea into a clearly labelled planning draft, not a submission-ready completed study
+2. Do not fabricate research methods, participants, results, statistics, references or ethics approval; use [author to verify] for unknowns
+3. Generate Impact (40 words max), Synopsis (100 words max), and Keywords (1-5)
 4. Ensure the abstract follows ISMRM standards
 
 **Output Format:**
@@ -574,6 +510,6 @@ Return a JSON object with:
   "keywords": ["keyword1", "keyword2", ...]
 }
 
-Be creative but scientifically plausible. The abstract should be publication-ready.
+Keep proposed work distinct from observed findings. The author must supply and verify missing information before submission.
 `;
 };
