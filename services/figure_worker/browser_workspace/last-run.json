@@ -1,0 +1,205 @@
+{
+  "status": "passed",
+  "templates": [
+    {
+      "template": "grouped-bar-v1",
+      "style": "nejm",
+      "width": 4204,
+      "height": 2362
+    },
+    {
+      "template": "distribution-box-scatter-v1",
+      "style": "standard",
+      "width": 4204,
+      "height": 2362
+    },
+    {
+      "template": "radar-explicit-axes-v1",
+      "style": "cell",
+      "width": 4204,
+      "height": 2362
+    },
+    {
+      "template": "scatter-v1",
+      "style": "nature",
+      "width": 4204,
+      "height": 2362
+    },
+    {
+      "template": "heatmap-v1",
+      "style": "nejm",
+      "width": 4204,
+      "height": 2362
+    },
+    {
+      "template": "trend-v1",
+      "style": "lancet",
+      "width": 4204,
+      "height": 2362
+    },
+    {
+      "template": "dot-interval-v1",
+      "style": "standard",
+      "width": 4204,
+      "height": 2362
+    },
+    {
+      "template": "forest-v1",
+      "style": "cell",
+      "width": 4204,
+      "height": 2362
+    },
+    {
+      "template": "ranked-lollipop-v1",
+      "style": "nature",
+      "width": 4204,
+      "height": 2362
+    },
+    {
+      "template": "composition-v1",
+      "style": "nejm",
+      "width": 4204,
+      "height": 2362
+    },
+    {
+      "template": "volcano-v1",
+      "style": "lancet",
+      "width": 4204,
+      "height": 2362
+    }
+  ],
+  "composites": [
+    {
+      "panels": 2,
+      "width": 6000,
+      "height": 2062,
+      "width_mm": 254,
+      "height_mm": 87.3125,
+      "dpi": 599.9988
+    },
+    {
+      "panels": 3,
+      "width": 6000,
+      "height": 4125,
+      "width_mm": 254,
+      "height_mm": 174.625,
+      "dpi": 599.9988
+    },
+    {
+      "panels": 4,
+      "width": 6000,
+      "height": 4125,
+      "width_mm": 254,
+      "height_mm": 174.625,
+      "dpi": 599.9988
+    }
+  ],
+  "corruptCoreRejected": true,
+  "cancelAndRetry": true,
+  "stalePlanInvalidated": true,
+  "injectedCodeRejected": true,
+  "recovery": true,
+  "freeOriginalStillUnauthorized": true,
+  "unexpectedRequests": [],
+  "consoleErrors": [],
+  "layout": {
+    "viewport": 390,
+    "content": 390
+  },
+  "first": {
+    "dataset_sha256": "c8d9fad28c7fa0ccf9775327d12ea2856167ded2de289833eb2205a61debf095",
+    "figure_spec_sha256": "f78780379b04ba9776b0aa55ed4fb9e5a6feba6285e4dda5ef453cff7f1037e4",
+    "template_version": "grouped-bar-v1",
+    "style_id": "nejm",
+    "style_version": "nejm-inspired-v1",
+    "style_sha256": "01f7d427e29c926223641fffafc5185056fec9a8f20082fd1d5f3f7d70d68696",
+    "export_profile": "browser-600dpi-v1",
+    "width_mm": 178,
+    "height_mm": 100,
+    "width_px": 4204,
+    "height_px": 2362,
+    "dpi": 599.9988,
+    "source_baseline_lock_sha256": "4593a2654b96f75d245c1e4e63bb7ec7a1744b76805ac00f393d48a47407e927",
+    "baseline_lock_is_runtime_lock": false,
+    "font_sha256": "3fdf69cabf06049ea70a00b5919340e2ce1e6d02b0cc3c4b44fb6801bd1e0d22",
+    "randomness": "none",
+    "runtime_dependencies": {
+      "python": "3.14.2",
+      "matplotlib": "3.10.8",
+      "numpy": "2.4.6",
+      "pillow": "12.2.0"
+    },
+    "artifacts": [
+      {
+        "format": "png",
+        "media_type": "image/png",
+        "sha256": "9dac592ab00c49076a553ee75f4ecd5b88b02335df3a9bf4be6ebc0ef37f6161",
+        "bytes": 83734
+      },
+      {
+        "format": "pdf",
+        "media_type": "application/pdf",
+        "sha256": "48b92e399f8875bf684832d691f957619b069119297be384932ae33a1fa74420",
+        "bytes": 9748
+      },
+      {
+        "format": "svg",
+        "media_type": "image/svg+xml",
+        "sha256": "32f11a97545f6cb4552b4a308e2437be678aa709f7f96c6625895fe48c6754c2",
+        "bytes": 18122
+      }
+    ],
+    "preview_watermark": "sci-necromancer",
+    "preview_sha256": "e24f80485d22bab78520ae637af93e266bdd224d89641b7905e7447d95362b29",
+    "pyodide_version": "314.0.7",
+    "pyodide_lock_sha256": "5dc2fc119108bc148c7457dc86e7675b5c87e1cafd420b9c34c1eaef7b36c010"
+  },
+  "recovered": {
+    "dataset_sha256": "c8d9fad28c7fa0ccf9775327d12ea2856167ded2de289833eb2205a61debf095",
+    "figure_spec_sha256": "9a94506ddbfb254733769fe212d107fe173be325cc641b789ae606c61b14a7f3",
+    "template_version": "grouped-bar-v1",
+    "style_id": "lancet",
+    "style_version": "lancet-inspired-v1",
+    "style_sha256": "67aa8531571018232c2d0fa302c6b7f421a6e3bd2adad47edf8face61da4a2dd",
+    "export_profile": "browser-600dpi-v1",
+    "width_mm": 178,
+    "height_mm": 100,
+    "width_px": 4204,
+    "height_px": 2362,
+    "dpi": 599.9988,
+    "source_baseline_lock_sha256": "4593a2654b96f75d245c1e4e63bb7ec7a1744b76805ac00f393d48a47407e927",
+    "baseline_lock_is_runtime_lock": false,
+    "font_sha256": "3fdf69cabf06049ea70a00b5919340e2ce1e6d02b0cc3c4b44fb6801bd1e0d22",
+    "randomness": "none",
+    "runtime_dependencies": {
+      "python": "3.14.2",
+      "matplotlib": "3.10.8",
+      "numpy": "2.4.6",
+      "pillow": "12.2.0"
+    },
+    "artifacts": [
+      {
+        "format": "png",
+        "media_type": "image/png",
+        "sha256": "8188127be5f918356893e69d375c750a4aa430e88ce1a4f846a62eceeef4b17e",
+        "bytes": 83687
+      },
+      {
+        "format": "pdf",
+        "media_type": "application/pdf",
+        "sha256": "1c8cdc67e223f398d467e411c83b8fff2a043b7e1bcd9c892a9ab28d3370fd61",
+        "bytes": 9755
+      },
+      {
+        "format": "svg",
+        "media_type": "image/svg+xml",
+        "sha256": "e232ad43ae9aa75ec34c8dd3bdd591382dbaf7e71918a7f8c42814d34c4d56e7",
+        "bytes": 18124
+      }
+    ],
+    "preview_watermark": "sci-necromancer",
+    "preview_sha256": "6e44aab80fee9af37143f8a7746ad4280a318cd5bc44bbaf98cc1a8bb42663db",
+    "pyodide_version": "314.0.7",
+    "pyodide_lock_sha256": "5dc2fc119108bc148c7457dc86e7675b5c87e1cafd420b9c34c1eaef7b36c010"
+  }
+}

@@ -21,3 +21,23 @@ jobs:
       - run: npm test -- --run
       - run: npm run lint
       - run: npm run build
+
+  figure-worker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      MPLBACKEND: Agg
+      MPLCONFIGDIR: ${{ runner.temp }}/sci-figure-matplotlib
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        with:
+          version: '0.10.9'
+          python-version: '3.10'
+          enable-cache: true
+          cache-dependency-glob: services/figure_worker/uv.lock
+      - run: uv sync --project services/figure_worker --locked
+      - name: Record figure runtime
+        run: uv run --project services/figure_worker --no-sync python -c "import platform, matplotlib; print(platform.platform()); print(platform.python_version()); print(matplotlib.__version__)"
+      - name: Validate synthetic data and all installed figure contracts
+        run: uv run --project services/figure_worker --no-sync python -m unittest discover -s services/figure_worker/tests -v

@@ -3,10 +3,13 @@
     <!-- Mode Toggle -->
     <div class="flex bg-base-100 rounded-lg p-1 mb-6">
       <button
-        @click="setMode('standard')"
+        @click="
+          dataWorkspaceOpen = false;
+          setMode('standard');
+        "
         :class="[
           'flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-md transition-all',
-          state.mode === 'standard'
+          !dataWorkspaceOpen && state.mode === 'standard'
             ? 'bg-brand-primary text-white'
             : 'text-text-secondary hover:bg-base-200',
         ]"
@@ -28,10 +31,13 @@
         {{ t('image_generation.mode_standard') }}
       </button>
       <button
-        @click="setMode('text-to-image')"
+        @click="
+          dataWorkspaceOpen = false;
+          setMode('text-to-image');
+        "
         :class="[
           'flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-md transition-all',
-          state.mode === 'text-to-image'
+          !dataWorkspaceOpen && state.mode === 'text-to-image'
             ? 'bg-brand-primary text-white'
             : 'text-text-secondary hover:bg-base-200',
         ]"
@@ -54,16 +60,30 @@
       </button>
       <button
         type="button"
-        disabled
-        class="flex-1 rounded-md px-4 py-2 text-text-secondary opacity-60"
+        :disabled="!browserDataFiguresEnabled || state.isLoading"
+        @click="dataWorkspaceOpen = true"
+        :class="[
+          'flex-1 rounded-md px-4 py-2 text-text-secondary disabled:opacity-60',
+          dataWorkspaceOpen ? 'bg-brand-primary text-white' : '',
+        ]"
         :title="t('image_generation.data_chart_unavailable')"
       >
-        {{ t('image_generation.data_chart_mode') }}
+        {{
+          browserDataFiguresEnabled
+            ? t('image_generation.data_chart_workspace')
+            : t('image_generation.data_chart_mode')
+        }}
       </button>
     </div>
 
     <!-- Main Content Grid -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <DataFigureWorkspace
+      v-if="dataWorkspaceOpen"
+      :can-render="
+        membership.isAuthenticated.value && (membership.status.value?.bonusBalance ?? 0) > 0
+      "
+    />
+    <div v-else class="grid grid-cols-1 lg:grid-cols-2 gap-6">
       <!-- Left Column - Controls -->
       <div class="space-y-4">
         <!-- Multi-Image Upload (Standard mode) -->
@@ -436,7 +456,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue';
+import { ref, computed, watch, defineAsyncComponent } from 'vue';
 import { useI18n } from 'vue-i18n';
 import type { CompletionSuggestion } from '@/types';
 import type { ImageGenerationProvider } from '@/types';
@@ -461,6 +481,11 @@ import type { JournalStyleId } from '@/src/services/imageTemplateRegistry';
 
 const { t } = useI18n();
 const membership = useMembership();
+const DataFigureWorkspace = defineAsyncComponent(() => import('./DataFigureWorkspace.vue'));
+// Development integration only: production cannot bypass unfinished settlement/export authorization.
+const browserDataFiguresEnabled =
+  import.meta.env.DEV && import.meta.env.VITE_BROWSER_DATA_FIGURES_ENABLED?.trim() === 'true';
+const dataWorkspaceOpen = ref(false);
 const illustrationCategories = ILLUSTRATION_CATEGORY_IDS;
 const illustrationRoutingFlag =
   import.meta.env.VITE_TYPESAFE_JEV_ILLUSTRATION_ROUTING_ENABLED?.trim() === 'true';

@@ -1,0 +1,35 @@
+{
+  "schema_version": "figure-multipanel-spec-v1",
+  "dataset_sha256": "666f0189b34921aed2c0f5f7e5a7302e64873a2115d6a9799a1e23f5efbc3e4e",
+  "record_type_column": "col_1",
+  "title": "Radiology model validation",
+  "synthetic": true,
+  "style": { "id": "standard", "version": "standard-v1" },
+  "panels": [
+    {
+      "template_id": "grouped-bar",
+      "template_version": "grouped-bar-v1",
+      "title": "AUC by center and method",
+      "record_type": "auc",
+      "mapping": { "category": "col_2", "group": "col_3", "value": "col_6" },
+      "units": { "value": "AUC (ratio)" }
+    },
+    {
+      "template_id": "dot-interval",
+      "template_version": "dot-interval-v1",
+      "title": "Supplied AUC intervals",
+      "record_type": "auc",
+      "mapping": { "label": "col_9", "estimate": "col_6", "lower": "col_7", "upper": "col_8" },
+      "units": { "value": "AUC (ratio)" },
+      "interval": { "type": "CI", "ci_level": 95 }
+    },
+    {
+      "template_id": "heatmap",
+      "template_version": "heatmap-v1",
+      "title": "Supplied Dice matrix",
+      "record_type": "dice",
+      "mapping": { "row": "col_4", "column": "col_3", "value": "col_6" },
+      "units": { "value": "Dice (ratio)" }
+    }
+  ]
+}

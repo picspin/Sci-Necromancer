@@ -4,6 +4,10 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "figures:prepare": "node scripts/prepare-figure-runtime.mjs",
+    "figures:check": "node scripts/prepare-figure-runtime.mjs --check",
+    "predev": "npm run figures:prepare",
+    "prebuild": "npm run figures:prepare",
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
@@ -32,6 +36,7 @@
     "pdf-parse": "^2.4.5",
     "pdfjs-dist": "^5.4.449",
     "pinia": "^2.3.0",
+    "pyodide": "314.0.7",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-i18next": "^16.2.1",

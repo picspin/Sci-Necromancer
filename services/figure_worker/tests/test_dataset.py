@@ -210,5 +210,168 @@ class ScatterContractTests(unittest.TestCase):
         self.assertEqual(context.exception.code, "scatter_limit_exceeded")
 
 
+class HeatmapContractTests(unittest.TestCase):
+    def test_preserves_raw_values_and_rejects_incomplete_or_duplicate_cells(self):
+        parsed = figures.parse_csv_bytes(b"Row,Column,Value\nB,X,-2\nB,Y,5\nA,X,3\nA,Y,4\n")
+        data = figures.validate_heatmap(parsed, row_column="col_1", column_column="col_2",
+                                        value_column="col_3", value_unit="score")
+        self.assertEqual(data.template_id, "heatmap")
+        self.assertEqual([(c.row_label, c.column_label, c.value) for c in data.cells],
+                         [("B", "X", Decimal(-2)), ("B", "Y", Decimal(5)),
+                          ("A", "X", Decimal(3)), ("A", "Y", Decimal(4))])
+        self.assertNotIn("B", repr(data))
+        for payload, code in [
+            (b"R,C,V\nA,X,1\nB,Y,2\n", "incomplete_heatmap_matrix"),
+            (b"R,C,V\nA,X,1\nA,X,2\n", "duplicate_heatmap_cell"),
+        ]:
+            with self.subTest(code=code), self.assertRaises(figures.DatasetError) as context:
+                figures.validate_heatmap(figures.parse_csv_bytes(payload), row_column="col_1",
+                                          column_column="col_2", value_column="col_3", value_unit="score")
+            self.assertEqual(context.exception.code, code)
+
+    def test_invalid_values_report_location_without_value_contents(self):
+        for value, code in [("", "missing_heatmap_value"), ("patient-secret", "invalid_heatmap_value"),
+                            ("NaN", "invalid_heatmap_value"), ("1e999", "invalid_heatmap_value"),
+                            ("1e-999", "invalid_heatmap_value")]:
+            with self.subTest(value=value), self.assertRaises(figures.DatasetError) as context:
+                figures.validate_heatmap(figures.parse_csv_bytes(f"R,C,V\nA,X,{value}\n".encode()),
+                                          row_column="col_1", column_column="col_2",
+                                          value_column="col_3", value_unit="score")
+            self.assertEqual(context.exception.code, code)
+            self.assertEqual((context.exception.row, context.exception.column), (2, "col_3"))
+            self.assertNotIn("patient-secret", str(context.exception))
+
+    def test_mapping_units_labels_and_bounds_are_explicit(self):
+        parsed = figures.parse_csv_bytes(b"R,C,V\nA,X,1\nB,X,2\n")
+        for mapping in [("col_1", "col_1", "col_3"), ("col_1", "col_2", "col_9")]:
+            with self.assertRaises(figures.DatasetError) as context:
+                figures.validate_heatmap(parsed, row_column=mapping[0], column_column=mapping[1],
+                                          value_column=mapping[2], value_unit="score")
+            self.assertEqual(context.exception.code, "invalid_heatmap_mapping")
+        with self.assertRaises(figures.DatasetError) as context:
+            figures.validate_heatmap(parsed, row_column="col_1", column_column="col_2",
+                                      value_column="col_3", value_unit=" ")
+        self.assertEqual(context.exception.code, "invalid_heatmap_unit")
+        with patch.object(figures, "MAX_HEATMAP_DIMENSION", 1):
+            with self.assertRaises(figures.DatasetError) as context:
+                figures.validate_heatmap(parsed, row_column="col_1", column_column="col_2",
+                                          value_column="col_3", value_unit="score")
+        self.assertEqual(context.exception.code, "heatmap_limit_exceeded")
+        parsed = figures.parse_csv_bytes(b"R,C,V\n,X,1\n")
+        with self.assertRaises(figures.DatasetError) as context:
+            figures.validate_heatmap(parsed, row_column="col_1", column_column="col_2",
+                                      value_column="col_3", value_unit="score")
+        self.assertEqual(context.exception.code, "missing_heatmap_label")
+
+
+class TrendContractTests(unittest.TestCase):
+    def test_preserves_interleaved_series_and_already_cumulative_values(self):
+        parsed = figures.parse_csv_bytes(b"Series,Week,Count\nA,1,3\nB,1,7\nA,2,8\nB,3,9\n")
+        data = figures.validate_trend(parsed, x_column="col_2", value_column="col_3",
+                                      series_column="col_1", x_unit="weeks", value_unit="patients")
+        self.assertEqual(data.template_id, "trend")
+        self.assertEqual([(p.group, p.x, p.y) for p in data.points],
+                         [("A", Decimal(1), Decimal(3)), ("B", Decimal(1), Decimal(7)),
+                          ("A", Decimal(2), Decimal(8)), ("B", Decimal(3), Decimal(9))])
+        self.assertNotIn("Count", repr(data))
+
+    def test_duplicate_or_reversed_x_is_not_silently_sorted_or_aggregated(self):
+        for sequence in ["1,3\n1,8", "2,3\n1,8"]:
+            with self.subTest(sequence=sequence), self.assertRaises(figures.DatasetError) as context:
+                figures.validate_trend(figures.parse_csv_bytes(f"Week,Count\n{sequence}\n".encode()),
+                                        x_column="col_1", value_column="col_2",
+                                        x_unit="weeks", value_unit="patients")
+            self.assertEqual(context.exception.code, "unordered_or_duplicate_trend_x")
+            self.assertEqual((context.exception.row, context.exception.column), (3, "col_1"))
+
+    def test_non_numeric_dates_missing_values_and_bounds_fail_explicitly(self):
+        for payload, code in [
+            (b"X,Y\n2026-10-01,2\n", "invalid_trend_value"),
+            (b"X,Y\n1,\n", "missing_trend_value"),
+            (b"X,Y\n1,inf\n", "invalid_trend_value"),
+        ]:
+            with self.subTest(code=code), self.assertRaises(figures.DatasetError) as context:
+                figures.validate_trend(figures.parse_csv_bytes(payload), x_column="col_1",
+                                        value_column="col_2", x_unit="days", value_unit="score")
+            self.assertEqual(context.exception.code, code)
+        with patch.object(figures, "MAX_SCATTER_POINTS", 1):
+            with self.assertRaises(figures.DatasetError) as context:
+                figures.validate_trend(figures.parse_csv_bytes(b"X,Y\n1,2\n2,3\n"),
+                                        x_column="col_1", value_column="col_2",
+                                        x_unit="days", value_unit="score")
+        self.assertEqual(context.exception.code, "trend_limit_exceeded")
+
+
+class IntervalContractTests(unittest.TestCase):
+    def validate(self, payload=b"Label,Estimate,Lower,Upper\nTrial A,1.2,0.9,1.8\n", **options):
+        defaults = dict(template_id="forest", label_column="col_1", estimate_column="col_2",
+                        lower_column="col_3", upper_column="col_4", value_unit="OR",
+                        interval_type="CI", ci_level=95, effect_type="OR")
+        defaults.update(options)
+        return figures.validate_intervals(figures.parse_csv_bytes(payload), **defaults)
+
+    def test_keeps_asymmetric_user_bounds_and_explicit_interval_meaning(self):
+        data = self.validate()
+        self.assertEqual(data.template_id, "forest")
+        self.assertEqual(data.ci_level, Decimal(95))
+        self.assertEqual((data.points[0].estimate, data.points[0].lower, data.points[0].upper),
+                         (Decimal("1.2"), Decimal("0.9"), Decimal("1.8")))
+        self.assertNotIn("Trial A", repr(data))
+        data = self.validate(template_id="dot-interval", effect_type=None, value_unit="score",
+                             interval_type="SD", ci_level=None)
+        self.assertIsNone(data.ci_level)
+        self.assertEqual(data.interval_type, "SD")
+
+    def test_requires_interval_type_ci_level_and_one_effect_semantic(self):
+        for options, code in [
+            ({"template_id": "unknown"}, "invalid_interval_template"),
+            ({"interval_type": "unknown"}, "invalid_interval_type"),
+            ({"ci_level": None}, "invalid_interval_ci_level"),
+            ({"ci_level": "NaN"}, "invalid_interval_ci_level"),
+            ({"ci_level": 0}, "invalid_interval_ci_level"),
+            ({"ci_level": 100}, "invalid_interval_ci_level"),
+            ({"effect_type": "OR/RR"}, "invalid_forest_effect_type"),
+            ({"effect_type": "HR", "value_unit": "OR"}, "invalid_forest_unit"),
+            ({"interval_type": "SE"}, "invalid_forest_effect_type"),
+            ({"template_id": "dot-interval"}, "invalid_interval_effect_type"),
+            ({"template_id": "dot-interval", "effect_type": None, "interval_type": "SD"},
+             "invalid_interval_ci_level"),
+        ]:
+            with self.subTest(options=options), self.assertRaises(figures.DatasetError) as context:
+                self.validate(**options)
+            self.assertEqual(context.exception.code, code)
+
+    def test_invalid_nonfinite_missing_bounds_and_log_ratios_fail_without_imputation(self):
+        for row, code in [
+            ("A,1,2,3", "invalid_interval_bounds"),
+            ("A,1,0.5,0.8", "invalid_interval_bounds"),
+            ("A,1,0,2", "nonpositive_forest_ratio"),
+            ("A,1,-1,2", "nonpositive_forest_ratio"),
+            ("A,1,,2", "missing_interval_value"),
+            ("A,1,NaN,2", "invalid_interval_value"),
+            ("A,1,0.5,inf", "invalid_interval_value"),
+            ("A,1,1e-999,2", "invalid_interval_value"),
+            (",1,0.5,2", "missing_interval_label"),
+        ]:
+            with self.subTest(row=row), self.assertRaises(figures.DatasetError) as context:
+                self.validate(f"L,E,Low,High\n{row}\n".encode())
+            self.assertEqual(context.exception.code, code)
+            self.assertEqual(context.exception.row, 2)
+        data = self.validate(b"L,E,Low,High\nA,-1,-2,0\n", effect_type="MD", value_unit="mm")
+        self.assertEqual(data.points[0].estimate, Decimal(-1))
+
+    def test_unique_mapping_labels_and_bounds_limits(self):
+        with self.assertRaises(figures.DatasetError) as context:
+            self.validate(upper_column="col_2")
+        self.assertEqual(context.exception.code, "invalid_interval_mapping")
+        with self.assertRaises(figures.DatasetError) as context:
+            self.validate(b"L,E,Low,High\nA,1,0.5,2\nA,2,1,3\n")
+        self.assertEqual(context.exception.code, "duplicate_interval_label")
+        with patch.object(figures, "MAX_INTERVAL_POINTS", 1):
+            with self.assertRaises(figures.DatasetError) as context:
+                self.validate(b"L,E,Low,High\nA,1,0.5,2\nB,2,1,3\n")
+        self.assertEqual(context.exception.code, "interval_limit_exceeded")
+
+
 if __name__ == "__main__":
     unittest.main()
