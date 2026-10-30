@@ -4,6 +4,8 @@
 
 ## 先判断本次改了哪一层
 
+2026-10-06 多面板和首个放射影像合成案例：**Supabase 无迁移；Vercel 无需部署；Cloudflare Worker 无需重建/部署**。仅未接入生产的 Python 组合入口、例子、测试和文档，无新依赖/环境变量/开关/扣费变化。无本增量的生产发布顺序或付费烟测需求；锁定 Python 115 项回归、例子三格式/manifest 导出、JS/TS test/lint/build 为本地验收。生产操作已执行：无，分支尚未 push；后续 push 会受现有 Git 集成影响，需另行确认，不据构建成功移除“开发中”。详情见[本地多面板记录](./specs/2026-10-06-data-figure-multipanel.md)。
+
 2026-10-05 PR #13/#14 审查修复仍限于本地 Python 图件、测试和文档，**Supabase 无迁移；Vercel 无需部署；Cloudflare Worker 无需重建/部署**，无环境变量变更，也不启用会员数据图入口。锁定 Python 回归、三格式合成导出和前端 test/lint/build 是本地验收步骤，无本修复的生产发布顺序或付费烟测需求；未运行生产迁移/部署命令。注意现有 PR bot 已显示 Vercel/Cloudflare 自动构建记录（Cloudflare 链接含 production）：push 前确认外部 Git 集成的发布范围，不能把“未手动执行部署”写成“没有自动部署”，也不能把自动构建成功视为会员功能已上线。
 
 | 变更内容                                                                               | 需要操作                                        | 不应误认为                                       |
