@@ -32,7 +32,9 @@ async function checkDataFigureWorkspace(page) {
     await page
       .getByRole('combobox', { name: 'Journal-inspired style', exact: true })
       .selectOption('nejm');
-    await page.getByRole('checkbox').check();
+    await page
+      .getByRole('checkbox', { name: 'I confirm the fields, units and frozen plan', exact: true })
+      .check();
     await page
       .getByRole('button', { name: 'Render local validation preview', exact: true })
       .click();
@@ -56,21 +58,27 @@ async function checkDataFigureWorkspace(page) {
       .selectOption('lancet');
     if (
       (await page.getByAltText('Data figure preview', { exact: true }).count()) ||
-      (await page.getByRole('checkbox').isChecked())
+      (await page
+        .getByRole('checkbox', { name: 'I confirm the fields, units and frozen plan', exact: true })
+        .isChecked())
     )
       throw new Error('Changed plan retained stale confirmation/result');
-    const plan = JSON.parse(await page.locator('.figure-controls pre').textContent());
+    const plan = JSON.parse(await page.locator('.figure-controls > fieldset pre').textContent());
     await page.getByText('Import frozen FigureSpec / multipanel plan', { exact: true }).click();
     await page
       .getByRole('textbox', { name: 'Complete FigureSpec JSON', exact: true })
       .fill(JSON.stringify({ ...plan, python: 'not executed' }));
-    await page.getByRole('checkbox').check();
+    await page
+      .getByRole('checkbox', { name: 'I confirm the fields, units and frozen plan', exact: true })
+      .check();
     await page
       .getByRole('button', { name: 'Render local validation preview', exact: true })
       .click();
     await page.getByRole('alert').filter({ hasText: 'invalid_figure_spec_fields' }).waitFor();
     await page.getByRole('textbox', { name: 'Complete FigureSpec JSON', exact: true }).fill('');
-    await page.getByRole('checkbox').check();
+    await page
+      .getByRole('checkbox', { name: 'I confirm the fields, units and frozen plan', exact: true })
+      .check();
     await page
       .getByRole('button', { name: 'Render local validation preview', exact: true })
       .click();
@@ -196,7 +204,9 @@ async function checkDataFigureWorkspace(page) {
         await page
           .getByRole('textbox', { name: 'Explicit statistical options (JSON)', exact: true })
           .fill(JSON.stringify(options));
-      await page.getByRole('checkbox').check();
+      await page
+        .getByRole('checkbox', { name: 'I confirm the fields, units and frozen plan', exact: true })
+        .check();
       await page
         .getByRole('button', { name: 'Render local validation preview', exact: true })
         .click();
@@ -231,7 +241,9 @@ async function checkDataFigureWorkspace(page) {
       await page
         .getByRole('textbox', { name: 'Complete FigureSpec JSON', exact: true })
         .fill(JSON.stringify(spec));
-      await page.getByRole('checkbox').check();
+      await page
+        .getByRole('checkbox', { name: 'I confirm the fields, units and frozen plan', exact: true })
+        .check();
       await page
         .getByRole('button', { name: 'Render local validation preview', exact: true })
         .click();

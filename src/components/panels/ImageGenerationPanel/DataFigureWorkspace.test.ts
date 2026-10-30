@@ -3,10 +3,21 @@ import { createI18n } from 'vue-i18n';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import DataFigureWorkspace from './DataFigureWorkspace.vue';
 
-const { inspect, localRender, dispose } = vi.hoisted(() => ({
+const { inspect, localRender, dispose, figureRoute } = vi.hoisted(() => ({
   inspect: vi.fn(),
   localRender: vi.fn(),
   dispose: vi.fn(),
+  figureRoute: vi.fn(),
+}));
+vi.mock('@/src/composables/useMembership', () => ({
+  useMembership: () => ({
+    isAuthenticated: { value: true },
+    status: { value: { bonusBalance: 10 } },
+    jevEnabled: { value: true },
+    jevConsent: { value: { accepted: true, version: 'typesafe-member-2026-09-21-v1' } },
+    user: { value: { id: 'member-1' } },
+    memberApi: { figureRoute },
+  }),
 }));
 vi.mock('@/src/services/browserFigures', async (importOriginal) => {
   const original = await importOriginal<typeof import('@/src/services/browserFigures')>();
@@ -30,6 +41,58 @@ afterEach(() => {
 });
 
 describe('data figure workspace', () => {
+  it('wires approved metadata to the member API, applies only explicit selection and clears the frozen plan', async () => {
+    inspect.mockResolvedValue({
+      dataset_sha256: 'a'.repeat(64),
+      row_count: 2,
+      byte_count: 40,
+      columns: [
+        { id: 'col_1', name: 'SECRET_CATEGORY', kind: 'text', missing_count: 0 },
+        { id: 'col_2', name: 'SECRET_VALUE', kind: 'numeric', missing_count: 0 },
+      ],
+    });
+    figureRoute.mockResolvedValue({
+      kind: 'data-template',
+      decision: {
+        candidates: [{ templateId: 'scatter', suitability: 0.95 }],
+        policyVersion: 'jev-data-figure-routing-v2',
+        provider: 'typesafe',
+        model: 'jev-1.13.0',
+      },
+    });
+    mount();
+    await fireEvent.click(screen.getByRole('button', { name: 'Load synthetic example' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Inspect local CSV' }));
+    await screen.findByText('2 rows · 2 columns');
+    await fireEvent.update(screen.getByLabelText('Figure goal'), 'Compare fields');
+    await fireEvent.click(
+      screen.getByLabelText('I approve sending exactly this metadata to TypeSafe')
+    );
+    await fireEvent.click(screen.getByRole('button', { name: 'Get template suggestions' }));
+    await screen.findByRole('button', { name: /Choose scatter/ });
+    expect((screen.getByLabelText('Chart type') as HTMLSelectElement).value).toBe('grouped-bar');
+    await fireEvent.click(screen.getByRole('button', { name: /Choose scatter/ }));
+    expect((screen.getByLabelText('Chart type') as HTMLSelectElement).value).toBe('scatter');
+    expect((screen.getByLabelText('x') as HTMLSelectElement).value).toBe('');
+    expect(
+      (screen.getByLabelText('I confirm the fields, units and frozen plan') as HTMLInputElement)
+        .checked
+    ).toBe(false);
+    expect(figureRoute).toHaveBeenCalledWith(
+      {
+        kind: 'data-template',
+        input: {
+          goal: 'Compare fields',
+          fields: [
+            { alias: 'col_1', type: 'categorical' },
+            { alias: 'col_2', type: 'continuous' },
+          ],
+        },
+      },
+      expect.any(AbortSignal)
+    );
+    expect(localRender).not.toHaveBeenCalled();
+  });
   it('ignores a file read that finishes after access was revoked', async () => {
     let finish!: (bytes: ArrayBuffer) => void;
     const contents = new Promise<ArrayBuffer>((resolve) => {

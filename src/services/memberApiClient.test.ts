@@ -2,6 +2,46 @@ import { describe, expect, it, vi } from 'vitest';
 import { createMemberApiClient, MemberApiError } from './memberApiClient';
 
 describe('member API client', () => {
+  it('validates data advice at the transport boundary and propagates cancellation without replay', async () => {
+    const fetcher = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          kind: 'data-template',
+          decision: { selected: 'scatter', policyVersion: 'jev-figure-routing-v1' },
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      )
+    );
+    const client = createMemberApiClient({
+      baseUrl: 'https://api.example.test',
+      getAccessToken: async () => 'synthetic-jwt',
+      fetcher,
+    });
+    const input = {
+      kind: 'data-template' as const,
+      input: { fields: [{ alias: 'col_1', type: 'continuous' as const }], goal: 'Show values' },
+    };
+    await expect(client.figureRoute(input)).rejects.toMatchObject({
+      code: 'invalid_jev_figure_response',
+      status: 503,
+    });
+    const controller = new AbortController();
+    fetcher.mockImplementationOnce(
+      (_url, init) =>
+        new Promise((_resolve, reject) => {
+          init.signal.addEventListener(
+            'abort',
+            () => reject(new DOMException('Aborted', 'AbortError')),
+            { once: true }
+          );
+          controller.abort();
+        })
+    );
+    await expect(client.figureRoute(input, controller.signal)).rejects.toMatchObject({
+      name: 'AbortError',
+    });
+    expect(fetcher).toHaveBeenCalledTimes(2);
+  });
   it('uses the existing authenticated Jev function for figure advice without a second image request', async () => {
     const fetcher = vi.fn().mockResolvedValue(
       new Response(

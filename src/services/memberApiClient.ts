@@ -1,5 +1,9 @@
 import type { MGAResearchAgentId } from '@/lib/capabilities/managedResearchCapabilities';
 import type { AcceptedMemberTextModel } from '@/lib/llm/memberTextModels';
+import {
+  isDataFigureRecommendations,
+  type DataFigureRecommendations,
+} from '@/lib/figure/dataFigureTemplates';
 import type {
   MemberBlindPreflight,
   MemberBlindReviewContext,
@@ -148,7 +152,7 @@ export type FigureRouteRequest =
 
 export interface FigureRouteResponse {
   kind: FigureRouteRequest['kind'];
-  decision: FigureRoutingDecision<string> | PromptCompletenessDecision;
+  decision: FigureRoutingDecision<string> | PromptCompletenessDecision | DataFigureRecommendations;
   remaining: number;
   cached: boolean;
 }
@@ -264,14 +268,23 @@ export function createMemberApiClient(options: MemberApiClientOptions) {
     getStatus: () => request<MemberStatus>('/api/member/status'),
     getCapabilities: () =>
       request<{ capabilities: ManagedCapabilityDescriptor[] }>('/api/member/capabilities'),
-    figureRoute: async (input: FigureRouteRequest): Promise<FigureRouteResponse> => {
+    figureRoute: async (
+      input: FigureRouteRequest,
+      signal?: AbortSignal
+    ): Promise<FigureRouteResponse> => {
       const result = await request<FigureRouteResponse | { error: string }>(
         '/api/jev',
-        { method: 'POST', body: JSON.stringify({ action: 'figure-route', ...input }) },
+        { method: 'POST', body: JSON.stringify({ action: 'figure-route', ...input }), signal },
         {},
         20_000
       );
       if ('error' in result) throw new MemberApiError(result.error, 202);
+      if (
+        input.kind === 'data-template' &&
+        (result.kind !== 'data-template' || !isDataFigureRecommendations(result.decision))
+      ) {
+        throw new MemberApiError('invalid_jev_figure_response', 503);
+      }
       return result;
     },
     runCapability: (input: {

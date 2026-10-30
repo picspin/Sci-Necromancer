@@ -1,16 +1,6 @@
-export const FIGURE_TEMPLATES = {
-  'grouped-bar': 'grouped-bar-v1',
-  scatter: 'scatter-v1',
-  heatmap: 'heatmap-v1',
-  trend: 'trend-v1',
-  'dot-interval': 'dot-interval-v1',
-  forest: 'forest-v1',
-  'ranked-lollipop': 'ranked-lollipop-v1',
-  composition: 'composition-v1',
-  volcano: 'volcano-v1',
-  distribution: 'distribution-box-scatter-v1',
-  radar: 'radar-explicit-axes-v1',
-} as const;
+import { FIGURE_TEMPLATES, type FigureTemplate } from '../../lib/figure/dataFigureTemplates';
+export { FIGURE_TEMPLATES };
+export type { FigureTemplate };
 export const FIGURE_STYLES = {
   standard: 'standard-v1',
   lancet: 'lancet-inspired-v1',
@@ -18,7 +8,6 @@ export const FIGURE_STYLES = {
   cell: 'cell-inspired-v1',
   nejm: 'nejm-inspired-v1',
 } as const;
-export type FigureTemplate = keyof typeof FIGURE_TEMPLATES;
 export type FigureStyle = keyof typeof FIGURE_STYLES;
 export interface CsvProfile {
   dataset_sha256: string;

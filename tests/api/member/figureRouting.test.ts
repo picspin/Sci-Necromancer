@@ -1,4 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { createHash } from 'node:crypto';
+import { buildDataFigureRoutingRequest } from '../../../backend/_jev/figureRouting';
+import { DATA_FIGURE_ROUTING_VERSION } from '../../../lib/figure/dataFigureTemplates';
 import {
   DATA_CHART_TEMPLATE_IDS,
   ILLUSTRATION_CATEGORY_IDS,
@@ -108,7 +111,15 @@ describe('member figure-routing API', () => {
 
   it('sends only bounded data metadata, and returns a recommendation without billing', async () => {
     process.env.TYPESAFE_JEV_DATA_FIGURE_ROUTING_ENABLED = 'true';
-    mocks.requestJev.mockResolvedValue(choice(DATA_CHART_TEMPLATE_IDS, 'multi-panel-trend'));
+    mocks.requestJev.mockResolvedValue({
+      model: 'jev-1.13.0',
+      answers: Object.fromEntries(
+        DATA_CHART_TEMPLATE_IDS.map((id) => [
+          id,
+          { type: 'noul', noul: id === 'trend' ? 0.92 : 0.1 },
+        ])
+      ),
+    });
     const res = response();
     await handler(
       request('data-template', {
@@ -136,12 +147,82 @@ describe('member figure-routing API', () => {
       true,
       expect.objectContaining({
         kind: 'data-template',
-        decision: expect.objectContaining({ selected: 'multi-panel-trend' }),
+        decision: expect.objectContaining({
+          candidates: [{ templateId: 'trend', suitability: 0.92 }],
+        }),
       })
     );
     expect(res.json).toHaveBeenCalledWith(
       expect.objectContaining({ cached: false, remaining: 29 })
     );
+  });
+
+  it('versions only the data cache and rejects old, malformed or out-of-scope cached candidates', async () => {
+    process.env.TYPESAFE_JEV_DATA_FIGURE_ROUTING_ENABLED = 'true';
+    const input = {
+      fields: [{ alias: 'col_1', type: 'continuous' as const }],
+      goal: 'Show values',
+    };
+    const valid = {
+      candidates: [{ templateId: 'scatter', suitability: 0.91 }],
+      policyVersion: DATA_FIGURE_ROUTING_VERSION,
+      provider: 'typesafe',
+      model: 'jev-1.13.0',
+    };
+    const invalid = [
+      {
+        selected: 'scatter',
+        probability: 0.99,
+        needsReview: false,
+        policyVersion: 'jev-figure-routing-v1',
+        provider: 'typesafe',
+        model: 'jev-1.13.0',
+      },
+      { ...valid, candidates: [{ templateId: 'roc-pr', suitability: 0.99 }] },
+      { ...valid, candidates: [{ templateId: 'scatter', suitability: 0.8 }] },
+      { ...valid, candidates: [...valid.candidates, ...valid.candidates] },
+      { ...valid, rawRows: ['secret'] },
+    ];
+    for (const decision of [valid, ...invalid]) {
+      mocks.reserve.mockResolvedValueOnce({
+        kind: 'cached',
+        remaining: 29,
+        result: { kind: 'data-template', decision },
+      });
+      const res = response();
+      await handler(request('data-template', input), res);
+      expect(res.status).toHaveBeenCalledWith(decision === valid ? 200 : 503);
+    }
+    expect(mocks.requestJev).not.toHaveBeenCalled();
+    const expectedKey = createHash('sha256')
+      .update(
+        JSON.stringify({
+          kind: 'data-template',
+          version: DATA_FIGURE_ROUTING_VERSION,
+          request: buildDataFigureRoutingRequest(input),
+        })
+      )
+      .digest('hex');
+    expect(mocks.reserve).toHaveBeenCalledWith('data-template', expectedKey);
+  });
+
+  it.each([
+    ['pending', 202],
+    ['limited', 429],
+  ])('does not retry or call Jev for a %s reservation', async (kind, status) => {
+    process.env.TYPESAFE_JEV_DATA_FIGURE_ROUTING_ENABLED = 'true';
+    mocks.reserve.mockResolvedValueOnce({ kind, remaining: 0 });
+    const res = response();
+    await handler(
+      request('data-template', {
+        fields: [{ alias: 'col_1', type: 'continuous' }],
+        goal: 'Show values',
+      }),
+      res
+    );
+    expect(res.status).toHaveBeenCalledWith(status);
+    expect(mocks.requestJev).not.toHaveBeenCalled();
+    expect(mocks.settle).not.toHaveBeenCalled();
   });
 
   it('rejects raw patient rows before reservation or Jev egress', async () => {
@@ -159,6 +240,31 @@ describe('member figure-routing API', () => {
     expect(mocks.reserve).not.toHaveBeenCalled();
     expect(mocks.requestJev).not.toHaveBeenCalled();
   });
+
+  it.each([401, 402, 403])(
+    'preserves server-side member gates (%s) without sending metadata to Jev',
+    async (status) => {
+      process.env.TYPESAFE_JEV_DATA_FIGURE_ROUTING_ENABLED = 'true';
+      if (status === 401) mocks.requireUser.mockRejectedValueOnce({ status, code: 'unauthorized' });
+      else
+        mocks.reserve.mockRejectedValueOnce({
+          status,
+          code: status === 402 ? 'insufficient_bonus' : 'jev_consent_required',
+        });
+      const res = response();
+      await handler(
+        request('data-template', {
+          fields: [{ alias: 'col_1', type: 'continuous' }],
+          goal: 'Show supplied values',
+        }),
+        res
+      );
+      expect(res.status).toHaveBeenCalledWith(status);
+      expect(mocks.requestJev).not.toHaveBeenCalled();
+      expect(mocks.settle).not.toHaveBeenCalled();
+      if (status === 401) expect(mocks.reserve).not.toHaveBeenCalled();
+    }
+  );
 
   it('keeps category and journal as two separate dependent illustration decisions', async () => {
     process.env.TYPESAFE_JEV_ILLUSTRATION_ROUTING_ENABLED = 'true';

@@ -6,7 +6,6 @@ import {
   buildIllustrationJournalRequest,
   buildIllustrationRetryRequest,
   buildPromptCompletenessRequest,
-  DATA_CHART_TEMPLATE_IDS,
   FIGURE_ROUTING_POLICY_VERSION,
   ILLUSTRATION_CATEGORY_IDS,
   ILLUSTRATION_RETRY_CHOICES,
@@ -21,6 +20,11 @@ import {
   type PromptCompletenessDecision,
 } from './figureRouting.js';
 import { createFigureRoutePolicy, type FigureRouteKind } from './figureRoutePolicy.js';
+import {
+  DATA_FIGURE_ROUTING_VERSION,
+  isDataFigureRecommendations,
+  type DataFigureRecommendations,
+} from '../../lib/figure/dataFigureTemplates.js';
 import { MemberServiceError } from '../_member/memberService.js';
 import { TypesafeJevError } from './typesafe.js';
 import { prepareMemberApi, sendApiError } from '../_member/http.js';
@@ -33,7 +37,6 @@ import {
 const ROUTES = {
   'data-template': {
     flag: 'TYPESAFE_JEV_DATA_FIGURE_ROUTING_ENABLED',
-    allowed: DATA_CHART_TEMPLATE_IDS,
   },
   'illustration-category': {
     flag: 'TYPESAFE_JEV_ILLUSTRATION_ROUTING_ENABLED',
@@ -69,7 +72,7 @@ function validCachedDecision(
   kind: FigureRouteKind
 ): value is {
   kind: FigureRouteKind;
-  decision: FigureRoutingDecision<string> | PromptCompletenessDecision;
+  decision: FigureRoutingDecision<string> | PromptCompletenessDecision | DataFigureRecommendations;
 } {
   if (
     !isRecord(value) ||
@@ -79,6 +82,7 @@ function validCachedDecision(
   )
     return false;
   const decision = value.decision;
+  if (kind === 'data-template') return isDataFigureRecommendations(decision);
   const allowed = ROUTES[kind].allowed as readonly string[];
   if (kind === 'illustration-prompt') {
     const dimensions = ['subject', 'layout', 'relationships', 'style', 'constraints'];
@@ -159,7 +163,10 @@ export async function handleFigureRoute(request: VercelRequest, response: Vercel
       .update(
         JSON.stringify({
           kind: routeKind,
-          version: FIGURE_ROUTING_POLICY_VERSION,
+          version:
+            routeKind === 'data-template'
+              ? DATA_FIGURE_ROUTING_VERSION
+              : FIGURE_ROUTING_POLICY_VERSION,
           request: nativeRequest,
         })
       )

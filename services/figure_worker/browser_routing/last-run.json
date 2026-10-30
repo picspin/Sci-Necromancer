@@ -1,0 +1,60 @@
+{
+  "verifiedOn": "2026-10-30",
+  "status": "passed",
+  "evidence": "synthetic transport only; not Jev quality",
+  "egress": [
+    {
+      "action": "figure-route",
+      "kind": "data-template",
+      "input": {
+        "fields": [
+          {
+            "alias": "col_1",
+            "type": "categorical"
+          },
+          {
+            "alias": "col_2",
+            "type": "continuous"
+          }
+        ],
+        "goal": "Compare supplied numeric values"
+      }
+    }
+  ],
+  "states": [
+    "none",
+    "malformed",
+    "202",
+    "401",
+    "402",
+    "403",
+    "404",
+    "429",
+    "503",
+    "Change dataset",
+    "Change identity",
+    "Toggle access"
+  ],
+  "cancellation": true,
+  "layouts": [
+    {
+      "viewport": 320,
+      "content": 320
+    },
+    {
+      "viewport": 768,
+      "content": 768
+    },
+    {
+      "viewport": 1024,
+      "content": 1024
+    },
+    {
+      "viewport": 1440,
+      "content": 1440
+    }
+  ],
+  "focus": "Choose trend · 91.00",
+  "pageErrors": [],
+  "externalRequests": []
+}

@@ -41,11 +41,22 @@
             </li>
           </ul>
         </fieldset>
+        <DataFigureRouting
+          v-if="profile"
+          :profile="profile"
+          :can-request="routingAllowed"
+          :locked="busy"
+          :context-key="routingContext"
+          :request="requestRouting"
+          @select="selectRoutingTemplate"
+          @invalidate="invalidateRoutingPlan"
+          @manual="templateSelect?.focus()"
+        />
         <fieldset :disabled="busy || !profile || !canRender">
           <legend>02 · {{ copy.plan }}</legend>
           <label
             >{{ copy.template
-            }}<select v-model="template">
+            }}<select ref="templateSelect" v-model="template">
               <option v-for="(_, id) in FIGURE_TEMPLATES" :key="id" :value="id">{{ id }}</option>
             </select></label
           >
@@ -158,6 +169,10 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
+import { useMembership } from '@/src/composables/useMembership';
+import { MemberApiError } from '@/src/services/memberApiClient';
+import type { DataFigureRoutingInput } from '@/backend/_jev/figureRouting';
+import DataFigureRouting from './DataFigureRouting.vue';
 import {
   BrowserFigureSession,
   createFigureSpec,
@@ -170,6 +185,38 @@ import {
 } from '@/src/services/browserFigures';
 
 const props = defineProps<{ canRender: boolean }>();
+const membership = useMembership();
+const templateSelect = ref<HTMLSelectElement | null>(null);
+const routingAllowed = computed(
+  () =>
+    props.canRender &&
+    membership.isAuthenticated.value &&
+    (membership.status.value?.bonusBalance ?? 0) > 0 &&
+    membership.jevEnabled.value &&
+    membership.jevConsent.value?.accepted === true
+);
+const routingContext = computed(
+  () => `${membership.user.value?.id ?? ''}:${membership.jevConsent.value?.version ?? ''}`
+);
+async function requestRouting(input: DataFigureRoutingInput, signal: AbortSignal) {
+  if (!routingAllowed.value) throw new MemberApiError('jev_access_required', 403);
+  const response = await membership.memberApi.figureRoute({ kind: 'data-template', input }, signal);
+  if (response.kind !== 'data-template')
+    throw new MemberApiError('invalid_jev_figure_response', 503);
+  return response.decision;
+}
+function invalidateRoutingPlan() {
+  confirmed.value = false;
+  preview.value = null;
+  importedPlan.value = '';
+  mapping.value = {};
+  units.value = {};
+  optionsText.value = '';
+}
+function selectRoutingTemplate(selected: FigureTemplate) {
+  invalidateRoutingPlan();
+  template.value = selected;
+}
 const { locale } = useI18n();
 const zh = computed(() => locale.value.startsWith('zh'));
 const copy = computed(() =>
@@ -178,7 +225,7 @@ const copy = computed(() =>
         title: '数据统计图',
         validation: '本地接入验证 · 尚未上线',
         boundary:
-          '数据仅在此浏览器的独立 Worker 中读取和绘图。本切片不调用 AI、不扣学分；正式会员生成/结算尚未接通，不代表已完成付费生成。',
+          '原始数据仅在此浏览器的独立 Worker 中读取和绘图。仅主动确认后的字段摘要可发送至 Jev 获取建议；本切片不扣学分，正式会员生成/结算尚未接通。',
         access: '请先登录有学分余额的会员账户。',
         data: '本地数据',
         file: 'CSV 文件 · UTF-8 · 最多 10 MiB',
@@ -229,7 +276,7 @@ const copy = computed(() =>
         title: 'Data figures',
         validation: 'Local integration · not released',
         boundary:
-          'Data stays in this browser Worker. This slice makes no AI calls and charges no credits; member generation and settlement are not connected yet.',
+          'Raw data stays in this browser Worker. Only explicitly approved metadata may go to Jev for advice. This slice charges no credits; member generation and settlement are not connected yet.',
         access: 'Sign in with a positive credit balance to use this workspace.',
         data: 'Local data',
         file: 'CSV file · UTF-8 · max 10 MiB',
