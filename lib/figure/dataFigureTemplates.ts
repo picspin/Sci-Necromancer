@@ -71,6 +71,7 @@ export function isDataFigureRecommendations(value: unknown): value is DataFigure
       typeof candidate !== 'object' ||
       Array.isArray(candidate) ||
       Object.keys(candidate).length !== 2 ||
+      typeof candidate.templateId !== 'string' ||
       !Object.prototype.hasOwnProperty.call(FIGURE_TEMPLATES, candidate.templateId) ||
       typeof candidate.suitability !== 'number' ||
       !Number.isFinite(candidate.suitability) ||

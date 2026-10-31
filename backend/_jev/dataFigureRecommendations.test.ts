@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { FIGURE_TEMPLATES } from '../../src/services/browserFigures';
 import { buildDataFigureRoutingRequest, parseDataFigureRoutingResponse } from './figureRouting';
+import { isDataFigureRecommendations } from '../../lib/figure/dataFigureTemplates';
 
 const input = {
   fields: [{ alias: 'col_1', type: 'continuous' as const }],
@@ -14,6 +15,20 @@ const payload = (values: Record<string, number> = {}) => ({
 });
 
 describe('independent data figure recommendations', () => {
+  it.each(
+    [['scatter'], [['scatter']], { toString: null }, 0, null, false].map((templateId) => ({
+      templateId,
+    }))
+  )('rejects non-string template IDs without property-key coercion: %j', ({ templateId }) => {
+    const decision = {
+      candidates: [{ templateId, suitability: 0.93 }],
+      policyVersion: 'jev-data-figure-routing-v2',
+      provider: 'typesafe',
+      model: 'jev-1.13.0',
+    };
+    expect(() => isDataFigureRecommendations(decision)).not.toThrow();
+    expect(isDataFigureRecommendations(decision)).toBe(false);
+  });
   it('asks once for exactly the implemented templates, independently with bounded criteria', () => {
     const request = buildDataFigureRoutingRequest(input);
     expect(Object.keys(request.questions)).toEqual(Object.keys(FIGURE_TEMPLATES));

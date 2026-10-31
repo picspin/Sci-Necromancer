@@ -179,6 +179,7 @@ describe('member figure-routing API', () => {
         model: 'jev-1.13.0',
       },
       { ...valid, candidates: [{ templateId: 'roc-pr', suitability: 0.99 }] },
+      { ...valid, candidates: [{ templateId: ['scatter'], suitability: 0.99 }] },
       { ...valid, candidates: [{ templateId: 'scatter', suitability: 0.8 }] },
       { ...valid, candidates: [...valid.candidates, ...valid.candidates] },
       { ...valid, rawRows: ['secret'] },
