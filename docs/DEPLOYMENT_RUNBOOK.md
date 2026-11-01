@@ -4,6 +4,8 @@
 
 ## 先判断本次改了哪一层
 
+2026-11-01 数据图钱包基础：新增 `202611010001_member_data_figures.sql`，提供不扣费预留、单任务/限流、成功版本一次结算、零余额免费导出授权及既有扣费/Stripe兼容保护。**未来发布需审核并应用Supabase新迁移；Vercel与Cloudflare不需仅因本切片部署。** 本轮只在临时本地PostgreSQL验证，未应用远端迁移、未push或部署；API/UI和真实模型尚未接通，生产入口继续关闭。无生产变量/依赖/密钥变化；临时测试工具、迁移/权限验证边界、烟测与安全回退见[钱包基础记录](./specs/2026-11-01-data-figure-wallet.md)。不得直接drop新表回退或以本地Auth夹具替代目标Supabase验收。
+
 2026-11-01 FigureSpec规划契约（mock）：新增metadata-only请求、严格映射JSON响应/缺项路径、可信图型/单位/风格/哈希绑定和开发专用真实Pyodide复现。没有真实LLM API、会员计费或原图授权，生产“数据统计图”继续显示开发中，不能仅修改开关上线。**Supabase无新迁移；P1应用修复若发布需Vercel→同提交Cloudflare重建；新增规划harness本身不需要生产发布。** 无新依赖、变量、密钥或套餐。当前未push/PR/迁移/部署，付费API调用为0。未来候选烟测需核验真实RPC保存/缓存、严格字段与缺项、输入变更失效、示意图回归及入口仍关闭；全部实验/测试与未完项见[规划契约卡片](./specs/2026-11-01-figure-planning-contract.md)。本地测试不替代会员结算/原图授权与既有依赖风险的上线审核。
 
 2026-11-01 Jev 数据路由 P1 兼容修复：**Supabase 无新迁移；未来发布需 Vercel 后端→同提交 Cloudflare 前端重建/部署**。保留现有 RPC 策略 `policyVersion=v1`，另以 `contractVersion=v2` 标识数据建议；旧数据缓存仍隔离，示意图响应不变。无新依赖、密钥或环境变量。契约回归对照现有迁移的实际版本/model/provider限制先失败再通过，未启动/连接真实数据库；发布候选中须检验 reserve→Jev→settle→cache，并核对授权/限流与示意图无回归。当前未push、未迁移、未部署、未调用付费模型；数据图生产入口仍硬关闭。后续规划契约仅mock，不因修复本P1就开放会员结算或无水印导出。详见[审核更新](./specs/2026-10-31-data-routing-review.md)。

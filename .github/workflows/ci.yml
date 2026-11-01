@@ -22,6 +22,18 @@ jobs:
       - run: npm run lint
       - run: npm run build
 
+  figure-wallet:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        with:
+          version: '0.10.9'
+          python-version: '3.12'
+      - name: Exercise actual wallet migrations and concurrent transactions locally
+        run: uv run --no-project --python 3.12 --with pgserver==0.1.4 --with 'psycopg[binary]==3.2.13' python supabase/tests/data_figure_wallet_test.py
+
   figure-worker:
     runs-on: ubuntu-latest
     timeout-minutes: 10
