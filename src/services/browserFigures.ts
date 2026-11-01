@@ -1,14 +1,9 @@
-import { FIGURE_TEMPLATES, type FigureTemplate } from '../../lib/figure/dataFigureTemplates';
-export { FIGURE_TEMPLATES };
-export type { FigureTemplate };
-export const FIGURE_STYLES = {
-  standard: 'standard-v1',
-  lancet: 'lancet-inspired-v1',
-  nature: 'nature-inspired-v1',
-  cell: 'cell-inspired-v1',
-  nejm: 'nejm-inspired-v1',
-} as const;
-export type FigureStyle = keyof typeof FIGURE_STYLES;
+export {
+  FIGURE_TEMPLATES,
+  FIGURE_STYLES,
+  createFigureSpec,
+} from '../../lib/figure/dataFigureTemplates';
+export type { FigureTemplate, FigureStyle } from '../../lib/figure/dataFigureTemplates';
 export interface CsvProfile {
   dataset_sha256: string;
   row_count: number;
@@ -29,31 +24,6 @@ export interface BrowserFigurePreview {
     preview_sha256: string;
     runtime_dependencies: Record<string, string>;
     [key: string]: unknown;
-  };
-}
-
-export function createFigureSpec(
-  datasetHash: string,
-  template: FigureTemplate,
-  mapping: Record<string, string>,
-  units: Record<string, string>,
-  style: FigureStyle
-): Record<string, unknown> {
-  if (
-    !/^[a-f0-9]{64}$/.test(datasetHash) ||
-    !Object.prototype.hasOwnProperty.call(FIGURE_TEMPLATES, template) ||
-    !Object.prototype.hasOwnProperty.call(FIGURE_STYLES, style)
-  ) {
-    throw new Error('invalid_figure_plan');
-  }
-  return {
-    schema_version: 'figure-spec-v1',
-    dataset_sha256: datasetHash,
-    template_id: template,
-    template_version: FIGURE_TEMPLATES[template],
-    mapping: { ...mapping },
-    units: { ...units },
-    style: { id: style, version: FIGURE_STYLES[style] },
   };
 }
 

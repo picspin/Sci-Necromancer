@@ -13,6 +13,91 @@ export const FIGURE_TEMPLATES = {
   radar: 'radar-explicit-axes-v1',
 } as const;
 export type FigureTemplate = keyof typeof FIGURE_TEMPLATES;
+export const FIGURE_STYLES = {
+  standard: 'standard-v1',
+  lancet: 'lancet-inspired-v1',
+  nature: 'nature-inspired-v1',
+  cell: 'cell-inspired-v1',
+  nejm: 'nejm-inspired-v1',
+} as const;
+export type FigureStyle = keyof typeof FIGURE_STYLES;
+export const FIGURE_TEMPLATE_INPUTS: Record<
+  FigureTemplate,
+  {
+    required: string[];
+    optional: string[];
+    units: string[];
+    options?: string;
+  }
+> = {
+  'grouped-bar': { required: ['category', 'value'], optional: ['group'], units: ['value'] },
+  scatter: { required: ['x', 'y'], optional: ['group'], units: ['x', 'y'] },
+  heatmap: { required: ['row', 'column', 'value'], optional: [], units: ['value'] },
+  trend: { required: ['x', 'value'], optional: ['series'], units: ['x', 'value'] },
+  'dot-interval': {
+    required: ['label', 'estimate', 'lower', 'upper'],
+    optional: [],
+    units: ['value'],
+    options: '{"interval":{"type":"CI","ci_level":95}}',
+  },
+  forest: {
+    required: ['label', 'estimate', 'lower', 'upper'],
+    optional: [],
+    units: ['value'],
+    options: '{"interval":{"type":"CI","ci_level":95,"effect_type":"OR"}}',
+  },
+  'ranked-lollipop': {
+    required: ['label', 'value'],
+    optional: ['group'],
+    units: ['value'],
+    options: '{"ranking":{"ordering":"source","top_n":10}}',
+  },
+  composition: {
+    required: ['group', 'component', 'count', 'denominator'],
+    optional: [],
+    units: ['count'],
+    options:
+      '{"composition":{"display":"count","denominator_scope":"within-group","mutually_exclusive":true,"exhaustive":true}}',
+  },
+  volcano: {
+    required: ['identifier', 'log2fc', 'p'],
+    optional: [],
+    units: ['log2fc', 'p'],
+    options: '{"volcano":{"p_kind":"adjusted_p","p_threshold":0.05,"fold_threshold":1}}',
+  },
+  distribution: { required: ['value'], optional: ['group'], units: ['value'] },
+  radar: {
+    required: ['method', 'metric', 'value'],
+    optional: [],
+    units: [],
+    options: '{"radar":{"axes":[]}}',
+  },
+};
+
+export function createFigureSpec(
+  datasetHash: string,
+  template: FigureTemplate,
+  mapping: Record<string, string>,
+  units: Record<string, string>,
+  style: FigureStyle
+): Record<string, unknown> {
+  if (
+    !/^[a-f0-9]{64}$/.test(datasetHash) ||
+    !Object.prototype.hasOwnProperty.call(FIGURE_TEMPLATES, template) ||
+    !Object.prototype.hasOwnProperty.call(FIGURE_STYLES, style)
+  ) {
+    throw new Error('invalid_figure_plan');
+  }
+  return {
+    schema_version: 'figure-spec-v1',
+    dataset_sha256: datasetHash,
+    template_id: template,
+    template_version: FIGURE_TEMPLATES[template],
+    mapping: { ...mapping },
+    units: { ...units },
+    style: { id: style, version: FIGURE_STYLES[style] },
+  };
+}
 export const DATA_CHART_TEMPLATE_IDS = Object.keys(FIGURE_TEMPLATES) as FigureTemplate[];
 export const DATA_FIGURE_ROUTING_VERSION = 'jev-data-figure-routing-v2' as const;
 // Existing quota/cache RPC policy; distinct from the data recommendation wire format.

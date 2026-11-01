@@ -173,6 +173,7 @@ import { useMembership } from '@/src/composables/useMembership';
 import { MemberApiError } from '@/src/services/memberApiClient';
 import type { DataFigureRoutingInput } from '@/backend/_jev/figureRouting';
 import DataFigureRouting from './DataFigureRouting.vue';
+import { FIGURE_TEMPLATE_INPUTS } from '@/lib/figure/dataFigureTemplates';
 import {
   BrowserFigureSession,
   createFigureSpec,
@@ -344,54 +345,7 @@ const optionsText = ref(''),
   busy = ref(false),
   stage = ref(''),
   error = ref('');
-const roleCatalog: Record<
-  FigureTemplate,
-  { required: string[]; optional: string[]; units: string[]; options?: string }
-> = {
-  'grouped-bar': { required: ['category', 'value'], optional: ['group'], units: ['value'] },
-  scatter: { required: ['x', 'y'], optional: ['group'], units: ['x', 'y'] },
-  heatmap: { required: ['row', 'column', 'value'], optional: [], units: ['value'] },
-  trend: { required: ['x', 'value'], optional: ['series'], units: ['x', 'value'] },
-  'dot-interval': {
-    required: ['label', 'estimate', 'lower', 'upper'],
-    optional: [],
-    units: ['value'],
-    options: '{"interval":{"type":"CI","ci_level":95}}',
-  },
-  forest: {
-    required: ['label', 'estimate', 'lower', 'upper'],
-    optional: [],
-    units: ['value'],
-    options: '{"interval":{"type":"CI","ci_level":95,"effect_type":"OR"}}',
-  },
-  'ranked-lollipop': {
-    required: ['label', 'value'],
-    optional: ['group'],
-    units: ['value'],
-    options: '{"ranking":{"ordering":"source","top_n":10}}',
-  },
-  composition: {
-    required: ['group', 'component', 'count', 'denominator'],
-    optional: [],
-    units: ['count'],
-    options:
-      '{"composition":{"display":"count","denominator_scope":"within-group","mutually_exclusive":true,"exhaustive":true}}',
-  },
-  volcano: {
-    required: ['identifier', 'log2fc', 'p'],
-    optional: [],
-    units: ['log2fc', 'p'],
-    options: '{"volcano":{"p_kind":"adjusted_p","p_threshold":0.05,"fold_threshold":1}}',
-  },
-  distribution: { required: ['value'], optional: ['group'], units: ['value'] },
-  radar: {
-    required: ['method', 'metric', 'value'],
-    optional: [],
-    units: [],
-    options: '{"radar":{"axes":[]}}',
-  },
-};
-const roles = computed(() => roleCatalog[template.value]);
+const roles = computed(() => FIGURE_TEMPLATE_INPUTS[template.value]);
 const plan = computed(() => {
   if (!profile.value) return null;
   try {
