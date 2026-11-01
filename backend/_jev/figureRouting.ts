@@ -9,14 +9,14 @@ import {
   DATA_CHART_TEMPLATE_IDS,
   DATA_CHART_CRITERIA,
   DATA_FIGURE_ROUTING_VERSION,
+  FIGURE_ROUTING_POLICY_VERSION,
   FIGURE_TEMPLATES,
   type DataFigureRecommendations,
 } from '../../lib/figure/dataFigureTemplates.js';
-export { DATA_CHART_TEMPLATE_IDS };
+export { DATA_CHART_TEMPLATE_IDS, FIGURE_ROUTING_POLICY_VERSION };
 
 const TYPESAFE_ENDPOINT = 'https://api.typesafe.ai/v1/systemone';
 const TYPESAFE_MODEL = 'jev-1.13.0';
-export const FIGURE_ROUTING_POLICY_VERSION = 'jev-figure-routing-v1' as const;
 const MAX_GOAL_LENGTH = 1_000;
 const MAX_PROMPT_LENGTH = 6_000;
 const MAX_ALIAS_LENGTH = 120;
@@ -532,7 +532,8 @@ export function parseDataFigureRoutingResponse(payload: unknown): DataFigureReco
     .sort((a, b) => b.suitability - a.suitability);
   return {
     candidates,
-    policyVersion: DATA_FIGURE_ROUTING_VERSION,
+    policyVersion: FIGURE_ROUTING_POLICY_VERSION,
+    contractVersion: DATA_FIGURE_ROUTING_VERSION,
     provider: 'typesafe',
     model: TYPESAFE_MODEL,
   };

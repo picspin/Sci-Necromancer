@@ -2,6 +2,8 @@
 
 日期：2026-10-31。审核对象是本地 `42b3f51`，不是 PR #18 已上线的证明。没有 push、改动 PR、迁移或部署，也没有调用真实模型。
 
+2026-11-01 更新：用户已确认兼容方案，P1 已按该方案本地修复。数据响应现为 `policyVersion=jev-figure-routing-v1` + `contractVersion=jev-data-figure-routing-v2`，严格五字段验证与 v2 数据缓存隔离不变，示意图契约未改。不修改已应用 SQL，也不新增迁移。新增回归从实际迁移提取固定 RPC 约束，真实解析结果经现有 policy 适配层在修复前失败、修复后通过；这不是 PostgreSQL 实例执行测试，仍须发布候选中的真实 RPC 烟测。全量104文件/658项测试及TypeScript检查通过。以下P1“待确认”文字保留为历史审核过程，不是当前状态；生产入口仍关闭。
+
 ## 基线核对
 
 用户提供的 `8ec6387601ead980cdb8ca2ccc3230e52aab3441` 是 #16 合并到 `codex/data-figure-distribution-radar` 的 merge commit；GitHub 只读核验显示 PR #18（Enhance clinical figure rendering and validation features）从该分支指向 main，状态 OPEN。它不含 #17 的浏览器工作区及本地 `42b3f51` Jev 接线；不要把 PR 创建视作这些功能均已进入 main。

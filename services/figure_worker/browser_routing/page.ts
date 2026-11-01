@@ -46,7 +46,8 @@ const client = createMemberApiClient({
               kind: 'data-template',
               decision: {
                 candidates,
-                policyVersion: DATA_FIGURE_ROUTING_VERSION,
+                policyVersion: 'jev-figure-routing-v1',
+                contractVersion: DATA_FIGURE_ROUTING_VERSION,
                 provider: 'typesafe',
                 model: 'jev-1.13.0',
               },

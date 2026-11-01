@@ -56,7 +56,7 @@
           </button>
         </li>
       </ul>
-      <p>{{ result.model }} · {{ result.policyVersion }}</p>
+      <p>{{ result.model }} · {{ result.policyVersion }} · {{ result.contractVersion }}</p>
       <p v-if="selected" role="status">{{ copy.selected }} {{ selected }}</p>
     </div>
   </section>

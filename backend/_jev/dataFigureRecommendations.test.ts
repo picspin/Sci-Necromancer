@@ -22,7 +22,8 @@ describe('independent data figure recommendations', () => {
   )('rejects non-string template IDs without property-key coercion: %j', ({ templateId }) => {
     const decision = {
       candidates: [{ templateId, suitability: 0.93 }],
-      policyVersion: 'jev-data-figure-routing-v2',
+      policyVersion: 'jev-figure-routing-v1',
+      contractVersion: 'jev-data-figure-routing-v2',
       provider: 'typesafe',
       model: 'jev-1.13.0',
     };
@@ -47,7 +48,8 @@ describe('independent data figure recommendations', () => {
       payload({ scatter: 0.93, trend: 0.91, distribution: 0.8, radar: 0.80001 })
     );
     expect(result).toMatchObject({
-      policyVersion: 'jev-data-figure-routing-v2',
+      policyVersion: 'jev-figure-routing-v1',
+      contractVersion: 'jev-data-figure-routing-v2',
       provider: 'typesafe',
       model: 'jev-1.13.0',
     });

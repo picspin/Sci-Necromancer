@@ -55,7 +55,8 @@ describe('data figure workspace', () => {
       kind: 'data-template',
       decision: {
         candidates: [{ templateId: 'scatter', suitability: 0.95 }],
-        policyVersion: 'jev-data-figure-routing-v2',
+        policyVersion: 'jev-figure-routing-v1',
+        contractVersion: 'jev-data-figure-routing-v2',
         provider: 'typesafe',
         model: 'jev-1.13.0',
       },

@@ -165,7 +165,8 @@ describe('member figure-routing API', () => {
     };
     const valid = {
       candidates: [{ templateId: 'scatter', suitability: 0.91 }],
-      policyVersion: DATA_FIGURE_ROUTING_VERSION,
+      policyVersion: 'jev-figure-routing-v1',
+      contractVersion: DATA_FIGURE_ROUTING_VERSION,
       provider: 'typesafe',
       model: 'jev-1.13.0',
     };
@@ -183,6 +184,8 @@ describe('member figure-routing API', () => {
       { ...valid, candidates: [{ templateId: 'scatter', suitability: 0.8 }] },
       { ...valid, candidates: [...valid.candidates, ...valid.candidates] },
       { ...valid, rawRows: ['secret'] },
+      { ...valid, policyVersion: DATA_FIGURE_ROUTING_VERSION },
+      { ...valid, contractVersion: undefined },
     ];
     for (const decision of [valid, ...invalid]) {
       mocks.reserve.mockResolvedValueOnce({

@@ -15,6 +15,8 @@ export const FIGURE_TEMPLATES = {
 export type FigureTemplate = keyof typeof FIGURE_TEMPLATES;
 export const DATA_CHART_TEMPLATE_IDS = Object.keys(FIGURE_TEMPLATES) as FigureTemplate[];
 export const DATA_FIGURE_ROUTING_VERSION = 'jev-data-figure-routing-v2' as const;
+// Existing quota/cache RPC policy; distinct from the data recommendation wire format.
+export const FIGURE_ROUTING_POLICY_VERSION = 'jev-figure-routing-v1' as const;
 
 /** Observable capabilities, not promises to compute absent statistics or fit new models. */
 export const DATA_CHART_CRITERIA: Record<FigureTemplate, string> = {
@@ -42,7 +44,8 @@ export const DATA_CHART_CRITERIA: Record<FigureTemplate, string> = {
 
 export interface DataFigureRecommendations {
   candidates: Array<{ templateId: FigureTemplate; suitability: number }>;
-  policyVersion: typeof DATA_FIGURE_ROUTING_VERSION;
+  policyVersion: typeof FIGURE_ROUTING_POLICY_VERSION;
+  contractVersion: typeof DATA_FIGURE_ROUTING_VERSION;
   provider: 'typesafe';
   model: 'jev-1.13.0';
 }
@@ -52,11 +55,12 @@ export function isDataFigureRecommendations(value: unknown): value is DataFigure
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
   const result = value as Record<string, unknown>;
   if (
-    Object.keys(result).length !== 4 ||
+    Object.keys(result).length !== 5 ||
     Object.keys(result).some(
-      (k) => !['candidates', 'policyVersion', 'provider', 'model'].includes(k)
+      (k) => !['candidates', 'policyVersion', 'contractVersion', 'provider', 'model'].includes(k)
     ) ||
-    result.policyVersion !== DATA_FIGURE_ROUTING_VERSION ||
+    result.policyVersion !== FIGURE_ROUTING_POLICY_VERSION ||
+    result.contractVersion !== DATA_FIGURE_ROUTING_VERSION ||
     result.provider !== 'typesafe' ||
     result.model !== 'jev-1.13.0' ||
     !Array.isArray(result.candidates) ||
