@@ -42,6 +42,11 @@ def plan(case, style=None):
     return result
 
 
+def _rgb(color):
+    """Exact 3-component RGB (0-255 ints) of a single matplotlib color."""
+    return tuple(int(round(channel * 255)) for channel in render.to_rgba(color)[:3])
+
+
 def scientific_snapshot(figure):
     return [dict(
         limits=(axis.get_xlim(), axis.get_ylim()),
@@ -61,6 +66,50 @@ def scientific_snapshot(figure):
         images=[(i.get_array().tolist(), i.norm.vmin, i.norm.vmax) for i in axis.images],
         footer=[(t.get_text(), t.get_position(), t.get_fontsize()) for t in figure.texts],
     ) for axis in figure.axes]
+
+
+def data_artist_colors(figure):
+    """Raw RGB of every data-bearing artist, in stable `findobj` order."""
+    colors = []
+    for artist in figure.findobj():
+        if isinstance(artist, render.Patch):
+            rgbs = (artist.get_facecolor(),)
+        elif isinstance(artist, render.Line2D):
+            rgbs = (artist.get_color(),)
+        elif isinstance(artist, render.Collection) and artist.get_array() is None:
+            rgbs = tuple(artist.get_facecolors())
+        else:
+            continue
+        colors.extend(_rgb(rgb) for rgb in rgbs)
+    return colors
+
+
+def assert_style_recolors_every_data_artist(case, before, after, style):
+    """Each palette artist must land on the style's color for the same index.
+
+    Colors are the part of the style contract the geometry snapshot cannot see.
+    The target is derived from the *standard* palette index the artist started
+    at, so this catches a style that recolors the wrong artist, shifts the
+    palette, or skips an artist -- for every template, not just the four that
+    had explicit color assertions before.
+    """
+    standard = {_rgb(color): index for index, color in enumerate(render.COLORS)}
+    if len(before) != len(after):
+        raise AssertionError(f"{case}: artist count changed under styling")
+    for index, (old, new) in enumerate(zip(before, after)):
+        palette_index = standard.get(old)
+        if palette_index is None:
+            # Non-palette colors (grids, guides) must be left untouched.
+            if new != old:
+                raise AssertionError(
+                    f"{case} artist {index}: non-palette color {old} changed to {new}"
+                )
+        else:
+            expected = _rgb(style.palette[palette_index])
+            if new != expected:
+                raise AssertionError(
+                    f"{case} artist {index}: palette color {palette_index} became {new}, expected {expected}"
+                )
 
 
 class FigureStyleTests(unittest.TestCase):
@@ -91,17 +140,19 @@ class FigureStyleTests(unittest.TestCase):
 
                     def check(figure, selected):
                         before = scientific_snapshot(figure)
+                        # Snapshot raw data-artist colors before styling; the
+                        # helper then pins each palette artist to its style color.
+                        colors_before = data_artist_colors(figure)
                         apply(figure, selected)
                         self.assertEqual(before, scientific_snapshot(figure))
+                        assert_style_recolors_every_data_artist(
+                            case[0], colors_before, data_artist_colors(figure), selected,
+                        )
                         if case[0] == "heatmap":
                             self.assertEqual(figure.axes[0].images[0].get_cmap().name, style.heatmap_cmap)
                         elif case[0] == "trend":
                             self.assertEqual(figure.axes[0].lines[0].get_color(), render.to_rgba(style.palette[0]))
                             self.assertAlmostEqual(figure.axes[0].lines[0].get_linewidth(), 1.2 * style.line_scale)
-                        elif case[0] in ("scatter", "dot-interval", "forest", "ranked-lollipop", "volcano"):
-                            colors = [tuple(c[:3]) for coll in figure.axes[0].collections
-                                      for c in coll.get_facecolors()]
-                            self.assertIn(render.to_rgba(style.palette[0])[:3], colors)
                         snapshots.append(before)
 
                     with rc_context({"text.usetex": True}), patch(

@@ -275,6 +275,33 @@ class IntervalRenderTests(unittest.TestCase):
             finally:
                 figure.clear()
 
+    def test_standardized_mean_difference_is_linear_at_zero_and_end_to_end(self):
+        # SMD must declare exactly "SMD" as the unit, use a linear scale, and
+        # draw the null reference line at 0 (unlike the ratio forest's log axis).
+        parsed = parse_csv_bytes(b"Label,Estimate,Lower,Upper\nTrial A,-0.4,-0.8,-0.1\nTrial B,0.3,0.1,0.6\n")
+        data = validate_intervals(parsed, template_id="forest", label_column="col_1",
+                                  estimate_column="col_2", lower_column="col_3", upper_column="col_4",
+                                  value_unit="SMD", interval_type="CI", ci_level=95, effect_type="SMD")
+        figure = _make_interval_figure(data)
+        try:
+            axis = figure.axes[0]
+            self.assertEqual(axis.get_xscale(), "linear")
+            self.assertEqual(axis.collections[1].get_offsets().tolist(), [[-0.4, 0.0], [0.3, 1.0]])
+            self.assertEqual(len(axis.lines), 1)
+            self.assertEqual(list(axis.lines[0].get_xdata()), [0, 0])
+            self.assertEqual(axis.get_xlabel(), "SMD (95% CI)")
+        finally:
+            figure.clear()
+        result = render_intervals(data)
+        self.assertEqual(result.template_version, "forest-v1")
+        self.assertEqual({a.format for a in result.artifacts}, {"png", "pdf", "svg"})
+        # The unit is the effect type itself; any other spelling is rejected.
+        for value_unit in ("smd", "SMD (95% CI)", "score"):
+            with self.subTest(value_unit=value_unit), self.assertRaises(DatasetError):
+                validate_intervals(parsed, template_id="forest", label_column="col_1",
+                                   estimate_column="col_2", lower_column="col_3", upper_column="col_4",
+                                   value_unit=value_unit, interval_type="CI", ci_level=95, effect_type="SMD")
+
     def test_both_templates_have_repeatable_png_pdf_svg_and_ci_affects_identity(self):
         for options, version in [({}, "forest-v1"),
                                  ({"template_id": "dot-interval", "effect_type": None,

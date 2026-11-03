@@ -60,7 +60,7 @@
 | radar           | 多指标概览                                 | method、metric、value；每轴需单位、上下界与方向，确定性归一化并保留原值表；缺失/越界拒绝，不填均值、不裁剪；不生成综合排名 |
 | ranked-lollipop | 排名指标、已有通路分数展示                 | label、value、可选 group；用户选择排序和 top-N，披露省略数量；不将不同单位混排，不计算富集结果                             |
 | forest          | 已有效应量与区间                           | label、estimate、lower、upper、effect_type、CI_level；OR/RR/HR 对数轴正值；不拟合、不合并效应，不自行增加汇总菱形          |
-| volcano         | 已有差异分析结果                           | identifier、log2FC、p 或 adjusted_p；明确纵轴与阈值，不做检验/FDR；P=0 需明确显示下限                                      |
+| volcano         | 已有差异分析结果                           | identifier、log2FC、p 或 adjusted_p；明确纵轴与阈值（`fold_threshold` 为 log2 倍数），不做检验/FDR；P=0 需明确显示下限       |
 
 复合布局不增图型数量：多指标比较、消融比较、跨队列比较、参数敏感性都是上述图型的配置。雷达不是默认比较方式，优先推荐更易比较的点区间或分面条形。
 

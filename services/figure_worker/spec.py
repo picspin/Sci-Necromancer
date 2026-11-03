@@ -135,8 +135,6 @@ def render_csv_spec(payload: bytes, spec: dict) -> RenderedFigure:
                        for key, value in volcano.items()
                        if key != "p_kind" and not (key == "zero_p_floor" and value is None))):
             raise DatasetError("invalid_figure_spec_volcano")
-        if units != {"log2fc": "log2 fold change", "p": "probability"}:
-            raise DatasetError("invalid_figure_spec_units")
     dataset = parse_csv_bytes(payload)
     if dataset.sha256 != source_hash:
         raise DatasetError("figure_dataset_hash_mismatch")
