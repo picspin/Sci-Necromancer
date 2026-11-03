@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { ISMRM_SUBCATEGORIES, ISMRM_GENERAL_KEYWORDS } from '../../lib/llm/prompts/ismrmData';
 import {
   buildJevAnalysisRequest,
   parseJevAnalysisResponse,
@@ -17,6 +18,28 @@ const input = sanitizeJevAnalysisInput({
 });
 
 describe('TypeSafe Jev analysis adapter', () => {
+  it('accepts all official ISMRM 2027 candidates without relaxing other conference limits', () => {
+    const full = {
+      ...input,
+      categories: ISMRM_SUBCATEGORIES.map(({ name }) => ({ name, type: 'main' as const })),
+      keywords: [...ISMRM_GENERAL_KEYWORDS],
+    };
+    const request = buildJevAnalysisRequest(full);
+    expect(Object.keys(request.questions)).toHaveLength(285);
+    expect(() => buildJevAnalysisRequest({ ...full, conference: 'RSNA' })).toThrow(
+      'invalid_jev_analysis_candidates'
+    );
+    expect(() =>
+      buildJevAnalysisRequest({
+        ...full,
+        categories: [...full.categories, { name: 'unknown', type: 'main' }],
+      })
+    ).toThrow('invalid_jev_analysis_candidates');
+    expect(() => buildJevAnalysisRequest({ ...full, text: 'x'.repeat(80_000) })).toThrow(
+      'invalid_jev_analysis_request_size'
+    );
+  });
+
   afterEach(() => {
     delete process.env.TYPESAFE_API_KEY;
   });
@@ -253,6 +276,7 @@ describe('TypeSafe Jev analysis adapter', () => {
       'too many categories',
       {
         ...validInput(),
+        conference: 'RSNA',
         categories: Array.from({ length: 65 }, (_, index) => ({
           name: `Category ${index}`,
           type: 'main',
@@ -261,9 +285,16 @@ describe('TypeSafe Jev analysis adapter', () => {
     ],
     [
       'too many keywords',
-      { ...validInput(), keywords: Array.from({ length: 65 }, (_, index) => `Keyword ${index}`) },
+      {
+        ...validInput(),
+        conference: 'RSNA',
+        keywords: Array.from({ length: 65 }, (_, index) => `Keyword ${index}`),
+      },
     ],
-    ['a source exceeding the UTF-8 request budget', { ...validInput(), text: '界'.repeat(40_001) }],
+    [
+      'a source exceeding the UTF-8 request budget',
+      { ...validInput(), conference: 'RSNA', text: '界'.repeat(40_001) },
+    ],
   ])('rejects %s', (_description, candidate) => {
     expect(() => sanitizeJevAnalysisInput(candidate)).toThrow('invalid_jev_analysis');
   });

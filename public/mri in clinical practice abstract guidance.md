@@ -1,71 +1,17 @@
-# MRI in Clinical Practice Abstract Submission Guidelines
+# ISMRM 2027 MRI in Clinical Practice Abstract
 
-For the 2026 Annual Meeting, we are accepting submissions highlighting “MRI in Clinical Practice.”
+核对：2026-10-11。来源：[Clinical 官方指南](https://www.ismrm.org/27m/call/clinical/)。
 
-These abstracts should present the added value of MRI in impacting patient care.
+用途：去标识化的病例叙述或病例系列，体现 MRI 对诊断、治疗决策或患者管理的实际贡献；器官类别本身不足以决定该类型。
 
-**Clinical Practice Focus**: This category is for the presentation of work which demonstrates an improvement in patient care or diagnosis through the application of existing MR techniques. This is an opportunity to share your innovative ideas with your colleagues. The category does not require a formal study to have been undertaken.
+专用正文结构：
 
-A properly submitted abstract will have the following suggested section titles:
+1. Clinical Presentation and Assessment：临床表现、体检/化验，以及来源已给出的 MR 场强、线圈、序列、参数和对比剂。
+2. Diagnosis and Treatment：最终诊断、确认依据与治疗。
+3. Significance：MRI 如何改变诊断确定性或管理决策。
+4. Key Points：至少3项与临床实践相关的要点。
+5. References：仅保留真实、已提供的文献。
 
-**Clinical Practice Focus**
+标题可采用 “MRI in Clinical Practice: Diagnosis of …” 或 “MRI in Clinical Practice: Management of …”，不超过125字符。正文≤750词；Impact≤40词；Synopsis≤100词且为**非结构化叙述**，不要强加四段式研究 Synopsis。
 
-- Background
-- Teaching Point
-- Summary or Conclusions
-- References
-
-We encourage authors to construct the abstract as a narrative of the patient’s clinical history including unique medical and social factors, as appropriate. An analysis of a series of cases is also appropriate for this category. The abstract must include specifics of the utilization, technical specifications, and contribution of magnetic resonance imaging (MRI)  in the management of the patient’s clinical presentation.
-
-All submitted abstracts will undergo peer review. Accepted abstracts will be presented on-site at the 2026 ISMRM Annual Meeting in Cape Town, South Africa. At least one author must attend in person to present the work.
-
-Abstracts will be evaluated based on the added value of MRI in impacting patient care, particularly where MRI provided unique diagnostic or management insights. Examples include:
-
-- Use of an MR artifact or novel MRI contrasts that contributed to a patient’s diagnosis 
-
-- Use of innovative, emerging and advanced MRI techniques in diagnosis or therapy (e.g., a new sequence, contrast agent or processing method that enabled diagnosis, experience with new hardware, low-field MRI in a setting where MRI is otherwise unavailable)
-- Report the added value of MRI compared to other imaging modalities (e.g., CT, ultrasound, PET)
-- Detection of disease features not visible with other imaging techniques
-MRI identifies complications or treatment side effects not captured by other imaging tests
-
-## Required Abstract Structure
-
-### Title
-
-Suggested format: “MRI in Clinical Practice: Diagnosis of …” OR “MRI in Clinical Practice: Management of …”
-Clinical Presentation and Assessment
-
-Brief report of patient presentation, physical exam findings, and relevant laboratory tests. No identifiers may be included.
-Describe imaging tests, including MRI, used to work-up the patient. Highlight aspects (e.g., magnet strength, pulse sequence and key parameters, contrast agent) of the MRI technology.
-Diagnosis and Treatment
-
-Report the final diagnosis and how the imaging diagnosis was confirmed (e.g., biopsy, follow-up imaging, combination of imaging and lab tests) and treated.
-Significance
-
-State how MRI was applied in a novel or unique way to address the clinical question and impact patient diagnosis or management. Emphasize the impact of MRI: How it changed diagnostic certainty, management, or patient outcome.  
-
-### Key Points
-
-List at least 3 key points about the disease and MR imaging manifestation or treatment impact relevant for clinical practice.
-
-### Figures
-
-Up to 5 images with figure legend. Please use arrows or labels to highlight critical features.
-
-### References
-
-Please appropriately cite relevant previous work including background and methodological information.
-
-### Impact
-
-A 40-word Impact statement should state the impact of MRI: how it changed diagnostic certainty, management, or patient outcome. The impact statement will be provided alongside the Preview figure as a teaser in the meeting program.
-
-### Synopsis
-
-A 100-word unstructured Synopsis should be provided to summarize the report.
-
-### Submission Requirements
-
-Abstracts must not exceed 750 words.
-Up to 5 figures may be included.
-A preview figure (for program display) must also be submitted, but will not be included in peer review.
+最多5张图，图注≤500字符；另需独立 Preview Figure。不能编造参数、确诊依据、治疗效果、伦理或同意。资金和代码/数据链接放独立致谢，按[全局要求](/call%20for%20abstracts%20global%20guidance.md)由作者最终核对。

@@ -1,131 +1,139 @@
 <template>
   <div class="space-y-4 max-h-[80vh] overflow-y-auto">
-    <h2 id="analysis-title" class="text-xl font-bold text-text-primary">
-      {{ t('analysis_ui.complete') }} ✨
-    </h2>
-    <p id="analysis-description" class="text-text-secondary">
-      {{ t('analysis_ui.review_generated') }}
-    </p>
+    <h2 class="text-xl font-bold">{{ t('analysis_ui.complete') }} · ISMRM 2027</h2>
+    <p class="text-sm text-text-secondary">{{ t('ismrm2027.selection_help') }}</p>
     <p v-if="jevClassificationOnly" class="text-sm text-text-secondary">
       {{ t('membership.jev_optional_notes') }}
     </p>
-
-    <!-- Impact Section -->
     <div>
-      <label for="impact-input" class="font-semibold mb-2 block text-blue-600">
-        {{ t('analysis.impact') }}
-      </label>
+      <label for="impact-input" class="font-semibold block">{{
+        t('analysis.impact_statement')
+      }}</label>
       <textarea
         id="impact-input"
         v-model="localImpact"
-        class="w-full p-3 border-2 border-base-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary min-h-[100px] bg-base-100"
+        class="w-full p-3 border border-base-300 rounded-lg bg-base-100"
         aria-describedby="impact-word-count"
       />
-      <div
+      <p
         id="impact-word-count"
-        :class="['text-sm mt-1', impactWordCount > 40 ? 'text-red-500' : 'text-green-600']"
+        :class="impactWordCount > 40 ? 'text-red-500' : 'text-text-secondary'"
       >
         {{ t('analysis.word_count', { count: impactWordCount, max: 40 }) }}
-      </div>
+      </p>
     </div>
-
-    <!-- Synopsis Section -->
     <div>
-      <label for="synopsis-input" class="font-semibold mb-2 block text-green-600">
-        {{ t('analysis.synopsis') }}
-      </label>
+      <label for="synopsis-input" class="font-semibold block">{{ t('analysis.synopsis') }}</label>
       <textarea
         id="synopsis-input"
         v-model="localSynopsis"
-        class="w-full p-3 border-2 border-base-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary min-h-[150px] bg-base-100"
+        class="w-full p-3 border border-base-300 rounded-lg bg-base-100"
         aria-describedby="synopsis-word-count"
       />
-      <div
+      <p
         id="synopsis-word-count"
-        :class="['text-sm mt-1', synopsisWordCount > 100 ? 'text-red-500' : 'text-green-600']"
+        :class="synopsisWordCount > 100 ? 'text-red-500' : 'text-text-secondary'"
       >
         {{ t('analysis.word_count', { count: synopsisWordCount, max: 100 }) }}
-      </div>
+      </p>
+      <p class="text-sm text-text-secondary">{{ t('ismrm2027.synopsis_help') }}</p>
     </div>
 
-    <!-- Categories Section -->
-    <div>
-      <h3 id="categories-heading" class="font-semibold mb-2 text-purple-600">
-        {{ t('analysis.categories') }}
-      </h3>
-      <div
-        class="flex flex-wrap gap-2"
-        role="group"
-        aria-labelledby="categories-heading"
-        aria-describedby="categories-help"
+    <p v-if="result.categories?.length" class="text-sm text-text-secondary">
+      {{ t('ismrm2027.candidates') }}: {{ result.categories.map((c) => c.name).join('; ') }}
+    </p>
+    <div v-for="role in roles" :key="role.id">
+      <label :for="role.id" class="font-semibold block mb-2">{{ t(role.label) }}</label>
+      <select
+        :id="role.id"
+        :value="role.id === 'ismrm-primary' ? primary : secondary"
+        @change="setCategory(role.id, $event)"
+        class="w-full p-3 rounded-lg border border-base-300 bg-base-100"
       >
+        <option value="">{{ t('ismrm2027.choose_category') }}</option>
+        <option v-for="entry in ISMRM_SUBCATEGORIES" :key="entry.code" :value="entry.name">
+          {{ entry.code }} · {{ entry.name }}
+        </option>
+      </select>
+    </div>
+
+    <div>
+      <h3 class="font-semibold">{{ t('analysis.keywords') }} · {{ selectedKeys.length }}/5</h3>
+      <p class="text-sm text-text-secondary">{{ t('ismrm2027.keyword_help') }}</p>
+      <div class="flex flex-wrap gap-2 my-2">
         <button
-          v-for="cat in sortedCategories"
-          :key="cat.name"
-          @click="toggleCategory(cat)"
-          @keydown="(e) => handleKeyDown(e, () => toggleCategory(cat))"
-          :class="[
-            'px-3 py-1 text-sm font-medium rounded-full border-2 transition-all focus:outline-none focus:ring-3 focus:ring-brand-primary min-h-[36px]',
-            selectedCats.some((c) => c.name === cat.name)
-              ? `${catBorderColorMap[cat.type]} ${catColorMap[cat.type]}`
-              : 'border-base-300 bg-base-100 hover:border-brand-primary',
-          ]"
-          role="checkbox"
-          :aria-checked="selectedCats.some((c) => c.name === cat.name)"
-          :aria-label="
-            t('analysis_ui.category_aria', {
-              name: cat.name,
-              type: t(`output.category_type.${cat.type}`),
-              percent: Math.round(cat.probability * 100),
-            })
-          "
-          tabindex="0"
+          v-for="key in selectedKeys"
+          :key="key"
+          :data-test="'selected-ismrm-keyword-' + key"
+          type="button"
+          @click="removeKeyword(key)"
+          :aria-label="t('ismrm2027.remove_keyword', { keyword: key })"
+          class="px-3 py-2 rounded-full border border-brand-primary bg-brand-primary/20"
         >
-          {{ cat.name }}
-          <span class="text-xs opacity-70">{{ Math.round(cat.probability * 100) }}%</span>
+          {{ key }} ×
         </button>
       </div>
-      <p id="categories-help" class="sr-only">{{ t('accessibility.toggle_instructions') }}</p>
-    </div>
-
-    <!-- Keywords Section -->
-    <div>
-      <h3 id="keywords-heading" class="font-semibold mb-2 text-orange-600">
-        {{ t('analysis.keywords') }}
-      </h3>
-      <div
-        class="flex flex-wrap gap-2"
-        role="group"
-        aria-labelledby="keywords-heading"
-        aria-describedby="keywords-help"
-      >
+      <div class="flex flex-wrap gap-2">
         <button
-          v-for="key in keywords"
+          v-for="key in suggestedKeys.filter((k) => !selectedKeys.includes(k))"
           :key="key"
-          @click="toggleKeyword(key)"
-          @keydown="(e) => handleKeyDown(e, () => toggleKeyword(key))"
-          :class="[
-            'px-3 py-1 text-sm rounded-full border-2 transition-all focus:outline-none focus:ring-3 focus:ring-brand-primary min-h-[36px]',
-            selectedKeys.includes(key)
-              ? 'border-brand-primary bg-brand-primary/20 text-brand-primary'
-              : 'border-base-300 bg-base-100 hover:border-brand-primary',
-          ]"
-          role="checkbox"
-          :aria-checked="selectedKeys.includes(key)"
-          :aria-label="t('analysis_ui.keyword_aria', { keyword: key })"
-          tabindex="0"
+          type="button"
+          @click="addKeyword(key)"
+          :disabled="selectedKeys.length >= 5"
+          class="px-3 py-2 rounded-full border border-base-300 disabled:opacity-50"
+        >
+          {{ key }} +
+        </button>
+      </div>
+      <label for="ismrm-general-keyword" class="block mt-2">{{
+        t('ismrm2027.general_keyword')
+      }}</label>
+      <select
+        id="ismrm-general-keyword"
+        :value="''"
+        @change="selectKeyword"
+        :disabled="selectedKeys.length >= 5"
+        class="w-full p-3 rounded-lg border border-base-300 bg-base-100"
+      >
+        <option value="">{{ t('ismrm2027.choose_keyword') }}</option>
+        <option
+          v-for="key in ISMRM_GENERAL_KEYWORDS.filter((k) => !selectedKeys.includes(k))"
+          :key="key"
+          :value="key"
         >
           {{ key }}
+        </option>
+      </select>
+      <label for="ismrm-custom-keyword" class="block mt-2">{{
+        t('ismrm2027.custom_keyword')
+      }}</label>
+      <div class="flex gap-2">
+        <input
+          id="ismrm-custom-keyword"
+          v-model="customKeyword"
+          maxlength="120"
+          class="flex-1 min-w-0 p-3 border border-base-300 bg-base-100 rounded-lg"
+          @keydown.enter.prevent="addCustomKeyword"
+        />
+        <button
+          type="button"
+          data-test="add-ismrm-keyword"
+          @click="addCustomKeyword"
+          :disabled="selectedKeys.length >= 5 || !customKeyword.trim()"
+          class="p-3 border border-base-300 rounded-lg disabled:opacity-50"
+        >
+          {{ t('ismrm2027.add_keyword') }}
         </button>
       </div>
-      <p id="keywords-help" class="sr-only">{{ t('accessibility.toggle_instructions') }}</p>
     </div>
-
+    <p v-if="!canConfirm" class="text-sm text-text-secondary" role="status">
+      {{ t('ismrm2027.confirm_help') }}
+    </p>
     <button
+      data-test="confirm-ismrm-analysis"
       @click="handleConfirm"
-      class="w-full bg-brand-primary hover:bg-brand-secondary text-white font-bold py-2 px-4 rounded-lg mt-4 focus:outline-none focus:ring-3 focus:ring-brand-primary min-h-[44px]"
-      :aria-label="t('analysis_ui.confirm_label')"
-      tabindex="0"
+      :disabled="!canConfirm"
+      class="w-full bg-brand-primary text-white font-bold py-3 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
     >
       {{ t('analysis.confirm_selections') }}
     </button>
@@ -136,86 +144,95 @@
 import { ref, computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import type { AnalysisResult, Category } from '@/types';
+import { ISMRM_SUBCATEGORIES, ISMRM_GENERAL_KEYWORDS } from '@/lib/llm/prompts/ismrmData';
 
 const { t } = useI18n();
-
-interface Props {
+const props = defineProps<{
   result: AnalysisResult;
   impact: string;
   synopsis: string;
   jevClassificationOnly?: boolean;
-}
-
-const props = defineProps<Props>();
-
+}>();
 const emit = defineEmits<{
   confirm: [cats: Category[], keys: string[], impact: string, synopsis: string];
 }>();
 
-const selectedCats = ref<Category[]>(
-  Array.isArray(props.result.categories)
-    ? props.result.categories.filter((c) => c.probability > 0.25)
-    : []
+const candidates = [...(Array.isArray(props.result.categories) ? props.result.categories : [])]
+  .filter((c) => ISMRM_SUBCATEGORIES.some((entry) => entry.name === c.name))
+  .sort((a, b) => b.probability - a.probability);
+const primary = ref(candidates.find((c) => c.type === 'main')?.name ?? candidates[0]?.name ?? '');
+const secondary = ref(
+  candidates.find((c) => c.type === 'secondary' && c.name !== primary.value)?.name ??
+    candidates.find((c) => c.name !== primary.value)?.name ??
+    ''
 );
-
-const selectedKeys = ref<string[]>(
-  Array.isArray(props.result.keywords) ? props.result.keywords : []
+const roles = [
+  { id: 'ismrm-primary', label: 'ismrm2027.primary' },
+  { id: 'ismrm-secondary', label: 'ismrm2027.secondary' },
+];
+const suggestedKeys = [
+  ...new Set(
+    (props.result.keywords ?? [])
+      .filter((k) => typeof k === 'string' && k.trim())
+      .map((k) => k.trim())
+  ),
+];
+// Do not silently truncate model recommendations; excess chips remain removable.
+const selectedKeys = ref([...suggestedKeys]);
+const customKeyword = ref('');
+const localImpact = ref(props.impact);
+const localSynopsis = ref(props.synopsis);
+const wordCount = (text: string) => text.trim().split(/\s+/).filter(Boolean).length;
+const impactWordCount = computed(() => wordCount(localImpact.value));
+const synopsisWordCount = computed(() => wordCount(localSynopsis.value));
+const canConfirm = computed(
+  () =>
+    primary.value &&
+    secondary.value &&
+    primary.value !== secondary.value &&
+    ISMRM_SUBCATEGORIES.some((c) => c.name === primary.value) &&
+    ISMRM_SUBCATEGORIES.some((c) => c.name === secondary.value) &&
+    selectedKeys.value.length >= 1 &&
+    selectedKeys.value.length <= 5 &&
+    impactWordCount.value <= 40 &&
+    synopsisWordCount.value <= 100 &&
+    (props.jevClassificationOnly || (localImpact.value.trim() && localSynopsis.value.trim()))
 );
-
-const localImpact = ref<string>(props.impact);
-const localSynopsis = ref<string>(props.synopsis);
-
-const toggleCategory = (cat: Category) => {
-  selectedCats.value = selectedCats.value.some((c) => c.name === cat.name)
-    ? selectedCats.value.filter((c) => c.name !== cat.name)
-    : [...selectedCats.value, cat];
-};
-
-const toggleKeyword = (key: string) => {
-  selectedKeys.value = selectedKeys.value.includes(key)
-    ? selectedKeys.value.filter((k) => k !== key)
-    : [...selectedKeys.value, key];
-};
-
-const catColorMap: Record<string, string> = {
-  main: 'bg-category-main/20 text-category-main',
-  sub: 'bg-category-sub/20 text-category-sub',
-  secondary: 'bg-category-secondary/20 text-category-secondary',
-};
-
-const catBorderColorMap: Record<string, string> = {
-  main: 'border-category-main',
-  sub: 'border-category-sub',
-  secondary: 'border-category-secondary',
-};
-
-const countWords = (text: string) =>
-  text
-    .trim()
-    .split(/\s+/)
-    .filter((w) => w.length > 0).length;
-
-const impactWordCount = computed(() => countWords(localImpact.value));
-const synopsisWordCount = computed(() => countWords(localSynopsis.value));
-
-const sortedCategories = computed(() =>
-  (Array.isArray(props.result.categories) ? props.result.categories : []).sort(
-    (a, b) => b.probability - a.probability
-  )
-);
-
-const keywords = computed(() =>
-  Array.isArray(props.result.keywords) ? props.result.keywords : []
-);
-
-const handleKeyDown = (e: KeyboardEvent, callback: () => void) => {
-  if (e.key === 'Enter' || e.key === ' ') {
-    e.preventDefault();
-    callback();
-  }
-};
-
-const handleConfirm = () => {
-  emit('confirm', selectedCats.value, selectedKeys.value, localImpact.value, localSynopsis.value);
-};
+function setCategory(id: string, event: Event) {
+  const value = (event.target as HTMLSelectElement).value;
+  if (id === 'ismrm-primary') primary.value = value;
+  else secondary.value = value;
+}
+function addKeyword(key: string) {
+  const trimmed = key.trim();
+  if (trimmed && selectedKeys.value.length < 5 && !selectedKeys.value.includes(trimmed))
+    selectedKeys.value.push(trimmed);
+}
+function removeKeyword(key: string) {
+  selectedKeys.value = selectedKeys.value.filter((k) => k !== key);
+}
+function selectKeyword(event: Event) {
+  const select = event.target as HTMLSelectElement;
+  addKeyword(select.value);
+  select.value = '';
+}
+function addCustomKeyword() {
+  addKeyword(customKeyword.value);
+  customKeyword.value = '';
+}
+function handleConfirm() {
+  if (!canConfirm.value) return;
+  const category = (name: string, type: Category['type']): Category => ({
+    name,
+    type,
+    probability: candidates.find((c) => c.name === name)?.probability ?? 1,
+  });
+  emit(
+    'confirm',
+    [category(primary.value, 'main'), category(secondary.value, 'secondary')],
+    [...selectedKeys.value],
+    localImpact.value,
+    localSynopsis.value
+  );
+}
 </script>

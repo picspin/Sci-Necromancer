@@ -1,4 +1,23 @@
 {
+  "ismrm2027": {
+    "rules_summary": "ISMRM 2027 · Vancouver · submissions 1–28 October 2026. Title ≤125 characters; body ≤750 words excluding references; Impact ≤40 words; Synopsis ≤100 words. Up to 5 figures (captions ≤500 characters) plus a separate Preview Figure. Verify the final ECHO count and keep funding/code/data links in separate Acknowledgements.",
+    "deep_dive_help": "Standard abstracts may opt into Deep Dive into New Dimensions in ECHO; this is a presentation preference, not a new abstract type or guaranteed acceptance.",
+    "official_rules": "Official ISMRM 2027 requirements",
+    "selection_help": "Choose a primary and secondary category/subcategory. Their categories may match, but their subcategories must differ.",
+    "synopsis_help": "Standard/Tandem: Motivation, Goals, Approach, Results; Clinical Practice: unstructured prose. Final generation adapts the synopsis to your chosen type.",
+    "candidates": "Model category suggestions",
+    "primary": "Primary category / subcategory",
+    "secondary": "Secondary category / subcategory",
+    "choose_category": "Choose a 2027 category / subcategory",
+    "keyword_help": "Choose at least one General keyword (official or custom), with at most 5 keywords in total. Click a selected chip to remove it.",
+    "general_keyword": "Official General keywords",
+    "choose_keyword": "Add a General keyword",
+    "custom_keyword": "Custom keyword",
+    "add_keyword": "Add",
+    "remove_keyword": "Remove keyword {keyword}",
+    "confirm_help": "Choose two different official subcategories and 1–5 keywords. Impact/Synopsis must fit their limits; they may be blank only for Jev classification-only analysis.",
+    "type_help": "2027 adds MD-PhD Tandem (a clinical and a technical expert as joint first authors/presenters; confirm eligibility yourself). ISMRT is a separate technologist/radiographer track requiring a CV. Registered Abstract remains historical only; it is not listed in the current 2027 call."
+  },
   "common": {
     "loading": "Loading...",
     "error": "Error",

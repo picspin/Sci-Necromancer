@@ -1,5 +1,7 @@
 # Registered Abstract Submission Guidelines
 
+> Historical 2026 guidance only. Checked 2026-10-11: Registered Abstract is not listed in the [2027 call](https://www.ismrm.org/27m/call/). Keep old drafts readable, but do not present this as a verified 2027 submission route.
+
 ## What is a Registered Abstract?  
 
 A Registered Abstract is an abstract where research methods are submitted and assessed by reviewers before the results are known.

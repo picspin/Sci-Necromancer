@@ -14,6 +14,7 @@ import {
 import { prepareMemberApi, sendApiError } from '../backend/_member/http.js';
 import { MemberServiceError } from '../backend/_member/memberService.js';
 import { isAcceptedMemberTextModel } from '../lib/llm/memberTextModels.js';
+import { ISMRM_SUBCATEGORIES, ISMRM_GENERAL_KEYWORDS } from '../lib/llm/prompts/ismrmData.js';
 import {
   createAdminSupabaseClient,
   createScopedMemberRpcClient,
@@ -27,39 +28,8 @@ type CandidateSet = { categories: Candidate[]; keywords: string[] };
 // Server-owned candidates prevent callers from redefining the Jev question set.
 const CANDIDATES: Record<SupportedConference, CandidateSet> = {
   ISMRM: {
-    categories: [
-      ['Acquisition Methods', 'main'],
-      ['Image Reconstruction', 'main'],
-      ['Contrast Mechanisms', 'main'],
-      ['Neuro', 'sub'],
-      ['Body', 'sub'],
-      ['Cardiovascular', 'sub'],
-      ['Musculoskeletal', 'sub'],
-      ['Pediatric', 'secondary'],
-      ['Interventional', 'secondary'],
-    ].map(([name, type]) => ({ name, type: type as Candidate['type'] })),
-    keywords: [
-      'MRI',
-      'fMRI',
-      'DTI',
-      'ASL',
-      'BOLD',
-      'T1',
-      'T2',
-      'FLAIR',
-      'Gradient Echo',
-      'Spin Echo',
-      'EPI',
-      'Parallel Imaging',
-      'Compressed Sensing',
-      'Machine Learning',
-      'Deep Learning',
-      'Reconstruction',
-      'Artifact Reduction',
-      'Motion Correction',
-      'Quantitative Imaging',
-      'Biomarkers',
-    ],
+    categories: ISMRM_SUBCATEGORIES.map(({ name }) => ({ name, type: 'main' })),
+    keywords: [...ISMRM_GENERAL_KEYWORDS],
   },
   RSNA: {
     categories: [

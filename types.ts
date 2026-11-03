@@ -155,6 +155,7 @@ export type AbstractType =
   // ISMRM Types
   | 'Standard Abstract'
   | 'MRI in Clinical Practice Abstract'
+  | 'MD-PhD Tandem Abstract'
   | 'ISMRT Abstract'
   | 'Registered Abstract'
   // RSNA Types

@@ -1,4 +1,23 @@
 {
+  "ismrm2027": {
+    "rules_summary": "ISMRM 2027 · 温哥华 · 2026年10月1–28日投稿。标题≤125字符，正文≤750词（不含参考文献），Impact≤40词，Synopsis≤100词。最多5张评审图（图注≤500字符），另需独立预览图。最终计数以 ECHO 为准；资助、代码及数据链接放在独立致谢中。",
+    "deep_dive_help": "标准摘要可在 ECHO 勾选 Deep Dive into New Dimensions；这是展示意向，不是新增摘要类型，也不保证录用或场次。",
+    "official_rules": "ISMRM 2027 官方要求",
+    "selection_help": "请选择主、次类别及子分类。可以属于同一类别，但两个子分类不能重复。",
+    "synopsis_help": "Standard/Tandem：Motivation、Goals、Approach、Results；Clinical Practice：非结构化叙述。生成时按所选类型调整 Synopsis。",
+    "candidates": "模型建议分类",
+    "primary": "主类别 / 子分类",
+    "secondary": "次类别 / 子分类",
+    "choose_category": "选择2027类别 / 子分类",
+    "keyword_help": "至少选择1个通用关键词（官方或自定义），总数不超过5个。点击已选标签可撤销。",
+    "general_keyword": "官方通用关键词",
+    "choose_keyword": "添加通用关键词",
+    "custom_keyword": "自定义关键词",
+    "add_keyword": "添加",
+    "remove_keyword": "移除关键词 {keyword}",
+    "confirm_help": "请选择两个不同的官方子分类及1–5个关键词，确保 Impact/Synopsis 不超字数；仅 Jev 纯分类时可留空。",
+    "type_help": "2027新增 MD-PhD Tandem：临床与技术专家担任共同第一作者并共同展示，须作者确认资质。ISMRT 是需提供履历的技师/放射技师独立通道。Registered Abstract 仅保留历史兼容，当前2027指南未列出。"
+  },
   "common": {
     "loading": "加载中...",
     "error": "错误",

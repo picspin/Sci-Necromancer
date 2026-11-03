@@ -187,6 +187,21 @@ describe('/api/jev', () => {
     );
   });
 
+  it('uses the complete server-owned ISMRM 2027 catalog in one bounded reservation', async () => {
+    const res = response();
+    await handler(request({ conference: 'ISMRM', text: 'MRI renal metabolism research.' }), res);
+    const input = mocks.requestTypesafeJev.mock.calls[0][0];
+    expect(input.categories).toHaveLength(184);
+    expect(input.keywords).toHaveLength(96);
+    expect(input.categories).toContainEqual({ name: 'Body: Metabolism', type: 'main' });
+    expect(input.categories).toContainEqual({ name: 'Neuro: Vascular Dementia', type: 'main' });
+    expect(input.keywords).toContain('Age');
+    expect(Object.keys(buildJevAnalysisRequest(input).questions)).toHaveLength(285);
+    expect(mocks.policy.reserve).toHaveBeenCalledOnce();
+    expect(mocks.requestTypesafeJev).toHaveBeenCalledOnce();
+    expect(res.status).toHaveBeenCalledWith(200);
+  });
+
   it('returns cache, pending, and rate-limit states without provider egress', async () => {
     mocks.policy.reserve.mockResolvedValueOnce({ kind: 'cached', result, remaining: 30 });
     const cached = response();

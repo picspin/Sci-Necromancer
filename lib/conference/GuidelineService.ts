@@ -1,4 +1,5 @@
 import type { Conference } from '../../types';
+import { ISMRM_2027_RULES } from '../llm/prompts/ismrmData';
 
 /**
  * Guideline configuration for each conference
@@ -46,13 +47,17 @@ export class GuidelineService {
   static async loadGuideline(conference: Conference): Promise<string> {
     // Check memory cache first
     const cached = this.cache.get(conference);
-    if (cached && Date.now() - cached.timestamp < this.CACHE_TTL) {
+    if (
+      cached &&
+      Date.now() - cached.timestamp < this.CACHE_TTL &&
+      (conference !== 'ISMRM' || cached.content.includes(ISMRM_2027_RULES.version))
+    ) {
       return cached.content;
     }
 
     // Check localStorage cache
     const localCached = this.loadFromLocalStorage(conference);
-    if (localCached) {
+    if (localCached && (conference !== 'ISMRM' || localCached.includes(ISMRM_2027_RULES.version))) {
       this.cache.set(conference, { content: localCached, timestamp: Date.now() });
       return localCached;
     }
