@@ -1,0 +1,9 @@
+record_type,center,method,modality,metric,value,lower,upper,label
+auc,Center A,Baseline,CT,AUC,0.72,0.65,0.79,Center A - Baseline
+auc,Center A,Example,CT,AUC,0.78,0.71,0.85,Center A - Example
+auc,Center B,Baseline,MR,AUC,0.74,0.66,0.82,Center B - Baseline
+auc,Center B,Example,MR,AUC,0.80,0.73,0.87,Center B - Example
+dice,,Baseline,CT,Dice,0.65,,,
+dice,,Example,CT,Dice,0.73,,,
+dice,,Baseline,MR,Dice,0.68,,,
+dice,,Example,MR,Dice,0.76,,,

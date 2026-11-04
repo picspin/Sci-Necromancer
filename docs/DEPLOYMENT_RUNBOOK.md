@@ -4,7 +4,9 @@
 
 ## 先判断本次改了哪一层
 
-2026-10-29 ISMRM 2027 年度模板、分类及盲审规则更新（规则核对日期2026-10-11）：**Supabase 无需迁移；Vercel 需要部署；Cloudflare Worker 需要重建并部署**。无环境变量或计费变化，安全顺序为审核目标提交→Vercel后端→同提交 `npm run build`→Worker；核验当前投稿链接、主/次子分类与关键词、Tandem类型、Clinical Synopsis和年度缓存/盲审规则，并核验会员Jev已用完整目录及扩大问题集的实际延迟/用量。授权范围是独立提交、push与创建PR，不包含生产部署；统计图、容器及依赖修改不纳入本增量。只读依赖审计报告既有7项high、1项critical，生产发布前须单独排查/修复，不以本地回归通过代替安全验收。完整来源、兼容与验收边界见[ISMRM 2027 更新记录](./specs/2026-10-11-ismrm-2027.md)。
+2026-10-06 多面板和首个放射影像合成案例：**Supabase 无迁移；Vercel 无需部署；Cloudflare Worker 无需重建/部署**。仅未接入生产的 Python 组合入口、例子、测试和文档，无新依赖/环境变量/开关/扣费变化。无本增量的生产发布顺序或付费烟测需求；锁定 Python 115 项回归、例子三格式/manifest 导出、JS/TS test/lint/build 为本地验收。生产操作已执行：无，分支尚未 push；后续 push 会受现有 Git 集成影响，需另行确认，不据构建成功移除“开发中”。详情见[本地多面板记录](./specs/2026-10-06-data-figure-multipanel.md)。
+
+2026-10-05 PR #13/#14 审查修复仍限于本地 Python 图件、测试和文档，**Supabase 无迁移；Vercel 无需部署；Cloudflare Worker 无需重建/部署**，无环境变量变更，也不启用会员数据图入口。锁定 Python 回归、三格式合成导出和前端 test/lint/build 是本地验收步骤，无本修复的生产发布顺序或付费烟测需求；未运行生产迁移/部署命令。注意现有 PR bot 已显示 Vercel/Cloudflare 自动构建记录（Cloudflare 链接含 production）：push 前确认外部 Git 集成的发布范围，不能把“未手动执行部署”写成“没有自动部署”，也不能把自动构建成功视为会员功能已上线。
 
 | 变更内容                                                                               | 需要操作                                        | 不应误认为                                       |
 | -------------------------------------------------------------------------------------- | ----------------------------------------------- | ------------------------------------------------ |
@@ -34,6 +36,32 @@ Vercel 生产日志表明，`conferenceBlindReviewRules.js` 中未被改写的 `
 本次导入修复：**Supabase 无新迁移；Vercel 需要部署含修复的提交；Cloudflare 无需仅因导入路径变化重建/部署**（前端解析到的规则内容不变）。无环境变量变更。先部署后端候选并验证生成/capabilities 无加载崩溃，再晋升和通过站点代理验证会员生成及实际学分。修复尚未发布到生产。
 
 自动化发布的后续方案见[Agent 发布工作流设计](./specs/2026-10-01-agent-release-workflow.md)。它目前是待确认设计，不是已启用的发布系统。
+
+## 2026-10-01：数据统计图本地模板增量
+
+上一批新增原始热力图、数值趋势、点区间和森林图，并将合成数据 Python 测试加入 CI。本轮继续增加排名棒棒糖、严格分母的计数/百分比构成图、已有结果火山图，均连接严格 CSV/FigureSpec 校验与三格式导出。九类基础模板、66 项 Python 合成数据测试的本地验证通过，不代表完整模板目录或会员执行链路已经实现；详细状态见[数据图设计与进度](./specs/2026-09-20-member-data-figures-design.md)。
+
+本增量 **Supabase：无迁移；Vercel：无需部署；Cloudflare Worker：无需重建或部署**。原因是仅修改尚未被生产 API 调用的本地 Python 原型、测试、CI 与文档；没有环境变量变化、生产开关变化或在线资源创建。当前无生产发布顺序或线上付费烟测需求。验证命令为 `uv sync --project services/figure_worker --locked`，再运行 `uv run --project services/figure_worker --no-sync python -m unittest discover -s services/figure_worker/tests -v`；同时保留 JS/TS test、lint、build 检查。CI 运行与 push 都不启用会员数据图入口。
+
+与本增量分开的会员 500 导入修复仍需用户部署 Vercel。当前数据图没有自动部署动作；后续 worker 承载平台、成本、区域和任务/计费方案通过审核后，另附数据库→后端/worker→前端的上线卡片，不能仅重部署 Vercel 就移除“开发中”。
+
+## 2026-10-01：数据图期刊风格增量
+
+新增本地 Python worker 的 Standard/Lancet/Nature/Cell/NEJM-inspired 白名单风格、FigureSpec 冻结版本和哈希；九类模板共用外观层，统计输入与计费规则不变。详细边界与合成验证见[期刊风格记录](./specs/2026-10-01-data-figure-journal-styles.md)。
+
+本增量 **Supabase：无迁移；Vercel：无需部署；Cloudflare Worker：无需重建/部署**。仅本地原型、测试、文档变化，无环境变量变更，尚未连接生产 API/UI。无需生产发布顺序或线上付费烟测，已执行生产操作：无。71 项 Python、586 项 JS/TS 测试、lint/build 通过；合并/push 不启用数据图入口。此前的会员 500 修复和后续完整数据图上线卡片仍分别适用。
+
+## 2026-10-02：分布与雷达基础模板
+
+本地新增分布箱线＋全观测和逐轴严格归一化雷达，后者提供原值 CSV 附件；十一类基础图型均有首个本地变体，87 项 Python、586 项 JS/TS 测试、lint/build 通过。具体限制、方法与待完成内容见[分布/雷达记录](./specs/2026-10-02-data-figure-distribution-radar.md)。
+
+**Supabase：无迁移；Vercel：无需部署；Cloudflare Worker：无需重建/部署。** 仅未接入生产的 Python 原型、测试和文档变更；无环境变量变化。无本增量的生产发布顺序或付费烟测需求；生产操作已执行：无。不得仅靠重部署移除会员数据图“开发中”。后续上传/隔离执行/持久任务/钱包/前端上线需单独审核与发布卡片。
+
+## 2026-10-04：固定分箱直方图
+
+分布本地模板增加 `distribution-histogram-v1`，显式边界、全观测计数与期刊 inspired 外观，原箱线版本保留。契约、合成验证与复现示例见[直方图记录](./specs/2026-10-04-data-figure-histogram.md)。
+
+**Supabase：无迁移；Vercel：无需部署；Cloudflare Worker：无需重建/部署。** 仅未被生产调用的 Python 原型、测试和文档变更，无环境变量或生产开关变化；生产操作已执行：无。无本增量的生产发布顺序或付费烟测需求。本地烟测为锁定 Python 全套测试、示例三格式导出与实际预览；JS/TS test、lint、build 同时回归。会员入口继续“开发中”，后续任务/钱包/隔离 worker/前端接通另附上线卡片。
 
 ## 迁移语法报错后继续执行
 
