@@ -408,6 +408,39 @@ class FigureWalletTest(unittest.TestCase):
             self.settle(version, "expired")
         self.assertEqual(self.reserve()["status"], "reserved")
 
+    def test_status_reads_owner_version_and_available_wallet(self):
+        version = self.reserve()
+        result = self.rpc("get_data_figure", self.user, version["id"])
+        self.assertEqual(result["id"], version["id"])
+        self.assertEqual(result["requested_model"], "deepseek-v4.1-flash")
+        self.assertEqual(result["status"], "reserved")
+        self.assertEqual((result["bonus_balance"], result["held_bonus"], result["available_bonus"]), (3, 1, 2))
+
+    def test_status_expires_lease_without_a_charge(self):
+        version = self.reserve()
+        self.conn.execute("update member_data_figure_versions set lease_expires_at=now()-interval '1 second' where id=%s",
+                          (version["id"],))
+        result = self.rpc("get_data_figure", self.user, version["id"])
+        self.assertEqual(result["status"], "expired")
+        self.assertEqual(result["held_bonus"], 0)
+        self.assertEqual(self.balance(), 3)
+        self.assertEqual(self.rpc("get_data_figure", self.user, version["id"])["status"], "expired")
+
+    def test_status_rejects_other_owner_and_unprivileged_calls(self):
+        version = self.reserve()
+        stranger = uuid4()
+        self.conn.execute("insert into auth.users(id) values (%s)", (stranger,))
+        with self.assertRaisesRegex(psycopg.Error, "data_figure_not_found"):
+            self.rpc("get_data_figure", stranger, version["id"])
+        with self.assertRaisesRegex(psycopg.Error, "data_figure_not_found"):
+            self.rpc("get_data_figure", self.user, uuid4())
+        for role in ("anon", "authenticated"):
+            self.assertFalse(self.conn.execute("select has_function_privilege(%s,'public.get_data_figure(uuid,uuid)','execute')",
+                                               (role,)).fetchone()[0])
+        with psycopg.connect(self.uri, autocommit=True) as service:
+            service.execute("set role service_role")
+            self.assertEqual(self.rpc("get_data_figure", self.user, version["id"], conn=service)["id"], version["id"])
+
 
 if __name__ == "__main__":
     unittest.main()
