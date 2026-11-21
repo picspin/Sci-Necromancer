@@ -1,6 +1,8 @@
 import type { VercelRequest, VercelResponse } from '../_types/vercel.js';
 import { prepareMemberApi, sendApiError } from '../_member/http.js';
 import { MemberServiceError } from '../_member/memberService.js';
+import { planMemberFigure } from './memberFigurePlanning.js';
+import { requestMGADataFigurePlan } from './mgaFigurePlanning.js';
 import {
   createAdminSupabaseClient,
   createScopedMemberRpcClient,
@@ -88,40 +90,77 @@ export async function handleMemberFigure(request: VercelRequest, response: Verce
       contentType.split(';')[0].trim().toLowerCase() !== 'application/json'
     )
       throw new MemberServiceError('data_figure_json_required', 415);
+    const body: unknown = request.body;
+    if (!record(body)) throw new MemberServiceError('invalid_data_figure_request', 400);
+    const planning = body.operation === 'plan';
+    const maximumBytes = planning ? 49_152 : 4096;
     const contentLength = request.headers['content-length'];
     if (
       contentLength !== undefined &&
       (typeof contentLength !== 'string' || !/^\d+$/.test(contentLength))
     )
       throw new MemberServiceError('invalid_data_figure_request', 400);
-    if (contentLength !== undefined && Number(contentLength) > 4096)
+    if (contentLength !== undefined && Number(contentLength) > maximumBytes)
       throw new MemberServiceError('data_figure_request_too_large', 413);
-    const body: unknown = request.body;
-    if (!record(body)) throw new MemberServiceError('invalid_data_figure_request', 400);
-    if (Buffer.byteLength(JSON.stringify(body), 'utf8') > 4096)
+    if (Buffer.byteLength(JSON.stringify(body), 'utf8') > maximumBytes)
       throw new MemberServiceError('data_figure_request_too_large', 413);
     const operation = body.operation;
-    const allowed =
-      operation === 'complete'
-        ? ['action', 'operation', 'versionId', 'specHash', 'receiptHash']
-        : operation === 'export'
-          ? ['action', 'operation', 'versionId', 'format']
-          : ['action', 'operation', 'versionId'];
-    if (
-      body.action !== 'data-figure' ||
-      !['status', 'cancel', 'fail', 'complete', 'export'].includes(operation as string) ||
-      typeof body.versionId !== 'string' ||
-      !UUID.test(body.versionId) ||
-      Object.keys(body).some((key) => !allowed.includes(key)) ||
-      (operation === 'complete' && (!digest(body.specHash) || !digest(body.receiptHash))) ||
-      (operation === 'export' &&
-        (typeof body.format !== 'string' || !FORMATS.includes(body.format)))
-    )
-      throw new MemberServiceError('invalid_data_figure_request', 400);
-    const versionId = body.versionId.toLowerCase();
+    if (planning) {
+      if (
+        body.action !== 'data-figure' ||
+        body.metadataConfirmed !== true ||
+        Object.keys(body).some(
+          (key) =>
+            ![
+              'action',
+              'operation',
+              'metadataConfirmed',
+              'datasetHash',
+              'model',
+              'input',
+              'parentId',
+            ].includes(key)
+        )
+      )
+        throw new MemberServiceError('invalid_data_figure_request', 400);
+    } else {
+      const allowed =
+        operation === 'complete'
+          ? ['action', 'operation', 'versionId', 'specHash', 'receiptHash']
+          : operation === 'export'
+            ? ['action', 'operation', 'versionId', 'format']
+            : ['action', 'operation', 'versionId'];
+      if (
+        body.action !== 'data-figure' ||
+        !['status', 'cancel', 'fail', 'complete', 'export'].includes(operation as string) ||
+        typeof body.versionId !== 'string' ||
+        !UUID.test(body.versionId) ||
+        Object.keys(body).some((key) => !allowed.includes(key)) ||
+        (operation === 'complete' && (!digest(body.specHash) || !digest(body.receiptHash))) ||
+        (operation === 'export' &&
+          (typeof body.format !== 'string' || !FORMATS.includes(body.format)))
+      )
+        throw new MemberServiceError('invalid_data_figure_request', 400);
+    }
     const admin = createAdminSupabaseClient();
     const user = await requireAuthenticatedUser(request, admin);
     const client = createScopedMemberRpcClient(admin, user.id);
+    if (planning) {
+      const result = await planMemberFigure(
+        client,
+        {
+          idempotencyKey: request.headers['idempotency-key'],
+          datasetHash: body.datasetHash,
+          model: body.model,
+          input: body.input,
+          ...(body.parentId !== undefined ? { parentId: body.parentId } : {}),
+        },
+        requestMGADataFigurePlan
+      );
+      if (result.kind === 'pending') response.setHeader('Retry-After', '2');
+      return response.status(result.kind === 'pending' ? 202 : 200).json(result);
+    }
+    const versionId = (body.versionId as string).toLowerCase();
     const rpc =
       operation === 'status'
         ? 'get_data_figure'

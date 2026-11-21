@@ -185,7 +185,7 @@ describe('member data figure lifecycle through /api/jev', () => {
     expect(res.status).toHaveBeenCalledWith(400);
     expect(mocks.rpc).not.toHaveBeenCalled();
   });
-  it.each(['reserve', 'plan', 'mark-renderable', 'constructor', '__proto__'])(
+  it.each(['reserve', 'mark-renderable', 'constructor', '__proto__'])(
     'does not expose %s to clients',
     async (operation) => {
       const res = response();
