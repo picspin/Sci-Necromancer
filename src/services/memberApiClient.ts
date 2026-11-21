@@ -1,5 +1,7 @@
 import type { MGAResearchAgentId } from '@/lib/capabilities/managedResearchCapabilities';
 import type { AcceptedMemberTextModel } from '@/lib/llm/memberTextModels';
+import type { MemberTextModel } from '@/lib/llm/memberTextModels';
+import type { FigurePlanningInput } from '@/lib/figure/figurePlanning';
 import {
   isDataFigureRecommendations,
   isDataFigureAssessment,
@@ -33,6 +35,17 @@ export class MemberApiError extends Error {
 }
 
 const LONG_MEMBER_REQUEST_TIMEOUT_MS = 130_000;
+
+export interface MemberFigurePlanCommand {
+  idempotencyKey: string;
+  datasetHash: string;
+  model: MemberTextModel;
+  input: FigurePlanningInput;
+  parentId?: string;
+}
+export type MemberFigureVersionCommand =
+  | { operation: 'status' | 'cancel' | 'fail'; versionId: string }
+  | { operation: 'complete'; versionId: string; specHash: string; receiptHash: string };
 
 export interface MemberStatus {
   bonusBalance: number;
@@ -283,6 +296,31 @@ export function createMemberApiClient(options: MemberApiClientOptions) {
   }
 
   return {
+    planDataFigure: (input: MemberFigurePlanCommand, signal?: AbortSignal) =>
+      request<unknown>(
+        '/api/jev',
+        {
+          method: 'POST',
+          signal,
+          body: JSON.stringify({
+            action: 'data-figure',
+            operation: 'plan',
+            metadataConfirmed: true,
+            datasetHash: input.datasetHash,
+            model: input.model,
+            input: input.input,
+            ...(input.parentId !== undefined ? { parentId: input.parentId } : {}),
+          }),
+        },
+        { 'Idempotency-Key': input.idempotencyKey },
+        LONG_MEMBER_REQUEST_TIMEOUT_MS
+      ),
+    dataFigureVersion: (input: MemberFigureVersionCommand, signal?: AbortSignal) =>
+      request<unknown>('/api/jev', {
+        method: 'POST',
+        signal,
+        body: JSON.stringify({ action: 'data-figure', ...input }),
+      }),
     getStatus: () => request<MemberStatus>('/api/member/status'),
     getCapabilities: () =>
       request<{ capabilities: ManagedCapabilityDescriptor[] }>('/api/member/capabilities'),

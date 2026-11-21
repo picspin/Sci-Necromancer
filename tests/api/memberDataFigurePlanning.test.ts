@@ -1,4 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { webcrypto } from 'node:crypto';
+import { createMemberApiClient } from '../../src/services/memberApiClient';
+import { useMemberFigureTask } from '../../src/composables/useMemberFigureTask';
 const mock = vi.hoisted(() => ({ getUser: vi.fn(), rpc: vi.fn(), fetch: vi.fn() }));
 vi.mock('../../backend/_member/supabaseServer', async (original) => ({
   ...(await original<typeof import('../../backend/_member/supabaseServer')>()),
@@ -115,6 +118,101 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 describe('member figure HTTP planning with synthetic upstream transport', () => {
+  it('settles the browser frozen-spec hash through the real handler and recovers a lost completion without another debit or model call', async () => {
+    vi.stubGlobal('crypto', webcrypto);
+    const original = mock.rpc.getMockImplementation()!;
+    let specHash: string | null = null,
+      receiptHash: string | null = null,
+      status = 'awaiting_render',
+      debits = 0;
+    const row = () => ({
+      id: versionId,
+      user_id: userId,
+      parent_id: null,
+      status,
+      requested_model: 'gpt-5.6-terra',
+      actual_provider: 'mga',
+      actual_model: 'mga-gpt-terra-5.6',
+      dataset_hash: 'a'.repeat(64),
+      spec_hash: specHash,
+      receipt_hash: receiptHash,
+      created_at: '2026-11-21T00:00:00Z',
+      lease_expires_at: '2026-11-21T00:15:00Z',
+      settled_at: receiptHash ? '2026-11-21T00:01:00Z' : null,
+      bonus_balance: status === 'completed' ? 0 : 1,
+      held_bonus: status === 'completed' ? 0 : 1,
+      available_bonus: 0,
+    });
+    mock.rpc.mockImplementation(async (name: string, args: any) => {
+      if (name === 'get_data_figure') return { data: row(), error: null };
+      if (name === 'finish_data_figure_plan') specHash = args.p_spec_hash;
+      if (name === 'settle_data_figure' && args.p_outcome === 'completed') {
+        if (args.p_spec_hash !== specHash)
+          return { data: null, error: { message: 'data_figure_spec_conflict' } };
+        if (status !== 'completed') ++debits;
+        status = 'completed';
+        receiptHash = args.p_receipt_hash;
+        await original(name, args);
+        return { data: row(), error: null };
+      }
+      return original(name, args);
+    });
+    let loseComplete = true;
+    const wire = vi.fn(async (_url: any, init: RequestInit = {}) => {
+      const req = request(),
+        res = response();
+      req.headers = { ...req.headers, ...init.headers };
+      req.body = JSON.parse(String(init.body));
+      await handler(req, res);
+      if (req.body.operation === 'complete' && loseComplete) {
+        loseComplete = false;
+        throw new TypeError('synthetic response lost after commit');
+      }
+      return new Response(JSON.stringify(res.json.mock.calls[0][0]), {
+        status: res.status.mock.calls[0][0],
+        headers: { 'Content-Type': 'application/json' },
+      });
+    });
+    const api = createMemberApiClient({
+      baseUrl: 'https://www.rad-sci.org',
+      getAccessToken: async () => 'synthetic-token',
+      fetcher: wire,
+    });
+    const render = vi.fn().mockResolvedValue({
+      preview: 'iVBORw0KGgo=',
+      manifest: {
+        dataset_sha256: 'a'.repeat(64),
+        figure_spec_sha256: 'b'.repeat(64),
+        preview_sha256: 'c'.repeat(64),
+        template_version: 'grouped-bar-v1',
+        style_version: 'nature-inspired-v1',
+        width_px: 4204,
+        height_px: 2362,
+        dpi: 600,
+        pyodide_version: '314.0.7',
+        runtime_dependencies: {},
+      },
+    });
+    const task = useMemberFigureTask(api, { owner: () => userId, canStart: () => true, render });
+    const body = request().body;
+    await task.start({ datasetHash: body.datasetHash, model: body.model, input: body.input });
+    expect(task.state.value.phase).toBe('draft');
+    await task.confirm();
+    expect(task.state.value.phase).toBe('unknown');
+    expect(debits).toBe(1);
+    expect(specHash).not.toBe('b'.repeat(64));
+    await task.recover();
+    expect(task.state.value).toMatchObject({ phase: 'completed', wallet: { bonusBalance: 0 } });
+    expect(mock.fetch).toHaveBeenCalledOnce();
+    expect(render).toHaveBeenCalledOnce();
+    expect(debits).toBe(1);
+    expect(wire.mock.calls.map(([, init]) => JSON.parse(String(init?.body)).operation)).toEqual([
+      'plan',
+      'complete',
+      'status',
+    ]);
+    expect(mock.rpc.mock.calls.every(([, args]) => args.p_user_id === userId)).toBe(true);
+  });
   it('creates an owner-bound plan through the real orchestration and MGA adapter', async () => {
     const res = response();
     await handler(request(), res);

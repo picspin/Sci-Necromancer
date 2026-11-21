@@ -2,6 +2,58 @@ import { describe, expect, it, vi } from 'vitest';
 import { createMemberApiClient, MemberApiError } from './memberApiClient';
 
 describe('member API client', () => {
+  it('sends figure planning and lifecycle writes through one origin without leaking the idempotency key into metadata', async () => {
+    const fetcher = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ kind: 'pending', versionId: 'version' }), {
+          status: 202,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      )
+      .mockRejectedValueOnce(new TypeError('network'));
+    const client = createMemberApiClient({
+      baseUrl: 'https://same-origin.example.test',
+      fallbackBaseUrls: ['https://fallback.example.test'],
+      getAccessToken: async () => 'synthetic-jwt',
+      fetcher,
+    });
+    const input = {
+      templateId: 'distribution' as const,
+      styleId: 'nature' as const,
+      goal: 'Show values',
+      fields: [{ id: 'col_1', alias: 'value', type: 'continuous' as const, unit: 'score' }],
+    };
+    await expect(
+      client.planDataFigure({
+        idempotencyKey: 'one-task',
+        datasetHash: 'a'.repeat(64),
+        model: 'deepseek-v4.1-flash',
+        input,
+      })
+    ).resolves.toMatchObject({ kind: 'pending' });
+    expect(JSON.parse(String(fetcher.mock.calls[0][1].body))).toEqual({
+      action: 'data-figure',
+      operation: 'plan',
+      metadataConfirmed: true,
+      datasetHash: 'a'.repeat(64),
+      model: 'deepseek-v4.1-flash',
+      input,
+    });
+    expect(fetcher.mock.calls[0][1].headers).toMatchObject({ 'Idempotency-Key': 'one-task' });
+    await expect(
+      client.dataFigureVersion({
+        operation: 'complete',
+        versionId: 'version',
+        specHash: 'b'.repeat(64),
+        receiptHash: 'c'.repeat(64),
+      })
+    ).rejects.toMatchObject({ code: 'member_api_unreachable' });
+    expect(fetcher).toHaveBeenCalledTimes(2);
+    expect(
+      fetcher.mock.calls.every((call) => call[0] === 'https://same-origin.example.test/api/jev')
+    ).toBe(true);
+  });
   it('keeps the deadline active while reading a stalled JSON body, and permits a later explicit write', async () => {
     vi.useFakeTimers();
     try {
