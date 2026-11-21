@@ -4,6 +4,8 @@
 
 ## 先判断本次改了哪一层
 
+2026-11-21 会员数据图客户端规划/渲染/结算状态：同键冻结与二次确认，unknown保留原任务；完成丢响应先status再决定是否重送同一回执，不重新调用模型/Worker。区分服务端冻结规格哈希与Python产物哈希；零余额可恢复，换账户清本地状态。**本增量Supabase无新迁移、Vercel无新增后端运行时代码；未来发布需Cloudflare同提交重建/部署。** 整分支仍依赖前序待核对迁移及兼容的Vercel HTTP规划/Jev v3，不能只发前端；所有生产门控未开。899项JS/TS、120项Python、46项PG及真实Pyodide/合成会员恢复通过，未push、远端迁移或部署、付费调用0；原图文件授权、跨刷新历史及服务端Jev绑定仍未完成。部署顺序、回退与实际验证边界见[任务状态记录](./specs/2026-11-21-member-figure-task-state.md)。
+
 2026-11-21 会员数据图Jev评估与弱网UI增量：同一判别请求增加长度适切性/内容充分性评分，v3契约与旧v2隔离；工作区选择评估候选后才可确认预览，模型隐式、零余额保留旧图、换账户清数据。共享客户端deadline延伸到JSON正文读取结束，POST仍不自动fallback重放。**本增量Supabase无新迁移；未来发布需Vercel兼容后端→同提交Cloudflare重建/部署。** 无新增变量/依赖，生产门控未开；收费规划/结算/文件授权UI仍未接通。本地880项JS/TS、120项Python、46项PG及浏览器合成协议/实际Pyodide单图通过，未push、远端迁移或部署、付费调用0。前端门控不构成服务端评估绑定凭证；范围、未完成项、发布顺序与回退见[工作区记录](./specs/2026-11-21-member-figure-workspace.md)。
 
 2026-11-21 数据图HTTP规划与MGA协议接线：既有action增加plan，要求本次元数据明确确认和Idempotency-Key，沿预留/私有占用一次调用；MGA仅记录响应回报模型，不猜测、不重试或回退。**本切片Supabase无新迁移（依赖此前待核对迁移）；未来发布需Vercel；Cloudflare此切片无需重建/部署。** api/jev配置maxDuration:120，MGA传输超时60秒；无新增环境变量/生产依赖。既有MEMBER_DATA_FIGURES_ENABLED线上值未改，前端DEV门控不变。仅模拟fetch/身份/RPC与临时库测试，未push、远端迁移或部署，付费模型调用0；真实MGA健康及模型回报未验证。完整契约、先数据库后关闭开关的后端候选、受控烟测与回退见[HTTP规划记录](./specs/2026-11-21-data-figure-planning-http.md)。

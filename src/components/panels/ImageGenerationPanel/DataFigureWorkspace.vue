@@ -11,7 +11,7 @@
     <p v-if="!canStart" class="notice" role="status">{{ copy.access }}</p>
     <div class="figure-grid">
       <div class="figure-controls">
-        <fieldset :disabled="busy || !canStart">
+        <fieldset :disabled="busy || task.locked.value || !canStart">
           <legend>01 · {{ copy.data }}</legend>
           <label class="file-label"
             >{{ copy.file }}<input type="file" accept=".csv,text/csv" @change="loadFile"
@@ -46,7 +46,7 @@
           assessment
           :profile="profile"
           :can-request="routingAllowed"
-          :locked="busy"
+          :locked="busy || task.locked.value"
           :context-key="routingContext"
           :request="requestRouting"
           @assessed="selectRoutingTemplate"
@@ -57,19 +57,19 @@
           <legend>02 · {{ copy.plan }}</legend>
           <label
             >{{ copy.template
-            }}<select ref="templateSelect" v-model="template">
+            }}<select ref="templateSelect" v-model="template" :disabled="task.locked.value">
               <option v-for="(_, id) in FIGURE_TEMPLATES" :key="id" :value="id">{{ id }}</option>
             </select></label
           >
           <label
             >{{ copy.style
-            }}<select v-model="style">
+            }}<select v-model="style" :disabled="task.locked.value">
               <option v-for="(_, id) in FIGURE_STYLES" :key="id" :value="id">
                 {{ id === 'standard' ? 'Standard' : `${id.toUpperCase()} · inspired` }}
               </option>
             </select></label
           >
-          <div class="mapping-grid">
+          <div v-if="localValidation" class="mapping-grid">
             <label v-for="role in roles.required" :key="role"
               >{{ role
               }}<select v-model="mapping[role]">
@@ -97,13 +97,14 @@
             >{{ copy.options
             }}<textarea
               v-model="optionsText"
+              :disabled="task.locked.value"
               rows="4"
               maxlength="65536"
               spellcheck="false"
               :placeholder="roles.options"
             />
           </label>
-          <details>
+          <details v-if="localValidation">
             <summary>{{ copy.advanced }}</summary>
             <label
               >{{ copy.frozen
@@ -117,41 +118,96 @@
             </label>
             <p>{{ copy.advancedHint }}</p>
           </details>
+          <template v-if="!localValidation">
+            <p class="fine-print">{{ copy.outbound }}</p>
+            <details v-if="memberInput">
+              <summary>{{ copy.egress }}</summary>
+              <pre>{{ JSON.stringify(memberInput, null, 2) }}</pre>
+            </details>
+            <button
+              type="button"
+              :disabled="!memberInput || task.locked.value"
+              @click="requestMemberPlan"
+            >
+              {{ copy.planMember }}
+            </button>
+          </template>
           <details v-if="plan">
             <summary>{{ copy.showPlan }}</summary>
             <pre>{{ JSON.stringify(plan, null, 2) }}</pre>
           </details>
           <p v-if="profile && !plan" class="fine-print">{{ copy.invalidPlan }}</p>
           <label class="confirmation"
-            ><input v-model="confirmed" type="checkbox" :disabled="!plan || !assessmentMatches" />{{
-              copy.confirm
-            }}</label
+            ><input
+              v-model="confirmed"
+              type="checkbox"
+              :disabled="
+                !plan ||
+                !assessmentMatches ||
+                (!localValidation && task.state.value.phase !== 'draft')
+              "
+            />{{ copy.confirm }}</label
           >
           <p v-if="!assessmentMatches" class="fine-print" role="status">{{ copy.assessFirst }}</p>
           <button
             type="button"
-            :disabled="!confirmed || !plan || !assessmentMatches"
+            :disabled="
+              !confirmed ||
+              !plan ||
+              !assessmentMatches ||
+              (!localValidation && task.state.value.phase !== 'draft')
+            "
             @click="renderPreview"
           >
-            {{ copy.render }}
+            {{ localValidation ? copy.render : copy.generateMember }}
           </button>
         </fieldset>
         <button v-if="busy" type="button" class="secondary" @click="cancel">
           {{ copy.cancel }}
         </button>
+        <template v-if="!localValidation">
+          <button
+            v-if="['pending', 'unknown'].includes(task.state.value.phase)"
+            type="button"
+            class="secondary"
+            :disabled="task.busy.value || !canRender"
+            @click="task.recover"
+          >
+            {{ copy.recover }}
+          </button>
+          <button
+            v-if="task.locked.value"
+            type="button"
+            class="secondary"
+            :disabled="task.state.value.phase === 'releasing'"
+            @click="task.cancel"
+          >
+            {{ copy.cancelMember }}
+          </button>
+        </template>
       </div>
-      <div class="figure-output" :aria-busy="busy">
+      <div class="figure-output" :aria-busy="busy || task.busy.value">
         <div class="output-header">
           <h3>{{ copy.preview }}</h3>
           <span>PNG · 600 DPI</span>
         </div>
         <p v-if="busy" role="status" class="runtime-status">{{ copy.progress(stage) }}</p>
-        <p v-if="error" role="alert" class="error">{{ copy.error }} {{ error }}</p>
-        <figure v-if="preview">
-          <img :src="`data:image/png;base64,${preview.preview}`" :alt="copy.previewAlt" />
+        <p v-if="!localValidation && task.state.value.phase !== 'idle'" role="status">
+          {{ copy.taskStates[task.state.value.phase] }}
+        </p>
+        <p v-if="task.state.value.phase === 'unknown'" class="fine-print">{{ copy.unknown }}</p>
+        <p v-if="error || task.state.value.error" role="alert" class="error">
+          {{ copy.error }} {{ error || task.state.value.error }}
+        </p>
+        <p v-if="task.state.value.missing?.length" role="status">
+          {{ task.state.value.missing.join(', ') }}
+        </p>
+        <figure v-if="outputPreview">
+          <img :src="`data:image/png;base64,${outputPreview.preview}`" :alt="copy.previewAlt" />
           <figcaption>
-            {{ preview.manifest.width_px }} × {{ preview.manifest.height_px }} ·
-            {{ Math.round(preview.manifest.dpi) }} DPI · {{ preview.manifest.style_version }}
+            {{ outputPreview.manifest.width_px }} × {{ outputPreview.manifest.height_px }} ·
+            {{ Math.round(outputPreview.manifest.dpi) }} DPI ·
+            {{ outputPreview.manifest.style_version }}
           </figcaption>
         </figure>
         <div v-else-if="!busy" class="empty-preview">
@@ -163,9 +219,9 @@
           {{ copy.download }}
         </button>
         <p class="fine-print">{{ copy.authorization }}</p>
-        <details v-if="preview">
+        <details v-if="outputPreview">
           <summary>{{ copy.provenance }}</summary>
-          <pre>{{ JSON.stringify(preview.manifest, null, 2) }}</pre>
+          <pre>{{ JSON.stringify(outputPreview.manifest, null, 2) }}</pre>
         </details>
       </div>
     </div>
@@ -177,6 +233,9 @@ import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useMembership } from '@/src/composables/useMembership';
 import { MemberApiError } from '@/src/services/memberApiClient';
+import { useMemberFigureTask } from '@/src/composables/useMemberFigureTask';
+import { buildFigurePlanningRequest, type FigurePlanningInput } from '@/lib/figure/figurePlanning';
+import { DEFAULT_MEMBER_TEXT_MODEL } from '@/lib/llm/memberTextModels';
 import type { DataFigureRoutingInput } from '@/backend/_jev/figureRouting';
 import DataFigureRouting from './DataFigureRouting.vue';
 import { FIGURE_TEMPLATE_INPUTS } from '@/lib/figure/dataFigureTemplates';
@@ -225,15 +284,20 @@ function invalidateRoutingPlan() {
   confirmed.value = false;
   if (canStart.value) preview.value = null;
   assessedTemplate.value = null;
+  assessedMetadata.value = null;
   importedPlan.value = '';
   mapping.value = {};
   units.value = {};
   optionsText.value = '';
 }
-function selectRoutingTemplate(selected: FigureTemplate) {
+function selectRoutingTemplate(selection: {
+  template: FigureTemplate;
+  input: DataFigureRoutingInput;
+}) {
   invalidateRoutingPlan();
-  template.value = selected;
-  assessedTemplate.value = selected;
+  template.value = selection.template;
+  assessedTemplate.value = selection.template;
+  assessedMetadata.value = JSON.parse(JSON.stringify(selection.input));
 }
 const { locale } = useI18n();
 const zh = computed(() => locale.value.startsWith('zh'));
@@ -242,8 +306,9 @@ const copy = computed(() =>
     ? {
         title: '数据统计图',
         validation: '本地接入验证 · 尚未上线',
-        boundary:
-          '原始数据仅在此浏览器的独立 Worker 中读取和绘图。仅主动确认后的字段摘要可发送至 Jev 获取建议；本切片不扣学分，正式会员生成/结算尚未接通。',
+        boundary: localValidation
+          ? '开发手动验证：原始数据仅在本地Worker读取和绘图，不调用会员模型，不扣学分。'
+          : '原始数据留在浏览器。主动确认摘要后先经判别评估，再由会员服务规划；规划预留1学分，确认规格并完成出图后结算。当前为未发布的开发接线。',
         access: '请先登录有学分余额的会员账户。',
         data: '本地数据',
         file: 'CSV 文件 · UTF-8 · 最多 10 MiB',
@@ -271,6 +336,30 @@ const copy = computed(() =>
         confirm: '我确认字段、单位与冻结方案',
         assessFirst: '请先确认字段摘要，完成判别评估并选择匹配图型；再核对冻结方案。',
         render: '渲染本地验证预览',
+        planMember: '确认摘要并规划 · 预留1学分',
+        generateMember: '按确认规格生成 · 成功结算1学分',
+        outbound:
+          '点击规划，将下方确认的字段摘要、风格和显式参数发送至会员推理服务（MGA），不发送原始CSV。先预留1学分，仅成功版本结算；每个新版本1学分，下载不额外收费。',
+        egress: '会员规划实际发送的摘要',
+        recover: '恢复原任务 · 不新建请求',
+        cancelMember: '取消当前任务',
+        unknown:
+          '结果尚不确定，请恢复原任务核对。不会自动换键重开；已有预览不代表结算成功。任务编号未返回时须先恢复再确认取消。',
+        taskStates: {
+          planning: '正在规划 · 已锁定本次请求',
+          pending: '原任务处理中 · 可稍后恢复',
+          draft: '方案就绪 · 确认后才生成',
+          rendering: '正在本地生成',
+          settling: '正在核对结算',
+          releasing: '正在核对取消或失败',
+          unknown: '结果待核对',
+          completed: '已完成 · 已结算1学分',
+          failed: '未完成 · 已释放预留',
+          cancelled: '已取消 · 已释放预留',
+          expired: '任务过期 · 已释放预留',
+          needs_input: '请补齐参数 · 本次未结算',
+          idle: '',
+        } as Record<string, string>,
         cancel: '取消并释放运行时',
         preview: '预览',
         previewAlt: '数据统计图预览',
@@ -286,7 +375,7 @@ const copy = computed(() =>
         watermark: '预览含 sci-necromancer 隐密标记。客户端水印可被绕过，不是防复制或真实性证明。',
         download: '下载原图 · 会员授权后免费',
         authorization:
-          '会员版本结算与免费授权尚未接通，因此此处不提供无水印 PNG / PDF / SVG / 复现包，也不额外扣下载学分。',
+          '免费原图文件授权尚未接通，此处不提供无水印 PNG / PDF / SVG / 复现包；下载不额外扣学分。',
         provenance: '实际运行时与产物记录',
         invalidPlan: '请检查 JSON、字段映射和单位；不得覆盖数据哈希或注入脚本。',
         unsupported: '当前字体不支持部分标签，请使用受支持的拉丁字符；不会静默生成缺字图。',
@@ -294,8 +383,9 @@ const copy = computed(() =>
     : {
         title: 'Data figures',
         validation: 'Local integration · not released',
-        boundary:
-          'Raw data stays in this browser Worker. Only explicitly approved metadata may go to Jev for advice. This slice charges no credits; member generation and settlement are not connected yet.',
+        boundary: localValidation
+          ? 'Development manual validation: raw data stays in the local Worker. No member model or credit calls.'
+          : 'Raw data stays in this browser. Approved metadata is assessed before member planning. Reserve 1 credit; settle after confirmed rendering. This development integration is not released.',
         access: 'Sign in with a positive credit balance to use this workspace.',
         data: 'Local data',
         file: 'CSV file · UTF-8 · max 10 MiB',
@@ -325,6 +415,30 @@ const copy = computed(() =>
         assessFirst:
           'Approve metadata, complete its assessment and choose a matching chart before confirming the frozen plan.',
         render: 'Render local validation preview',
+        planMember: 'Confirm metadata and plan · reserve 1 credit',
+        generateMember: 'Generate confirmed figure · 1 credit on completion',
+        outbound:
+          'Planning sends the reviewed metadata, style and explicit parameters below to the member reasoning service (MGA), never raw CSV. Reserve 1 credit; settle only a completed version. Each new version costs 1 credit; downloads add no charge.',
+        egress: 'Exact member planning metadata',
+        recover: 'Recover original task · no new request',
+        cancelMember: 'Cancel current task',
+        unknown:
+          'The result is uncertain. Recover the original task to check; do not start with a new key. A preview is not settlement confirmation. If the task ID was not returned, recover it before confirming cancellation.',
+        taskStates: {
+          planning: 'Planning · request locked',
+          pending: 'Original task pending · recover later',
+          draft: 'Plan ready · confirm before rendering',
+          rendering: 'Rendering locally',
+          settling: 'Checking settlement',
+          releasing: 'Checking cancellation or failure',
+          unknown: 'Outcome needs checking',
+          completed: 'Completed · 1 credit settled',
+          failed: 'Not completed · reservation released',
+          cancelled: 'Cancelled · reservation released',
+          expired: 'Expired · reservation released',
+          needs_input: 'Supply missing parameters · not settled',
+          idle: '',
+        } as Record<string, string>,
         cancel: 'Cancel and release runtime',
         preview: 'Preview',
         previewAlt: 'Data figure preview',
@@ -341,7 +455,7 @@ const copy = computed(() =>
           'Preview contains a hidden sci-necromancer marker. Client-side watermarks are bypassable, not copy protection or proof of authenticity.',
         download: 'Download original · free with authorization',
         authorization:
-          'Member version settlement and free export authorization are not connected. Original PNG / PDF / SVG / reproduction bundles are not exposed here. Downloads will not add a credit charge.',
+          'Free original-file authorization is not connected. Original PNG / PDF / SVG / reproduction bundles are not exposed here. Downloads add no credit charge.',
         provenance: 'Actual runtime and artifact record',
         invalidPlan:
           'Check JSON, field mappings and units; do not override the dataset hash or inject scripts.',
@@ -358,6 +472,7 @@ const profile = ref<CsvProfile | null>(null),
 const template = ref<FigureTemplate>('grouped-bar'),
   style = ref<FigureStyle>('nature');
 const assessedTemplate = ref<FigureTemplate | null>(null);
+const assessedMetadata = ref<DataFigureRoutingInput | null>(null);
 const assessmentMatches = computed(
   () =>
     localValidation ||
@@ -373,7 +488,67 @@ const optionsText = ref(''),
   stage = ref(''),
   error = ref('');
 const roles = computed(() => FIGURE_TEMPLATE_INPUTS[template.value]);
+const task = useMemberFigureTask(membership.memberApi, {
+  owner: () => membership.user.value?.id ?? null,
+  canStart: () => canStart.value && Boolean(assessedMetadata.value),
+  render: async (spec, signal) => {
+    if (!payload || signal.aborted) throw new Error('figure_cancelled');
+    const dispose = () => session.dispose();
+    signal.addEventListener('abort', dispose, { once: true });
+    try {
+      return await session.render(payload, spec, (s) => {
+        stage.value = s;
+      });
+    } finally {
+      signal.removeEventListener('abort', dispose);
+    }
+  },
+});
+const outputPreview = computed(() => (localValidation ? preview.value : task.state.value.preview));
+const memberInput = computed<FigurePlanningInput | null>(() => {
+  const approved = assessedMetadata.value,
+    data = profile.value;
+  if (
+    !approved ||
+    !data ||
+    approved.fields.length !== data.columns.length ||
+    assessedTemplate.value !== template.value
+  )
+    return null;
+  try {
+    if (optionsText.value.length > 65536) return null;
+    return JSON.parse(
+      buildFigurePlanningRequest({
+        templateId: template.value,
+        styleId: style.value,
+        goal: approved.goal,
+        fields: approved.fields.map((field, index) => ({ id: data.columns[index].id, ...field })),
+        ...(optionsText.value.trim() ? { parameters: JSON.parse(optionsText.value) } : {}),
+      }).user
+    );
+  } catch {
+    return null;
+  }
+});
+async function requestMemberPlan() {
+  if (!profile.value || !memberInput.value || localValidation) return;
+  const parentId = task.state.value.phase === 'completed' ? task.state.value.versionId : undefined;
+  await task.start({
+    datasetHash: profile.value.dataset_sha256,
+    model: DEFAULT_MEMBER_TEXT_MODEL,
+    input: memberInput.value,
+    ...(parentId ? { parentId } : {}),
+  });
+}
+watch(
+  () => task.state.value.phase,
+  (phase) => {
+    if (['completed', 'cancelled', 'failed', 'expired'].includes(phase))
+      void membership.refreshStatus?.().catch(() => undefined);
+  }
+);
 const plan = computed(() => {
+  if (!localValidation) return task.state.value.spec ?? null;
   if (!profile.value) return null;
   try {
     if (importedPlan.value.trim()) {
@@ -445,6 +620,7 @@ watch(
   () => props.canRender,
   (allowed) => {
     if (!allowed) {
+      task.reset();
       cancel();
       resetDataset();
       csvText.value = '';
@@ -454,6 +630,7 @@ watch(
 watch(
   () => membership.user.value?.id,
   () => {
+    task.reset();
     cancel();
     resetDataset();
     csvText.value = '';
@@ -462,6 +639,7 @@ watch(
 );
 function resetDataset() {
   assessedTemplate.value = null;
+  assessedMetadata.value = null;
   profile.value = null;
   payload = null;
   preview.value = null;
@@ -523,6 +701,10 @@ async function inspect() {
   }
 }
 async function renderPreview() {
+  if (!localValidation) {
+    if (confirmed.value && assessmentMatches.value) await task.confirm();
+    return;
+  }
   if (
     !canStart.value ||
     busy.value ||
@@ -560,6 +742,7 @@ function cancel() {
   confirmed.value = false;
 }
 onBeforeUnmount(() => {
+  task.reset();
   cancel();
   payload = null;
   csvText.value = '';

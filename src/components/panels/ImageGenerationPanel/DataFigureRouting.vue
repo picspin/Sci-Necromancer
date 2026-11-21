@@ -92,7 +92,7 @@ const emit = defineEmits<{
   select: [template: FigureTemplate];
   invalidate: [];
   manual: [];
-  assessed: [template: FigureTemplate];
+  assessed: [selection: { template: FigureTemplate; input: DataFigureRoutingInput }];
 }>();
 const { locale } = useI18n();
 const copy = computed(() =>
@@ -286,7 +286,8 @@ function choose(template: FigureTemplate) {
     return;
   selected.value = template;
   emit('select', template);
-  if (props.assessment && isDataFigureAssessment(result.value)) emit('assessed', template);
+  if (props.assessment && isDataFigureAssessment(result.value))
+    emit('assessed', { template, input: JSON.parse(JSON.stringify(input.value)) });
 }
 function manual() {
   invalidate();

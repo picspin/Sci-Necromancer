@@ -58,7 +58,9 @@ describe('data figure routing approval', () => {
     expect(screen.queryByText(/jev-1.13.0/)).toBeNull();
     expect(mounted.emitted().assessed).toBeUndefined();
     await fireEvent.click(screen.getByRole('button', { name: /Choose scatter/ }));
-    expect(mounted.emitted().assessed).toEqual([['scatter']]);
+    expect(mounted.emitted().assessed).toEqual([
+      [{ template: 'scatter', input: request.mock.calls[1][0] }],
+    ]);
     expect(request.mock.calls[1][0].goal).toBe('Compare the supplied values');
     await fireEvent.update(screen.getByLabelText('Figure goal'), 'Changed goal');
     expect(screen.queryByText('Length adequacy · 90.00')).toBeNull();
