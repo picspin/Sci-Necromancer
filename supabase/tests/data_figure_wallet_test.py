@@ -441,6 +441,140 @@ class FigureWalletTest(unittest.TestCase):
             service.execute("set role service_role")
             self.assertEqual(self.rpc("get_data_figure", self.user, version["id"], conn=service)["id"], version["id"])
 
+    def claim(self, version, conn=None):
+        return self.rpc("claim_data_figure_plan", self.user, version["id"], "a" * 64, conn=conn)
+
+    def test_plan_claim_is_once_only_and_never_returns_the_token_on_replay(self):
+        version = self.reserve()
+        first = self.claim(version)
+        self.assertEqual(first["kind"], "claimed")
+        self.assertIn("token", first)
+        second = self.claim(version)
+        self.assertEqual(second["kind"], "pending")
+        self.assertNotIn("token", second)
+        self.assertEqual(self.balance(), 3)
+
+    def test_concurrent_plan_claims_have_one_winner(self):
+        version = self.reserve()
+        results = self.race(lambda c: self.claim(version, c), lambda c: self.claim(version, c))
+        self.assertCountEqual([r["kind"] for r in results], ["claimed", "pending"])
+
+    def test_plan_claim_checks_request_owner_and_terminal_state(self):
+        version = self.reserve()
+        with self.assertRaisesRegex(psycopg.Error, "data_figure_request_conflict"):
+            self.rpc("claim_data_figure_plan", self.user, version["id"], "f" * 64)
+        stranger = uuid4()
+        self.conn.execute("insert into auth.users(id) values (%s)", (stranger,))
+        with self.assertRaisesRegex(psycopg.Error, "data_figure_not_found"):
+            self.rpc("claim_data_figure_plan", stranger, version["id"], "a" * 64)
+        self.settle(version, "cancelled")
+        self.assertEqual(self.claim(version), {"kind": "terminal", "status": "cancelled"})
+
+    def finish_plan(self, version, token, mapping=None, conn=None):
+        from psycopg.types.json import Jsonb
+        return self.rpc("finish_data_figure_plan", self.user, version["id"], token,
+                        Jsonb(mapping if mapping is not None else {"category": "col_1", "value": "col_2"}),
+                        "c" * 64, "mga", "actual-upstream-model", conn=conn)
+
+    def test_plan_finish_binds_mapping_and_model_atomically_then_replays_cached(self):
+        version = self.reserve()
+        token = self.claim(version)["token"]
+        self.assertEqual(self.finish_plan(version, token)["kind"], "cached")
+        cached = self.claim(version)
+        self.assertEqual(cached["mapping"], {"category": "col_1", "value": "col_2"})
+        self.assertEqual(cached["specHash"], "c" * 64)
+        self.assertEqual(cached["model"], "actual-upstream-model")
+        self.assertNotIn("token", cached)
+        self.assertEqual(self.balance(), 3)
+        self.assertEqual(self.finish_plan(version, token), cached)
+        self.assertEqual(self.rpc("get_data_figure", self.user, version["id"])["status"], "awaiting_render")
+
+    def test_plan_finish_requires_private_claim_token(self):
+        version = self.reserve()
+        self.claim(version)
+        with self.assertRaisesRegex(psycopg.Error, "data_figure_claim_conflict"):
+            self.finish_plan(version, uuid4())
+        self.assertEqual(self.rpc("get_data_figure", self.user, version["id"])["status"], "reserved")
+
+    def test_plan_finish_rejects_raw_content_extra_roles_nested_values_and_duplicate_columns(self):
+        version = self.reserve()
+        token = self.claim(version)["token"]
+        for mapping in ({}, {"csv": "private source"}, {"category": {"text": "private"}},
+                        {"category": "col_0"}, {"category": "col_101"}, {"category": "patient-name"},
+                        {"category": "col_1", "value": "col_1"}):
+            with self.subTest(mapping=mapping):
+                with self.assertRaisesRegex(psycopg.Error, "invalid_data_figure_mapping"):
+                    self.finish_plan(version, token, mapping)
+        self.assertEqual(self.claim(version)["kind"], "pending")
+
+    def test_cancel_or_expiry_wins_over_late_plan_without_charge(self):
+        for outcome in ("cancelled", "expired"):
+            version = self.reserve(key=outcome)
+            token = self.claim(version)["token"]
+            if outcome == "cancelled":
+                self.settle(version, outcome)
+            else:
+                self.conn.execute("update member_data_figure_versions set lease_expires_at=now()-interval '1 second' where id=%s",
+                                  (version["id"],))
+            self.assertEqual(self.finish_plan(version, token), {"kind": "terminal", "status": outcome})
+            self.assertEqual(self.claim(version), {"kind": "terminal", "status": outcome})
+            self.assertEqual(self.balance(), 3)
+
+    def test_finished_mapping_is_immutable_and_not_directly_readable(self):
+        version = self.reserve()
+        token = self.claim(version)["token"]
+        self.finish_plan(version, token)
+        with self.assertRaisesRegex(psycopg.Error, "data_figure_plan_conflict"):
+            self.finish_plan(version, token, {"category": "col_3", "value": "col_2"})
+        for role in ("anon", "authenticated", "service_role"):
+            self.assertFalse(self.conn.execute("select has_table_privilege(%s,'public.member_data_figure_plans','select')",
+                                               (role,)).fetchone()[0])
+        for role in ("anon", "authenticated"):
+            for fn in ("claim_data_figure_plan(uuid,uuid,text)", "finish_data_figure_plan(uuid,uuid,uuid,jsonb,text,text,text)"):
+                self.assertFalse(self.conn.execute("select has_function_privilege(%s,%s,'execute')", (role, "public." + fn)).fetchone()[0])
+
+    def test_concurrent_plan_completion_and_cancel_leave_no_renderable_cancelled_version(self):
+        version = self.reserve()
+        token = self.claim(version)["token"]
+        results = self.race(lambda c: self.finish_plan(version, token, conn=c),
+                            lambda c: self.settle(version, "cancelled", conn=c))
+        self.assertTrue(all(isinstance(r, dict) for r in results))
+        self.assertEqual(self.claim(version), {"kind": "terminal", "status": "cancelled"})
+        self.assertEqual(self.balance(), 3)
+
+    def test_parallel_plan_finish_replays_one_immutable_mapping(self):
+        version = self.reserve()
+        token = self.claim(version)["token"]
+        a, b = self.race(lambda c: self.finish_plan(version, token, conn=c),
+                         lambda c: self.finish_plan(version, token, conn=c))
+        self.assertEqual(a, b)
+        self.assertEqual(a["kind"], "cached")
+        self.assertEqual(self.balance(), 3)
+
+    def test_plan_service_role_can_use_private_rpcs_but_other_owner_cannot_finish(self):
+        version = self.reserve()
+        with psycopg.connect(self.uri, autocommit=True) as service:
+            service.execute("set role service_role")
+            token = self.claim(version, service)["token"]
+            self.assertEqual(self.finish_plan(version, token, conn=service)["kind"], "cached")
+        stranger = uuid4()
+        self.conn.execute("insert into auth.users(id) values (%s)", (stranger,))
+        from psycopg.types.json import Jsonb
+        with self.assertRaisesRegex(psycopg.Error, "data_figure_not_found"):
+            self.rpc("finish_data_figure_plan", stranger, version["id"], token,
+                     Jsonb({"category": "col_1"}), "c" * 64, "mga", "actual")
+
+    def test_repeatable_read_plan_racer_must_retry_not_claim_another_call(self):
+        version = self.reserve()
+        with psycopg.connect(self.uri, autocommit=True) as old:
+            old.execute("begin isolation level repeatable read")
+            old.execute("select bonus_balance from member_profiles where user_id=%s", (self.user,))
+            self.claim(version)
+            with self.assertRaises(psycopg.errors.SerializationFailure):
+                self.claim(version, old)
+            old.execute("rollback")
+        self.assertEqual(self.claim(version)["kind"], "pending")
+
 
 if __name__ == "__main__":
     unittest.main()
