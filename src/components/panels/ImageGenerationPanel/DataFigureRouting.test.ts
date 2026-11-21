@@ -39,6 +39,60 @@ async function approve() {
   );
 }
 describe('data figure routing approval', () => {
+  it('requires assessment scores, hides models and emits the exact approved metadata only after a candidate choice', async () => {
+    const assessed = {
+      ...decision,
+      contractVersion: 'jev-data-figure-assessment-v3',
+      assessment: { lengthAdequacy: 0.9, contentReadiness: 0.78 },
+    };
+    const request = vi.fn().mockResolvedValueOnce(decision).mockResolvedValueOnce(assessed);
+    const mounted = mount(request);
+    await mounted.rerender({ assessment: true });
+    await approve();
+    await fireEvent.click(screen.getByRole('button', { name: 'Assess metadata and chart types' }));
+    await screen.findByRole('alert');
+    expect(mounted.emitted().assessed).toBeUndefined();
+    await fireEvent.click(screen.getByRole('button', { name: 'Assess metadata and chart types' }));
+    await screen.findByText('Length adequacy · 90.00');
+    expect(screen.getByText('Content readiness · 78.00')).toBeTruthy();
+    expect(screen.queryByText(/jev-1.13.0/)).toBeNull();
+    expect(mounted.emitted().assessed).toBeUndefined();
+    await fireEvent.click(screen.getByRole('button', { name: /Choose scatter/ }));
+    expect(mounted.emitted().assessed).toEqual([['scatter']]);
+    expect(request.mock.calls[1][0].goal).toBe('Compare the supplied values');
+    await fireEvent.update(screen.getByLabelText('Figure goal'), 'Changed goal');
+    expect(screen.queryByText('Length adequacy · 90.00')).toBeNull();
+    expect(
+      (
+        screen.getByLabelText(
+          'I approve sending exactly this metadata to TypeSafe'
+        ) as HTMLInputElement
+      ).checked
+    ).toBe(false);
+  });
+
+  it('resets a failed request so an explicit retry works, while rapid duplicate clicks do not re-send', async () => {
+    let reject!: (error: Error) => void;
+    const request = vi
+      .fn()
+      .mockImplementationOnce(
+        () =>
+          new Promise((_resolve, fail) => {
+            reject = fail;
+          })
+      )
+      .mockResolvedValue(decision);
+    const mounted = mount(request);
+    await approve();
+    await fireEvent.click(screen.getByRole('button', { name: 'Get template suggestions' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Assessing this metadata…' }));
+    reject(new TypeError('network lost'));
+    await screen.findByRole('alert');
+    expect(request).toHaveBeenCalledOnce();
+    await fireEvent.click(screen.getByRole('button', { name: 'Get template suggestions' }));
+    await screen.findByRole('button', { name: /Choose scatter/ });
+    expect(mounted.request).toHaveBeenCalledTimes(2);
+  });
   it('blocks duplicate submission and locks choices during local rendering without discarding results', async () => {
     let finish!: (value: unknown) => void;
     const request = vi.fn(

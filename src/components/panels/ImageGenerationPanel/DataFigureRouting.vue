@@ -34,7 +34,7 @@
         :disabled="!canRequest || busy || locked || !valid || !approved"
         @click="recommend"
       >
-        {{ busy ? copy.pending : copy.request }}
+        {{ busy ? copy.pending : assessment ? copy.assess : copy.request }}
       </button>
       <button v-if="busy" type="button" @click="invalidate">{{ copy.cancel }}</button>
       <button type="button" :disabled="!profile || locked" @click="manual">
@@ -44,6 +44,10 @@
     <p v-if="error" role="alert">{{ error }}</p>
     <div v-if="result" aria-live="polite">
       <p>{{ copy.advisory }}</p>
+      <template v-if="isDataFigureAssessment(result)">
+        <p>{{ copy.length }} · {{ (result.assessment.lengthAdequacy * 100).toFixed(2) }}</p>
+        <p>{{ copy.content }} · {{ (result.assessment.contentReadiness * 100).toFixed(2) }}</p>
+      </template>
       <p v-if="!result.candidates.length">{{ copy.empty }}</p>
       <ul v-else>
         <li v-for="candidate in result.candidates" :key="candidate.templateId">
@@ -56,7 +60,6 @@
           </button>
         </li>
       </ul>
-      <p>{{ result.model }} · {{ result.policyVersion }} · {{ result.contractVersion }}</p>
       <p v-if="selected" role="status">{{ copy.selected }} {{ selected }}</p>
     </div>
   </section>
@@ -68,6 +71,8 @@ import { useI18n } from 'vue-i18n';
 import type { DataFigureRoutingInput } from '@/backend/_jev/figureRouting';
 import {
   isDataFigureRecommendations,
+  isDataFigureAssessment,
+  type DataFigureAssessment,
   type DataFigureRecommendations,
   type FigureTemplate,
 } from '@/lib/figure/dataFigureTemplates';
@@ -78,11 +83,17 @@ const props = defineProps<{
   profile: CsvProfile | null;
   canRequest: boolean;
   locked?: boolean;
+  assessment?: boolean;
   // Changes to member identity/consent invalidate even a request that never settles after abort.
   contextKey: string;
   request: (input: DataFigureRoutingInput, signal: AbortSignal) => Promise<unknown>;
 }>();
-const emit = defineEmits<{ select: [template: FigureTemplate]; invalidate: []; manual: [] }>();
+const emit = defineEmits<{
+  select: [template: FigureTemplate];
+  invalidate: [];
+  manual: [];
+  assessed: [template: FigureTemplate];
+}>();
 const { locale } = useI18n();
 const copy = computed(() =>
   locale.value.startsWith('zh')
@@ -103,6 +114,9 @@ const copy = computed(() =>
         egress: '实际将发送的内容',
         approve: '我同意将此处显示的摘要发送至 TypeSafe',
         request: '获取图型建议',
+        assess: '评估摘要与图型',
+        length: '摘要长度适切性',
+        content: '摘要内容充分性',
         pending: '正在判断本次摘要…',
         cancel: '取消建议请求',
         manual: '手动选择图型',
@@ -139,6 +153,9 @@ const copy = computed(() =>
         egress: 'Exactly what will be sent',
         approve: 'I approve sending exactly this metadata to TypeSafe',
         request: 'Get template suggestions',
+        assess: 'Assess metadata and chart types',
+        length: 'Length adequacy',
+        content: 'Content readiness',
         pending: 'Assessing this metadata…',
         cancel: 'Cancel suggestions',
         manual: 'Choose a template manually',
@@ -166,7 +183,7 @@ const fields = ref<Field[]>([]),
   approved = ref(false),
   busy = ref(false),
   error = ref('');
-const result = ref<DataFigureRecommendations | null>(null),
+const result = ref<DataFigureRecommendations | DataFigureAssessment | null>(null),
   selected = ref<FigureTemplate | null>(null);
 let epoch = 0,
   controller: AbortController | null = null;
@@ -219,10 +236,17 @@ watch(
   },
   { immediate: true }
 );
-watch([input, () => props.canRequest, () => props.contextKey], invalidate, {
+watch([input, () => props.contextKey, () => props.assessment], invalidate, {
   deep: true,
   flush: 'sync',
 });
+watch(
+  () => props.canRequest,
+  (allowed) => {
+    if (!allowed) invalidate();
+  },
+  { flush: 'sync' }
+);
 async function recommend() {
   if (!props.canRequest || props.locked || !approved.value || !valid.value || busy.value) return;
   const snapshot = JSON.parse(JSON.stringify(input.value)) as DataFigureRoutingInput;
@@ -237,7 +261,9 @@ async function recommend() {
   try {
     const response = await props.request(snapshot, active.signal);
     if (run !== epoch || !props.canRequest) return;
-    if (!isDataFigureRecommendations(response))
+    if (
+      !(props.assessment ? isDataFigureAssessment(response) : isDataFigureRecommendations(response))
+    )
       throw new MemberApiError('invalid_jev_figure_response', 503);
     result.value = response;
   } catch (e) {
@@ -260,6 +286,7 @@ function choose(template: FigureTemplate) {
     return;
   selected.value = template;
   emit('select', template);
+  if (props.assessment && isDataFigureAssessment(result.value)) emit('assessed', template);
 }
 function manual() {
   invalidate();

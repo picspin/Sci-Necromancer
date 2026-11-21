@@ -100,6 +100,7 @@ export function createFigureSpec(
 }
 export const DATA_CHART_TEMPLATE_IDS = Object.keys(FIGURE_TEMPLATES) as FigureTemplate[];
 export const DATA_FIGURE_ROUTING_VERSION = 'jev-data-figure-routing-v2' as const;
+export const DATA_FIGURE_ASSESSMENT_VERSION = 'jev-data-figure-assessment-v3' as const;
 // Existing quota/cache RPC policy; distinct from the data recommendation wire format.
 export const FIGURE_ROUTING_POLICY_VERSION = 'jev-figure-routing-v1' as const;
 
@@ -133,6 +134,48 @@ export interface DataFigureRecommendations {
   contractVersion: typeof DATA_FIGURE_ROUTING_VERSION;
   provider: 'typesafe';
   model: 'jev-1.13.0';
+}
+
+export interface DataFigureAssessment extends Omit<DataFigureRecommendations, 'contractVersion'> {
+  contractVersion: typeof DATA_FIGURE_ASSESSMENT_VERSION;
+  assessment: { lengthAdequacy: number; contentReadiness: number };
+}
+
+export function isDataFigureAssessment(value: unknown): value is DataFigureAssessment {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const result = value as Record<string, unknown>;
+  const scores = result.assessment;
+  if (
+    Object.keys(result).length !== 6 ||
+    Object.keys(result).some(
+      (k) =>
+        ![
+          'candidates',
+          'policyVersion',
+          'contractVersion',
+          'provider',
+          'model',
+          'assessment',
+        ].includes(k)
+    ) ||
+    result.contractVersion !== DATA_FIGURE_ASSESSMENT_VERSION ||
+    !scores ||
+    typeof scores !== 'object' ||
+    Array.isArray(scores) ||
+    Object.keys(scores).length !== 2 ||
+    !['lengthAdequacy', 'contentReadiness'].every((k) => {
+      const n = (scores as Record<string, unknown>)[k];
+      return typeof n === 'number' && Number.isFinite(n) && n >= 0 && n <= 1;
+    })
+  )
+    return false;
+  return isDataFigureRecommendations({
+    candidates: result.candidates,
+    policyVersion: result.policyVersion,
+    provider: result.provider,
+    model: result.model,
+    contractVersion: DATA_FIGURE_ROUTING_VERSION,
+  });
 }
 
 /** Fail closed for both cached JSON and client responses; no unknown IDs or extra payload. */

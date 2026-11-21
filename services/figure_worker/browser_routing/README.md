@@ -10,6 +10,8 @@ Playwright MCP 的 run-code 工具可加载本目录 `interaction-check.js`（�
 
 ## 2026-10-30 验证记录
 
+2026-11-21更新：当前harness改为 `assessment:true` / v3，增加长度适切性90.00、内容充分性78.00的固定合成分数，验证会员界面不展示模型名。实际Chrome157重跑interaction-check通过：原有状态/迟到结果/四档宽度和键盘检查保留，观察到page error与外站请求0。这些分数不是上游实际评测；旧last-run历史记录不冒充本次v3。完整环境、回归和部署影响见[本轮记录](../../../docs/specs/2026-11-21-member-figure-workspace.md)。
+
 - 假设：多个独立建议、精确 metadata 确认和手动选择可以接入现有工作区，同时拒绝过期结果和畸形协议，而不上传原始 CSV 或引入计费。
 - 配置：固定合成两字段，无随机性；固定 `jev-1.13.0` / `jev-data-figure-routing-v2` 标记仅用于协议测试。浏览器运行环境与依赖版本沿用相邻 `browser_workspace` 的锁定 Pyodide 基线；TypeSafe 调用次数与费用均为 0。真实会员生成、模型质量、性能改进、无代理中国网络可达性不在此验证范围。
 - 结果：未勾选不能请求；记录的首个请求仅有 `action`、`kind`、`input.fields`（col_N 别名/类型）及 `input.goal`，不含原始列名/逐行值/数据哈希。返回两项建议后保持未选择，显式点击才选择。目标修改清除审批和建议。

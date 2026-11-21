@@ -1,7 +1,10 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/vue';
 import { createI18n } from 'vue-i18n';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { ref } from 'vue';
 import DataFigureWorkspace from './DataFigureWorkspace.vue';
+
+const memberUser = ref<{ id: string } | null>({ id: 'member-1' });
 
 const { inspect, localRender, dispose, figureRoute } = vi.hoisted(() => ({
   inspect: vi.fn(),
@@ -15,7 +18,7 @@ vi.mock('@/src/composables/useMembership', () => ({
     status: { value: { bonusBalance: 10 } },
     jevEnabled: { value: true },
     jevConsent: { value: { accepted: true, version: 'typesafe-member-2026-09-21-v1' } },
-    user: { value: { id: 'member-1' } },
+    user: memberUser,
     memberApi: { figureRoute },
   }),
 }));
@@ -38,9 +41,19 @@ function mount(canRender = true) {
 }
 afterEach(() => {
   vi.clearAllMocks();
+  memberUser.value = { id: 'member-1' };
 });
 
 describe('data figure workspace', () => {
+  it('clears raw data when switching directly between two authenticated accounts', async () => {
+    mount();
+    await fireEvent.click(screen.getByRole('button', { name: 'Load synthetic example' }));
+    memberUser.value = { id: 'member-2' };
+    await waitFor(() =>
+      expect((screen.getByLabelText('CSV content') as HTMLTextAreaElement).value).toBe('')
+    );
+    expect(dispose).toHaveBeenCalled();
+  });
   it('wires approved metadata to the member API, applies only explicit selection and clears the frozen plan', async () => {
     inspect.mockResolvedValue({
       dataset_sha256: 'a'.repeat(64),
@@ -56,7 +69,8 @@ describe('data figure workspace', () => {
       decision: {
         candidates: [{ templateId: 'scatter', suitability: 0.95 }],
         policyVersion: 'jev-figure-routing-v1',
-        contractVersion: 'jev-data-figure-routing-v2',
+        contractVersion: 'jev-data-figure-assessment-v3',
+        assessment: { lengthAdequacy: 0.9, contentReadiness: 0.88 },
         provider: 'typesafe',
         model: 'jev-1.13.0',
       },
@@ -69,7 +83,7 @@ describe('data figure workspace', () => {
     await fireEvent.click(
       screen.getByLabelText('I approve sending exactly this metadata to TypeSafe')
     );
-    await fireEvent.click(screen.getByRole('button', { name: 'Get template suggestions' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Assess metadata and chart types' }));
     await screen.findByRole('button', { name: /Choose scatter/ });
     expect((screen.getByLabelText('Chart type') as HTMLSelectElement).value).toBe('grouped-bar');
     await fireEvent.click(screen.getByRole('button', { name: /Choose scatter/ }));
@@ -82,6 +96,7 @@ describe('data figure workspace', () => {
     expect(figureRoute).toHaveBeenCalledWith(
       {
         kind: 'data-template',
+        assessment: true,
         input: {
           goal: 'Compare fields',
           fields: [
@@ -135,6 +150,17 @@ describe('data figure workspace', () => {
     expect(screen.getByText(/Sign in with a positive credit balance/)).toBeTruthy();
   });
   it('requires a frozen plan confirmation, invalidates changed parameters and renders a real Worker result', async () => {
+    figureRoute.mockResolvedValue({
+      kind: 'data-template',
+      decision: {
+        candidates: [{ templateId: 'grouped-bar', suitability: 0.95 }],
+        policyVersion: 'jev-figure-routing-v1',
+        contractVersion: 'jev-data-figure-assessment-v3',
+        provider: 'typesafe',
+        model: 'jev-1.13.0',
+        assessment: { lengthAdequacy: 0.9, contentReadiness: 0.88 },
+      },
+    });
     inspect.mockResolvedValue({
       dataset_sha256: 'a'.repeat(64),
       row_count: 2,
@@ -156,10 +182,24 @@ describe('data figure workspace', () => {
         runtime_dependencies: { python: '3.14.2' },
       },
     });
-    mount();
+    const mounted = mount();
     await fireEvent.click(screen.getByRole('button', { name: 'Load synthetic example' }));
     await fireEvent.click(screen.getByRole('button', { name: 'Inspect local CSV' }));
     await screen.findByText('2 rows · 2 columns');
+    // Even a valid manual mapping cannot bypass the assessment before rendering.
+    await fireEvent.update(screen.getByLabelText('category'), 'col_1');
+    await fireEvent.update(screen.getByLabelText('value'), 'col_2');
+    await fireEvent.update(screen.getByLabelText('Unit · value'), 'patients');
+    expect(
+      (screen.getByLabelText('I confirm the fields, units and frozen plan') as HTMLInputElement)
+        .disabled
+    ).toBe(true);
+    await fireEvent.update(screen.getByLabelText('Figure goal'), 'Compare supplied values');
+    await fireEvent.click(
+      screen.getByLabelText('I approve sending exactly this metadata to TypeSafe')
+    );
+    await fireEvent.click(screen.getByRole('button', { name: 'Assess metadata and chart types' }));
+    await fireEvent.click(await screen.findByRole('button', { name: /Choose grouped-bar/ }));
     await fireEvent.update(screen.getByLabelText('category'), 'col_1');
     await fireEvent.update(screen.getByLabelText('value'), 'col_2');
     await fireEvent.update(screen.getByLabelText('Unit · value'), 'patients');
@@ -185,6 +225,13 @@ describe('data figure workspace', () => {
         }) as HTMLButtonElement
       ).disabled
     ).toBe(true);
+    await mounted.rerender({ canStart: false });
+    expect(screen.getByAltText('Data figure preview')).toBeTruthy();
+    expect(
+      (screen.getByRole('button', { name: 'Render local validation preview' }) as HTMLButtonElement)
+        .disabled
+    ).toBe(true);
+    await mounted.rerender({ canStart: true });
     await fireEvent.update(screen.getByLabelText('Journal-inspired style'), 'lancet');
     await waitFor(() => expect(screen.queryByAltText('Data figure preview')).toBeNull());
     expect(

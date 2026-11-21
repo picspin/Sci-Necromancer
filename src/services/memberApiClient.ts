@@ -2,7 +2,9 @@ import type { MGAResearchAgentId } from '@/lib/capabilities/managedResearchCapab
 import type { AcceptedMemberTextModel } from '@/lib/llm/memberTextModels';
 import {
   isDataFigureRecommendations,
+  isDataFigureAssessment,
   type DataFigureRecommendations,
+  type DataFigureAssessment,
 } from '@/lib/figure/dataFigureTemplates';
 import type {
   MemberBlindPreflight,
@@ -144,7 +146,7 @@ export interface JevAnalysisResponse {
 }
 
 export type FigureRouteRequest =
-  | { kind: 'data-template'; input: DataFigureRoutingInput }
+  | { kind: 'data-template'; input: DataFigureRoutingInput; assessment?: true }
   | { kind: 'illustration-category'; input: IllustrationCategoryRoutingInput }
   | { kind: 'illustration-journal'; input: IllustrationJournalRoutingInput }
   | { kind: 'illustration-prompt'; input: PromptCompletenessInput }
@@ -152,7 +154,11 @@ export type FigureRouteRequest =
 
 export interface FigureRouteResponse {
   kind: FigureRouteRequest['kind'];
-  decision: FigureRoutingDecision<string> | PromptCompletenessDecision | DataFigureRecommendations;
+  decision:
+    | FigureRoutingDecision<string>
+    | PromptCompletenessDecision
+    | DataFigureRecommendations
+    | DataFigureAssessment;
   remaining: number;
   cached: boolean;
 }
@@ -187,8 +193,13 @@ export function createMemberApiClient(options: MemberApiClientOptions) {
       if (init.signal?.aborted) abortFromCaller();
       else init.signal?.addEventListener('abort', abortFromCaller, { once: true });
       const timeout = globalThis.setTimeout(() => controller.abort(), timeoutMs);
+      const dispose = () => {
+        globalThis.clearTimeout(timeout);
+        init.signal?.removeEventListener('abort', abortFromCaller);
+        controller.abort();
+      };
       try {
-        return await fetcher(`${baseUrl}${path}`, {
+        const response = await fetcher(`${baseUrl}${path}`, {
           ...init,
           signal: controller.signal,
           headers: {
@@ -198,9 +209,10 @@ export function createMemberApiClient(options: MemberApiClientOptions) {
             ...(init.headers || {}),
           },
         });
-      } finally {
-        globalThis.clearTimeout(timeout);
-        init.signal?.removeEventListener('abort', abortFromCaller);
+        return { response, dispose };
+      } catch (error) {
+        dispose();
+        throw error;
       }
     };
 
@@ -210,14 +222,18 @@ export function createMemberApiClient(options: MemberApiClientOptions) {
     let lastTransportError: unknown;
 
     for (const [index, baseUrl] of requestBaseUrls.entries()) {
+      let attempt: Awaited<ReturnType<typeof performRequest>> | undefined;
       try {
-        let response = await performRequest(baseUrl, token);
+        attempt = await performRequest(baseUrl, token);
+        let response = attempt.response;
         if (response.status === 401 && options.refreshAccessToken && !refreshed) {
           refreshed = true;
+          attempt.dispose();
           const refreshedToken = await options.refreshAccessToken();
           if (refreshedToken) {
             token = refreshedToken;
-            response = await performRequest(baseUrl, token);
+            attempt = await performRequest(baseUrl, token);
+            response = attempt.response;
           }
         }
         if (!response.ok) {
@@ -241,6 +257,8 @@ export function createMemberApiClient(options: MemberApiClientOptions) {
       } catch (requestError) {
         if (requestError instanceof MemberApiError || init.signal?.aborted) throw requestError;
         lastTransportError = requestError;
+      } finally {
+        attempt?.dispose();
       }
     }
 
@@ -281,7 +299,10 @@ export function createMemberApiClient(options: MemberApiClientOptions) {
       if ('error' in result) throw new MemberApiError(result.error, 202);
       if (
         input.kind === 'data-template' &&
-        (result.kind !== 'data-template' || !isDataFigureRecommendations(result.decision))
+        (result.kind !== 'data-template' ||
+          !(input.assessment
+            ? isDataFigureAssessment(result.decision)
+            : isDataFigureRecommendations(result.decision)))
       ) {
         throw new MemberApiError('invalid_jev_figure_response', 503);
       }

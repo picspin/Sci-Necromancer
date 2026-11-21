@@ -4,7 +4,7 @@ import { createI18n } from 'vue-i18n';
 import DataFigureRouting from '../../../src/components/panels/ImageGenerationPanel/DataFigureRouting.vue';
 import { createMemberApiClient } from '../../../src/services/memberApiClient';
 import type { DataFigureRoutingInput } from '../../../backend/_jev/figureRouting';
-import { DATA_FIGURE_ROUTING_VERSION } from '../../../lib/figure/dataFigureTemplates';
+import { DATA_FIGURE_ASSESSMENT_VERSION } from '../../../lib/figure/dataFigureTemplates';
 if (!import.meta.env.DEV) throw new Error('Development-only harness');
 const scenario = ref('multiple'),
   allowed = ref(true),
@@ -47,7 +47,8 @@ const client = createMemberApiClient({
               decision: {
                 candidates,
                 policyVersion: 'jev-figure-routing-v1',
-                contractVersion: DATA_FIGURE_ROUTING_VERSION,
+                contractVersion: DATA_FIGURE_ASSESSMENT_VERSION,
+                assessment: { lengthAdequacy: 0.9, contentReadiness: 0.78 },
                 provider: 'typesafe',
                 model: 'jev-1.13.0',
               },
@@ -61,7 +62,8 @@ const client = createMemberApiClient({
   },
 });
 async function request(input: DataFigureRoutingInput, signal: AbortSignal) {
-  return (await client.figureRoute({ kind: 'data-template', input }, signal)).decision;
+  return (await client.figureRoute({ kind: 'data-template', assessment: true, input }, signal))
+    .decision;
 }
 createApp({
   setup: () => () =>
@@ -126,6 +128,7 @@ createApp({
         'Change identity'
       ),
       h(DataFigureRouting, {
+        assessment: true,
         profile: profile.value,
         canRequest: allowed.value,
         contextKey: context.value,

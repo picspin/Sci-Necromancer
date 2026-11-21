@@ -1,6 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createHash } from 'node:crypto';
-import { buildDataFigureRoutingRequest } from '../../../backend/_jev/figureRouting';
+import {
+  buildDataFigureRoutingRequest,
+  buildDataFigureAssessmentRequest,
+  parseDataFigureAssessmentResponse,
+} from '../../../backend/_jev/figureRouting';
 import { DATA_FIGURE_ROUTING_VERSION } from '../../../lib/figure/dataFigureTemplates';
 import {
   DATA_CHART_TEMPLATE_IDS,
@@ -80,6 +84,92 @@ describe('member figure-routing API', () => {
     mocks.reserve.mockResolvedValue({ kind: 'reserved', reservationId: ID, remaining: 29 });
     mocks.settle.mockResolvedValue(undefined);
   });
+
+  it('uses the assessed metadata contract in one call with an isolated cache and unchanged policy', async () => {
+    process.env.TYPESAFE_JEV_DATA_FIGURE_ROUTING_ENABLED = 'true';
+    const input = {
+      fields: [{ alias: 'col_1', type: 'continuous' as const }],
+      goal: 'Show values',
+    };
+    const payload = {
+      model: 'jev-1.13.0',
+      answers: {
+        ...Object.fromEntries(
+          DATA_CHART_TEMPLATE_IDS.map((id) => [
+            id,
+            { type: 'noul', noul: id === 'distribution' ? 0.95 : 0.1 },
+          ])
+        ),
+        metadata_length: { type: 'noul', noul: 0.9 },
+        metadata_content: { type: 'noul', noul: 0.88 },
+      },
+    };
+    mocks.requestJev.mockResolvedValue(payload);
+    const req = request('data-template', input);
+    req.body.assessment = true;
+    const res = response();
+    await handler(req, res);
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(mocks.requestJev).toHaveBeenCalledExactlyOnceWith(
+      buildDataFigureAssessmentRequest(input)
+    );
+    expect(mocks.reserve).toHaveBeenCalledWith(
+      'data-template',
+      createHash('sha256')
+        .update(
+          JSON.stringify({
+            kind: 'data-template',
+            version: 'jev-data-figure-assessment-v3',
+            request: buildDataFigureAssessmentRequest(input),
+          })
+        )
+        .digest('hex')
+    );
+    const decision = parseDataFigureAssessmentResponse(payload);
+    expect(res.json).toHaveBeenCalledWith({
+      kind: 'data-template',
+      decision,
+      cached: false,
+      remaining: 29,
+    });
+    mocks.reserve.mockResolvedValue({
+      kind: 'cached',
+      result: { kind: 'data-template', decision },
+      remaining: 28,
+    });
+    const cached = response();
+    await handler(req, cached);
+    expect(cached.status).toHaveBeenCalledWith(200);
+    expect(mocks.requestJev).toHaveBeenCalledOnce();
+    const old = { ...decision, contractVersion: 'jev-data-figure-routing-v2' } as any;
+    delete old.assessment;
+    mocks.reserve.mockResolvedValue({
+      kind: 'cached',
+      result: { kind: 'data-template', decision: old },
+      remaining: 28,
+    });
+    const wrongCache = response();
+    await handler(req, wrongCache);
+    expect(wrongCache.status).toHaveBeenCalledWith(503);
+    expect(mocks.requestJev).toHaveBeenCalledOnce();
+  });
+
+  it.each(['true', false, {}, null])(
+    'rejects ambiguous assessment mode %j without a reservation',
+    async (assessment) => {
+      process.env.TYPESAFE_JEV_DATA_FIGURE_ROUTING_ENABLED = 'true';
+      const req = request('data-template', {
+        fields: [{ alias: 'col_1', type: 'continuous' }],
+        goal: 'Show values',
+      });
+      req.body.assessment = assessment;
+      const res = response();
+      await handler(req, res);
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(mocks.reserve).not.toHaveBeenCalled();
+      expect(mocks.requestJev).not.toHaveBeenCalled();
+    }
+  );
 
   it('keeps both routes disabled without auth or an external call', async () => {
     const res = response();

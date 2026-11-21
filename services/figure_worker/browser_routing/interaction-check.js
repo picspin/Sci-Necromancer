@@ -12,7 +12,10 @@ async function checkDataFigureRouting(page) {
     const approval = page.getByLabel('I approve sending exactly this metadata to TypeSafe', {
       exact: true,
     });
-    const submit = page.getByRole('button', { name: 'Get template suggestions', exact: true });
+    const submit = page.getByRole('button', {
+      name: 'Assess metadata and chart types',
+      exact: true,
+    });
     const choose = page.getByRole('button', { name: 'Choose scatter · 93.00', exact: true });
     const selection = page.getByLabel('Selection', { exact: true });
     if (await submit.isEnabled()) throw new Error('Approval bypass');
@@ -20,6 +23,9 @@ async function checkDataFigureRouting(page) {
     await approval.check();
     await submit.click();
     await choose.waitFor();
+    await page.getByText('Length adequacy · 90.00', { exact: true }).waitFor();
+    await page.getByText('Content readiness · 78.00', { exact: true }).waitFor();
+    if (await page.getByText(/jev-1.13.0/).count()) throw new Error('Model exposed in member UI');
     if ((await selection.textContent()) !== 'none') throw new Error('Automatic selection');
     await choose.click();
     if ((await selection.textContent()) !== 'scatter') throw new Error('Selection not applied');

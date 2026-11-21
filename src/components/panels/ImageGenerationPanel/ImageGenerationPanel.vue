@@ -79,7 +79,8 @@
     <!-- Main Content Grid -->
     <DataFigureWorkspace
       v-if="dataWorkspaceOpen"
-      :can-render="
+      :can-render="membership.isAuthenticated.value"
+      :can-start="
         membership.isAuthenticated.value && (membership.status.value?.bonusBalance ?? 0) > 0
       "
     />

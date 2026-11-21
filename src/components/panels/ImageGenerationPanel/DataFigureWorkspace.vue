@@ -8,10 +8,10 @@
       <span class="validation-badge">{{ copy.validation }}</span>
     </header>
     <p class="notice">{{ copy.boundary }}</p>
-    <p v-if="!canRender" class="notice" role="status">{{ copy.access }}</p>
+    <p v-if="!canStart" class="notice" role="status">{{ copy.access }}</p>
     <div class="figure-grid">
       <div class="figure-controls">
-        <fieldset :disabled="busy || !canRender">
+        <fieldset :disabled="busy || !canStart">
           <legend>01 · {{ copy.data }}</legend>
           <label class="file-label"
             >{{ copy.file }}<input type="file" accept=".csv,text/csv" @change="loadFile"
@@ -43,16 +43,17 @@
         </fieldset>
         <DataFigureRouting
           v-if="profile"
+          assessment
           :profile="profile"
           :can-request="routingAllowed"
           :locked="busy"
           :context-key="routingContext"
           :request="requestRouting"
-          @select="selectRoutingTemplate"
+          @assessed="selectRoutingTemplate"
           @invalidate="invalidateRoutingPlan"
           @manual="templateSelect?.focus()"
         />
-        <fieldset :disabled="busy || !profile || !canRender">
+        <fieldset :disabled="busy || !profile || !canStart">
           <legend>02 · {{ copy.plan }}</legend>
           <label
             >{{ copy.template
@@ -122,11 +123,16 @@
           </details>
           <p v-if="profile && !plan" class="fine-print">{{ copy.invalidPlan }}</p>
           <label class="confirmation"
-            ><input v-model="confirmed" type="checkbox" :disabled="!plan" />{{
+            ><input v-model="confirmed" type="checkbox" :disabled="!plan || !assessmentMatches" />{{
               copy.confirm
             }}</label
           >
-          <button type="button" :disabled="!confirmed || !plan" @click="renderPreview">
+          <p v-if="!assessmentMatches" class="fine-print" role="status">{{ copy.assessFirst }}</p>
+          <button
+            type="button"
+            :disabled="!confirmed || !plan || !assessmentMatches"
+            @click="renderPreview"
+          >
             {{ copy.render }}
           </button>
         </fieldset>
@@ -185,12 +191,18 @@ import {
   type FigureTemplate,
 } from '@/src/services/browserFigures';
 
-const props = defineProps<{ canRender: boolean }>();
+const props = withDefaults(
+  defineProps<{ canRender: boolean; canStart?: boolean; localValidation?: boolean }>(),
+  { canStart: true }
+);
+// Only the unshipped development harness bypasses member preflight; never a production permission.
+const localValidation = import.meta.env.DEV && props.localValidation === true;
+const canStart = computed(() => props.canRender && props.canStart !== false);
 const membership = useMembership();
 const templateSelect = ref<HTMLSelectElement | null>(null);
 const routingAllowed = computed(
   () =>
-    props.canRender &&
+    canStart.value &&
     membership.isAuthenticated.value &&
     (membership.status.value?.bonusBalance ?? 0) > 0 &&
     membership.jevEnabled.value &&
@@ -201,14 +213,18 @@ const routingContext = computed(
 );
 async function requestRouting(input: DataFigureRoutingInput, signal: AbortSignal) {
   if (!routingAllowed.value) throw new MemberApiError('jev_access_required', 403);
-  const response = await membership.memberApi.figureRoute({ kind: 'data-template', input }, signal);
+  const response = await membership.memberApi.figureRoute(
+    { kind: 'data-template', assessment: true, input },
+    signal
+  );
   if (response.kind !== 'data-template')
     throw new MemberApiError('invalid_jev_figure_response', 503);
   return response.decision;
 }
 function invalidateRoutingPlan() {
   confirmed.value = false;
-  preview.value = null;
+  if (canStart.value) preview.value = null;
+  assessedTemplate.value = null;
   importedPlan.value = '';
   mapping.value = {};
   units.value = {};
@@ -217,6 +233,7 @@ function invalidateRoutingPlan() {
 function selectRoutingTemplate(selected: FigureTemplate) {
   invalidateRoutingPlan();
   template.value = selected;
+  assessedTemplate.value = selected;
 }
 const { locale } = useI18n();
 const zh = computed(() => locale.value.startsWith('zh'));
@@ -252,6 +269,7 @@ const copy = computed(() =>
           '仅接受现有模板的严格 JSON，不执行 Python、URL 或脚本。缺失值、区间、分母及雷达轴必须明确，不能由模型捏造。',
         showPlan: '查看冻结方案',
         confirm: '我确认字段、单位与冻结方案',
+        assessFirst: '请先确认字段摘要，完成判别评估并选择匹配图型；再核对冻结方案。',
         render: '渲染本地验证预览',
         cancel: '取消并释放运行时',
         preview: '预览',
@@ -304,6 +322,8 @@ const copy = computed(() =>
           'Strict JSON for existing templates only. No Python, URLs or scripts. Intervals, denominators and radar axes must be explicit, never invented.',
         showPlan: 'View frozen plan',
         confirm: 'I confirm the fields, units and frozen plan',
+        assessFirst:
+          'Approve metadata, complete its assessment and choose a matching chart before confirming the frozen plan.',
         render: 'Render local validation preview',
         cancel: 'Cancel and release runtime',
         preview: 'Preview',
@@ -337,6 +357,13 @@ const profile = ref<CsvProfile | null>(null),
   preview = ref<BrowserFigurePreview | null>(null);
 const template = ref<FigureTemplate>('grouped-bar'),
   style = ref<FigureStyle>('nature');
+const assessedTemplate = ref<FigureTemplate | null>(null);
+const assessmentMatches = computed(
+  () =>
+    localValidation ||
+    (assessedTemplate.value === template.value &&
+      (!importedPlan.value.trim() || plan.value?.template_id === assessedTemplate.value))
+);
 const mapping = ref<Record<string, string>>({}),
   units = ref<Record<string, string>>({});
 const optionsText = ref(''),
@@ -404,11 +431,12 @@ watch(
   [template, style, mapping, units, optionsText, importedPlan],
   () => {
     confirmed.value = false;
-    preview.value = null;
+    if (canStart.value) preview.value = null;
   },
   { deep: true, flush: 'sync' }
 );
 watch(template, () => {
+  if (assessedTemplate.value !== template.value) assessedTemplate.value = null;
   mapping.value = {};
   units.value = {};
   optionsText.value = '';
@@ -423,7 +451,17 @@ watch(
     }
   }
 );
+watch(
+  () => membership.user.value?.id,
+  () => {
+    cancel();
+    resetDataset();
+    csvText.value = '';
+  },
+  { flush: 'sync' }
+);
 function resetDataset() {
+  assessedTemplate.value = null;
   profile.value = null;
   payload = null;
   preview.value = null;
@@ -439,7 +477,7 @@ function loadExample() {
   csvText.value = 'Category,Value\nTreatment,12\nControl,9\n';
 }
 async function loadFile(event: Event) {
-  if (!props.canRender || busy.value) return;
+  if (!canStart.value || busy.value) return;
   const input = event.target as HTMLInputElement,
     file = input.files?.[0];
   if (!file) return;
@@ -465,7 +503,7 @@ async function loadFile(event: Event) {
   }
 }
 async function inspect() {
-  if (!props.canRender || busy.value) return;
+  if (!canStart.value || busy.value) return;
   resetDataset();
   const run = ++operation;
   busy.value = true;
@@ -485,7 +523,15 @@ async function inspect() {
   }
 }
 async function renderPreview() {
-  if (!props.canRender || busy.value || !confirmed.value || !plan.value || !payload) return;
+  if (
+    !canStart.value ||
+    busy.value ||
+    !confirmed.value ||
+    !plan.value ||
+    !payload ||
+    !assessmentMatches.value
+  )
+    return;
   const frozen = JSON.parse(JSON.stringify(plan.value));
   const run = ++operation;
   busy.value = true;

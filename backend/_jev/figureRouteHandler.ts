@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import type { VercelRequest, VercelResponse } from '../_types/vercel.js';
 import {
   buildDataFigureRoutingRequest,
+  buildDataFigureAssessmentRequest,
   buildIllustrationCategoryRequest,
   buildIllustrationJournalRequest,
   buildIllustrationRetryRequest,
@@ -11,6 +12,7 @@ import {
   ILLUSTRATION_RETRY_CHOICES,
   JOURNAL_STYLE_IDS,
   parseDataFigureRoutingResponse,
+  parseDataFigureAssessmentResponse,
   parseIllustrationCategoryResponse,
   parseIllustrationJournalResponse,
   parseIllustrationRetryResponse,
@@ -22,8 +24,11 @@ import {
 import { createFigureRoutePolicy, type FigureRouteKind } from './figureRoutePolicy.js';
 import {
   DATA_FIGURE_ROUTING_VERSION,
+  DATA_FIGURE_ASSESSMENT_VERSION,
+  isDataFigureAssessment,
   isDataFigureRecommendations,
   type DataFigureRecommendations,
+  type DataFigureAssessment,
 } from '../../lib/figure/dataFigureTemplates.js';
 import { MemberServiceError } from '../_member/memberService.js';
 import { TypesafeJevError } from './typesafe.js';
@@ -69,10 +74,15 @@ function hasOnlyKeys(value: Record<string, unknown>, keys: readonly string[]) {
 
 function validCachedDecision(
   value: unknown,
-  kind: FigureRouteKind
+  kind: FigureRouteKind,
+  assessment: boolean
 ): value is {
   kind: FigureRouteKind;
-  decision: FigureRoutingDecision<string> | PromptCompletenessDecision | DataFigureRecommendations;
+  decision:
+    | FigureRoutingDecision<string>
+    | PromptCompletenessDecision
+    | DataFigureRecommendations
+    | DataFigureAssessment;
 } {
   if (
     !isRecord(value) ||
@@ -82,7 +92,8 @@ function validCachedDecision(
   )
     return false;
   const decision = value.decision;
-  if (kind === 'data-template') return isDataFigureRecommendations(decision);
+  if (kind === 'data-template')
+    return assessment ? isDataFigureAssessment(decision) : isDataFigureRecommendations(decision);
   const allowed = ROUTES[kind].allowed as readonly string[];
   if (kind === 'illustration-prompt') {
     const dimensions = ['subject', 'layout', 'relationships', 'style', 'constraints'];
@@ -146,11 +157,16 @@ export async function handleFigureRoute(request: VercelRequest, response: Vercel
     return response.status(404).json({ error: 'jev_figure_route_disabled' });
 
   try {
+    const assessment = request.body?.assessment === true;
+    if (request.body?.assessment !== undefined && (!assessment || routeKind !== 'data-template'))
+      throw new MemberServiceError('invalid_jev_figure_route', 400);
     const input = request.body?.input;
     // Every branch uses its own typed, bounded request builder; neither receives raw data rows.
     const nativeRequest =
       routeKind === 'data-template'
-        ? buildDataFigureRoutingRequest(input)
+        ? assessment
+          ? buildDataFigureAssessmentRequest(input)
+          : buildDataFigureRoutingRequest(input)
         : routeKind === 'illustration-category'
           ? buildIllustrationCategoryRequest(input)
           : routeKind === 'illustration-journal'
@@ -165,7 +181,9 @@ export async function handleFigureRoute(request: VercelRequest, response: Vercel
           kind: routeKind,
           version:
             routeKind === 'data-template'
-              ? DATA_FIGURE_ROUTING_VERSION
+              ? assessment
+                ? DATA_FIGURE_ASSESSMENT_VERSION
+                : DATA_FIGURE_ROUTING_VERSION
               : FIGURE_ROUTING_POLICY_VERSION,
           request: nativeRequest,
         })
@@ -176,7 +194,7 @@ export async function handleFigureRoute(request: VercelRequest, response: Vercel
     const policy = createFigureRoutePolicy(createScopedMemberRpcClient(admin, user.id));
     const reservation = await policy.reserve(routeKind, key);
     if (reservation.kind === 'cached') {
-      if (!validCachedDecision(reservation.result, routeKind))
+      if (!validCachedDecision(reservation.result, routeKind, assessment))
         throw new MemberServiceError('jev_figure_policy_unavailable', 503);
       return response.status(200).json({
         ...reservation.result,
@@ -197,7 +215,9 @@ export async function handleFigureRoute(request: VercelRequest, response: Vercel
       const payload = await requestTypesafeFigureRouting(nativeRequest);
       const decision =
         routeKind === 'data-template'
-          ? parseDataFigureRoutingResponse(payload)
+          ? assessment
+            ? parseDataFigureAssessmentResponse(payload)
+            : parseDataFigureRoutingResponse(payload)
           : routeKind === 'illustration-category'
             ? parseIllustrationCategoryResponse(payload)
             : routeKind === 'illustration-journal'
