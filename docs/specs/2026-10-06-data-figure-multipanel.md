@@ -13,6 +13,20 @@
 7. 首例为独立合成的放射影像模型验证：条形、作者提供的点区间、原始矩阵；不计算 AUC 或 CI。
 8. 不新增依赖、模型调用、文件上传、生产接口、私有存储、数据库任务或计费；后续部署另行确认。
 
+## 条形面板的组颜色与组顺序契约
+
+- 取色按**面板内的组顺序**（首次出现顺序）：`_draw_grouped_bar` 用 `color=COLORS[group_index]`
+  （`services/figure_worker/render.py`，`group_index` 是该组在本面板内 `dict.fromkeys` 得到的序号）。
+  同一组名在单面板内颜色因此只取决于它在面板中的位置。
+- 为避免同名组在多个条形面板中被换成不同颜色，组合层把“**所有条形面板必须共享同一组集合、
+  且顺序一致**”作为硬性不变量：`validate_csv_multipanel_spec`（`services/figure_worker/multipanel.py`）
+  用 `group_colors.setdefault(group, index) != index` 检查，任何条形面板只要组集合或组顺序与
+  其它条形面板不同，就整体拒绝并报 `inconsistent_multipanel_group_order`。
+- 因此，**一个子集条形面板（例如只含 `Example`，而另一面板含 `Baseline`、`Example`）不能参与组合**：
+  它不是静默换色，而是直接拒绝；组合方案必须让所有条形面板携带相同的组集合与相同顺序。
+  “总览面板 + 只看某一方法的面板”这类自然组合当前无法表达，需调用方自行裁剪为相同组集合。
+- 该约束只作用于条形（grouped-bar）面板；heatmap、dot-interval 面板不受影响。
+
 ## 验收计划
 
 - 重构前后比较旧模板各风格的三格式哈希，并运行现有全部 Python 回归。

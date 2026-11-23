@@ -278,7 +278,12 @@ def validate_volcano_options(
     fold_threshold: int | float | str | Decimal,
     zero_p_floor: int | float | str | Decimal | None,
 ) -> tuple[Decimal, Decimal, Decimal | None]:
-    """Shared by intake and renderer: explicit existing-P semantics, never FDR."""
+    """Shared by intake and renderer: explicit existing-P semantics, never FDR.
+
+    ``fold_threshold`` is expressed in log2 fold-change units, not in raw fold
+    change: the supplied ``log2fc`` column is compared and plotted on the log2
+    axis, so a threshold of ``1`` means a 2-fold change and ``2`` means 4-fold.
+    """
     if p_kind not in ("p", "adjusted_p"):
         raise DatasetError("invalid_volcano_p_kind")
     values = []
@@ -776,7 +781,11 @@ def validate_volcano(
     fold_threshold: int | float | str | Decimal,
     zero_p_floor: int | float | str | Decimal | None = None,
 ) -> VolcanoData:
-    """Display existing differential results; no tests, adjustments or zero inference."""
+    """Display existing differential results; no tests, adjustments or zero inference.
+
+    ``fold_threshold`` is in log2 fold-change units (1 => 2-fold, 2 => 4-fold);
+    it is compared against the supplied ``log2fc`` column, never a raw ratio.
+    """
     p_limit, fold_limit, floor = validate_volcano_options(
         p_kind=p_kind, p_threshold=p_threshold, fold_threshold=fold_threshold, zero_p_floor=zero_p_floor,
     )

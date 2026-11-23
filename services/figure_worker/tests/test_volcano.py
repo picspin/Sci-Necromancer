@@ -78,6 +78,22 @@ class VolcanoTests(unittest.TestCase):
             with self.assertRaises(DatasetError):
                 render_volcano(bad)
 
+    def test_p_value_at_threshold_counts_as_met_mirroring_the_fold_boundary(self):
+        # Classification is `p > threshold -> Other`, so p == p_threshold is "met",
+        # symmetric with the tested |log2fc| == fold_threshold boundary above.
+        data = self.data(b"ID,FC,P\nAtP,2,0.05\nAtPneg,-2,0.05\nAboveP,2,0.0500000001\n")
+        figure = _make_volcano_figure(data)
+        try:
+            labels = [artist.get_label() for artist in figure.axes[0].collections]
+            self.assertEqual(labels, ["Other", "Thresholds met / negative", "Thresholds met / positive"])
+            offsets = {artist.get_label(): sorted(map(float, artist.get_offsets()[:, 0]))
+                       for artist in figure.axes[0].collections}
+            self.assertEqual(offsets["Thresholds met / positive"], [2.0])
+            self.assertEqual(offsets["Thresholds met / negative"], [-2.0])
+            self.assertEqual(offsets["Other"], [2.0])
+        finally:
+            figure.clear()
+
     def test_threshold_classification_does_not_round_source_fold_change(self):
         data = self.data(b"ID,FC,P\nBelow,-0.99999,0.001\nAt,1,0.001\n")
         with localcontext() as context:

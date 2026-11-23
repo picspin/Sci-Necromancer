@@ -132,8 +132,16 @@ class FigureSpecTests(unittest.TestCase):
                         {**valid, "script": "x"}, {**valid, "p_threshold": {"expr": "x"}}):
             with self.subTest(options=options), self.assertRaises(DatasetError):
                 figures.render_csv_spec(payload, {**base, "volcano": options})
-        with self.assertRaises(DatasetError):
-            figures.render_csv_spec(payload, {**base, "volcano": valid, "units": {"log2fc": "raw FC", "p": "percent"}})
+        # Volcano units follow the same contract as every other template: any
+        # non-empty string <= 48 chars. The renderer never reads them (axis
+        # labels are fixed), so an alternate spelling must not be rejected.
+        result = figures.render_csv_spec(payload, {**base, "volcano": valid,
+                                                   "units": {"log2fc": "log2FC", "p": "P value"}})
+        self.assertEqual(result.template_version, "volcano-v1")
+        for units in ({"log2fc": "  ", "p": "P"}, {"log2fc": "x" * 49, "p": "P"}):
+            with self.subTest(units=units), self.assertRaises(DatasetError) as context:
+                figures.render_csv_spec(payload, {**base, "volcano": valid, "units": units})
+            self.assertEqual(context.exception.code, "invalid_figure_spec_units")
 
 
 if __name__ == "__main__":
