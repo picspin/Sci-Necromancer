@@ -57,7 +57,7 @@ describe('TypeSafe Jev figure routing contract', () => {
       rawPatientRowsProvided: false,
       rawFreeTextCellsProvided: false,
     });
-    expect(request.questions.chart_template.criteria).toHaveProperty('heatmap');
+    expect(request.questions.heatmap).toMatchObject({ type: 'noul' });
   });
 
   it.each([
@@ -79,14 +79,18 @@ describe('TypeSafe Jev figure routing contract', () => {
     ).toThrow('invalid_jev_data_figure_fields');
   });
 
-  it('accepts only a server-owned chart template and marks ambiguous results for review', () => {
+  it('accepts only implemented templates as independent advisory candidates', () => {
     const payload = {
       model: 'jev-1.13.0',
-      answers: { chart_template: choice(DATA_CHART_TEMPLATE_IDS, 'multi-panel-trend') },
+      answers: Object.fromEntries(
+        DATA_CHART_TEMPLATE_IDS.map((id) => [
+          id,
+          { type: 'noul', noul: id === 'trend' ? 0.92 : 0.1 },
+        ])
+      ),
     };
     const parsed = parseDataFigureRoutingResponse(payload);
-    expect(parsed.selected).toBe('multi-panel-trend');
-    expect(parsed.needsReview).toBe(false);
+    expect(parsed.candidates).toEqual([{ templateId: 'trend', suitability: 0.92 }]);
     expect(() =>
       parseDataFigureRoutingResponse({
         model: 'jev-1.13.0',
@@ -262,17 +266,13 @@ describe('TypeSafe Jev figure routing contract', () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it('parses unknown as a review state instead of selecting a template', () => {
-    const probabilities = Object.fromEntries(
-      [...DATA_CHART_TEMPLATE_IDS, 'unknown'].map((id) => [id, id === 'unknown' ? 0.92 : 0.008])
-    );
+  it('returns no candidates when evidence does not support any template', () => {
     const parsed = parseDataFigureRoutingResponse({
       model: 'jev-1.13.0',
-      answers: {
-        chart_template: { type: 'choice', choice: 'unknown', probabilities, confidence: 0.9 },
-      },
+      answers: Object.fromEntries(
+        DATA_CHART_TEMPLATE_IDS.map((id) => [id, { type: 'noul', noul: 0.1 }])
+      ),
     });
-    expect(parsed.selected).toBe('unknown');
-    expect(parsed.needsReview).toBe(true);
+    expect(parsed.candidates).toEqual([]);
   });
 });

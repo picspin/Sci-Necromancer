@@ -112,6 +112,8 @@ vi.mock('@/src/composables/useMembership', async () => {
   const { computed } = await vi.importActual<typeof import('vue')>('vue');
   return {
     useMembership: () => ({
+      isAuthenticated: computed(() => true),
+      status: computed(() => ({ bonusBalance: 5 })),
       jevEnabled: computed(() => true),
       jevConsent: computed(() => ({ accepted: true })),
       memberApi: { figureRoute },
@@ -122,6 +124,45 @@ vi.mock('@/src/composables/useMembership', async () => {
 const i18n = createI18n({ legacy: false, locale: 'en', messages: { en } });
 
 describe('ImageGenerationPanel provider controls', () => {
+  it('keeps the unfinished member data workflow closed in production even if the local flag is set', () => {
+    vi.stubEnv('DEV', false);
+    vi.stubEnv('VITE_BROWSER_DATA_FIGURES_ENABLED', 'true');
+    render(ImageGenerationPanel, {
+      global: {
+        plugins: [i18n],
+        stubs: {
+          ImageCanvas: true,
+          TemplateButtons: true,
+          ImageSpecsForm: true,
+          StackedImagePreview: true,
+          AbstractSelector: true,
+        },
+      },
+    });
+    expect(
+      (screen.getByRole('button', { name: 'Data charts · in development' }) as HTMLButtonElement)
+        .disabled
+    ).toBe(true);
+  });
+  it('opens the lazy local data workspace only with the development flag', async () => {
+    vi.stubEnv('VITE_BROWSER_DATA_FIGURES_ENABLED', 'true');
+    render(ImageGenerationPanel, {
+      global: {
+        plugins: [i18n],
+        stubs: {
+          DataFigureWorkspace: { template: '<div>Connected local workspace</div>' },
+          ImageCanvas: true,
+          TemplateButtons: true,
+          ImageSpecsForm: true,
+          StackedImagePreview: true,
+          AbstractSelector: true,
+        },
+      },
+    });
+    await fireEvent.click(screen.getByRole('button', { name: 'Data figures · local validation' }));
+    expect(await screen.findByText('Connected local workspace')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Generate image' })).toBeNull();
+  });
   beforeEach(() => {
     generateImage.mockReset();
     figureRoute.mockReset();

@@ -4,6 +4,7 @@ import { createJevMemberPolicy } from '../backend/_jev/memberPolicy.js';
 import { createJevGenerationWorkflow } from '../backend/_jev/generationWorkflow.js';
 import { createJevVersionStore } from '../backend/_jev/versionStore.js';
 import { handleFigureRoute } from '../backend/_jev/figureRouteHandler.js';
+import { handleMemberFigure } from '../backend/_figure/memberFigureHandler.js';
 import {
   buildJevAnalysisRequest,
   requestTypesafeJev,
@@ -237,6 +238,7 @@ function providerError(error: unknown): { error: string } {
 }
 
 export default async function handler(request: VercelRequest, response: VercelResponse) {
+  if (request.body?.action === 'data-figure') return handleMemberFigure(request, response);
   if (request.method === 'POST' && request.body?.action === 'figure-route')
     return handleFigureRoute(request, response);
   if (!prepareMemberApi(request, response))

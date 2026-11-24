@@ -1,0 +1,161 @@
+{
+  "verifiedOn": "2026-11-24",
+  "sourceCommit": "e195e0d977a1625f00ebd036809e8fe19235f5fc",
+  "status": "passed",
+  "evidence": "synthetic service, actual browser renderer",
+  "before": {
+    "requests": [
+      "plan"
+    ],
+    "supplierCalls": 1,
+    "renders": 0,
+    "debits": 0,
+    "busy": false,
+    "locked": true
+  },
+  "unknown": {
+    "requests": [
+      "plan",
+      "complete"
+    ],
+    "supplierCalls": 1,
+    "renders": 1,
+    "debits": 1,
+    "busy": false,
+    "locked": true,
+    "previewSha256": "f3db07f2d5b6ab9d6454934e17d24bc2f1640271b187a739f92c0c0a79fb9086"
+  },
+  "after": {
+    "requests": [
+      "plan",
+      "complete",
+      "status"
+    ],
+    "supplierCalls": 1,
+    "renders": 1,
+    "debits": 1,
+    "busy": false,
+    "locked": false,
+    "wallet": {
+      "bonusBalance": 0,
+      "heldBonus": 0,
+      "availableBonus": 0
+    },
+    "manifest": {
+      "dataset_sha256": "c8d9fad28c7fa0ccf9775327d12ea2856167ded2de289833eb2205a61debf095",
+      "figure_spec_sha256": "ce12412015979194c0b58fc6c8f80f913c2c504ffafedf081f9a876372561411",
+      "template_version": "grouped-bar-v1",
+      "style_id": "nature",
+      "style_version": "nature-inspired-v1",
+      "style_sha256": "027d0e3ab9bbfdfba40ecb234f6f99694bad765b7bed18c59abcd9cf77a59491",
+      "export_profile": "browser-600dpi-v1",
+      "width_mm": 178,
+      "height_mm": 100,
+      "width_px": 4204,
+      "height_px": 2362,
+      "dpi": 599.9988,
+      "source_baseline_lock_sha256": "4593a2654b96f75d245c1e4e63bb7ec7a1744b76805ac00f393d48a47407e927",
+      "baseline_lock_is_runtime_lock": false,
+      "font_sha256": "3fdf69cabf06049ea70a00b5919340e2ce1e6d02b0cc3c4b44fb6801bd1e0d22",
+      "randomness": "none",
+      "runtime_dependencies": {
+        "python": "3.14.2",
+        "matplotlib": "3.10.8",
+        "numpy": "2.4.6",
+        "pillow": "12.2.0"
+      },
+      "artifacts": [
+        {
+          "format": "png",
+          "media_type": "image/png",
+          "sha256": "7fcc603205c05cf9d6a8d6f0d1874d708e3836d9df79939d67fa888bc2092c3b",
+          "bytes": 80374
+        },
+        {
+          "format": "pdf",
+          "media_type": "application/pdf",
+          "sha256": "6f9058cd0ef0b2f8c490e89e9307d16bf33f98da0e6f8b32c7dff8556d28e808",
+          "bytes": 9554
+        },
+        {
+          "format": "svg",
+          "media_type": "image/svg+xml",
+          "sha256": "11777a23f21ce186e666b61174c7885d352cd99ad40b86c809c5db9c16ab18fd",
+          "bytes": 17616
+        }
+      ],
+      "preview_watermark": "sci-necromancer",
+      "preview_sha256": "f3db07f2d5b6ab9d6454934e17d24bc2f1640271b187a739f92c0c0a79fb9086",
+      "pyodide_version": "314.0.7",
+      "pyodide_lock_sha256": "5dc2fc119108bc148c7457dc86e7675b5c87e1cafd420b9c34c1eaef7b36c010"
+    }
+  },
+  "caption": "4204 × 2362 · 599.9988 DPI",
+  "released": {
+    "cancelled": {
+      "requests": [
+        "plan",
+        "cancel"
+      ],
+      "supplierCalls": 1,
+      "renders": 0,
+      "debits": 0,
+      "busy": false,
+      "locked": false,
+      "wallet": {
+        "bonusBalance": 1,
+        "heldBonus": 0,
+        "availableBonus": 1
+      }
+    },
+    "failed": {
+      "requests": [
+        "plan",
+        "fail"
+      ],
+      "supplierCalls": 1,
+      "renders": 1,
+      "debits": 0,
+      "busy": false,
+      "locked": false,
+      "wallet": {
+        "bonusBalance": 1,
+        "heldBonus": 0,
+        "availableBonus": 1
+      }
+    }
+  },
+  "abandoned": {
+    "requests": [
+      "plan",
+      "plan"
+    ],
+    "supplierCalls": 0,
+    "renders": 0,
+    "debits": 0,
+    "busy": false,
+    "locked": false
+  },
+  "layouts": [
+    {
+      "viewport": 320,
+      "content": 320
+    },
+    {
+      "viewport": 768,
+      "content": 768
+    },
+    {
+      "viewport": 1024,
+      "content": 1024
+    },
+    {
+      "viewport": 1440,
+      "content": 1440
+    }
+  ],
+  "errors": [],
+  "consoleIssues": [],
+  "external": [],
+  "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/158.0.0.0 Safari/537.36"
+}

@@ -1,5 +1,13 @@
 import type { MGAResearchAgentId } from '@/lib/capabilities/managedResearchCapabilities';
 import type { AcceptedMemberTextModel } from '@/lib/llm/memberTextModels';
+import type { MemberTextModel } from '@/lib/llm/memberTextModels';
+import type { FigurePlanningInput } from '@/lib/figure/figurePlanning';
+import {
+  isDataFigureRecommendations,
+  isDataFigureAssessment,
+  type DataFigureRecommendations,
+  type DataFigureAssessment,
+} from '@/lib/figure/dataFigureTemplates';
 import type {
   MemberBlindPreflight,
   MemberBlindReviewContext,
@@ -27,6 +35,17 @@ export class MemberApiError extends Error {
 }
 
 const LONG_MEMBER_REQUEST_TIMEOUT_MS = 130_000;
+
+export interface MemberFigurePlanCommand {
+  idempotencyKey: string;
+  datasetHash: string;
+  model: MemberTextModel;
+  input: FigurePlanningInput;
+  parentId?: string;
+}
+export type MemberFigureVersionCommand =
+  | { operation: 'status' | 'cancel' | 'fail'; versionId: string }
+  | { operation: 'complete'; versionId: string; specHash: string; receiptHash: string };
 
 export interface MemberStatus {
   bonusBalance: number;
@@ -140,7 +159,7 @@ export interface JevAnalysisResponse {
 }
 
 export type FigureRouteRequest =
-  | { kind: 'data-template'; input: DataFigureRoutingInput }
+  | { kind: 'data-template'; input: DataFigureRoutingInput; assessment?: true }
   | { kind: 'illustration-category'; input: IllustrationCategoryRoutingInput }
   | { kind: 'illustration-journal'; input: IllustrationJournalRoutingInput }
   | { kind: 'illustration-prompt'; input: PromptCompletenessInput }
@@ -148,7 +167,11 @@ export type FigureRouteRequest =
 
 export interface FigureRouteResponse {
   kind: FigureRouteRequest['kind'];
-  decision: FigureRoutingDecision<string> | PromptCompletenessDecision;
+  decision:
+    | FigureRoutingDecision<string>
+    | PromptCompletenessDecision
+    | DataFigureRecommendations
+    | DataFigureAssessment;
   remaining: number;
   cached: boolean;
 }
@@ -183,8 +206,13 @@ export function createMemberApiClient(options: MemberApiClientOptions) {
       if (init.signal?.aborted) abortFromCaller();
       else init.signal?.addEventListener('abort', abortFromCaller, { once: true });
       const timeout = globalThis.setTimeout(() => controller.abort(), timeoutMs);
+      const dispose = () => {
+        globalThis.clearTimeout(timeout);
+        init.signal?.removeEventListener('abort', abortFromCaller);
+        controller.abort();
+      };
       try {
-        return await fetcher(`${baseUrl}${path}`, {
+        const response = await fetcher(`${baseUrl}${path}`, {
           ...init,
           signal: controller.signal,
           headers: {
@@ -194,9 +222,10 @@ export function createMemberApiClient(options: MemberApiClientOptions) {
             ...(init.headers || {}),
           },
         });
-      } finally {
-        globalThis.clearTimeout(timeout);
-        init.signal?.removeEventListener('abort', abortFromCaller);
+        return { response, dispose };
+      } catch (error) {
+        dispose();
+        throw error;
       }
     };
 
@@ -206,14 +235,18 @@ export function createMemberApiClient(options: MemberApiClientOptions) {
     let lastTransportError: unknown;
 
     for (const [index, baseUrl] of requestBaseUrls.entries()) {
+      let attempt: Awaited<ReturnType<typeof performRequest>> | undefined;
       try {
-        let response = await performRequest(baseUrl, token);
+        attempt = await performRequest(baseUrl, token);
+        let response = attempt.response;
         if (response.status === 401 && options.refreshAccessToken && !refreshed) {
           refreshed = true;
+          attempt.dispose();
           const refreshedToken = await options.refreshAccessToken();
           if (refreshedToken) {
             token = refreshedToken;
-            response = await performRequest(baseUrl, token);
+            attempt = await performRequest(baseUrl, token);
+            response = attempt.response;
           }
         }
         if (!response.ok) {
@@ -237,6 +270,8 @@ export function createMemberApiClient(options: MemberApiClientOptions) {
       } catch (requestError) {
         if (requestError instanceof MemberApiError || init.signal?.aborted) throw requestError;
         lastTransportError = requestError;
+      } finally {
+        attempt?.dispose();
       }
     }
 
@@ -261,17 +296,54 @@ export function createMemberApiClient(options: MemberApiClientOptions) {
   }
 
   return {
+    planDataFigure: (input: MemberFigurePlanCommand, signal?: AbortSignal) =>
+      request<unknown>(
+        '/api/jev',
+        {
+          method: 'POST',
+          signal,
+          body: JSON.stringify({
+            action: 'data-figure',
+            operation: 'plan',
+            metadataConfirmed: true,
+            datasetHash: input.datasetHash,
+            model: input.model,
+            input: input.input,
+            ...(input.parentId !== undefined ? { parentId: input.parentId } : {}),
+          }),
+        },
+        { 'Idempotency-Key': input.idempotencyKey },
+        LONG_MEMBER_REQUEST_TIMEOUT_MS
+      ),
+    dataFigureVersion: (input: MemberFigureVersionCommand, signal?: AbortSignal) =>
+      request<unknown>('/api/jev', {
+        method: 'POST',
+        signal,
+        body: JSON.stringify({ action: 'data-figure', ...input }),
+      }),
     getStatus: () => request<MemberStatus>('/api/member/status'),
     getCapabilities: () =>
       request<{ capabilities: ManagedCapabilityDescriptor[] }>('/api/member/capabilities'),
-    figureRoute: async (input: FigureRouteRequest): Promise<FigureRouteResponse> => {
+    figureRoute: async (
+      input: FigureRouteRequest,
+      signal?: AbortSignal
+    ): Promise<FigureRouteResponse> => {
       const result = await request<FigureRouteResponse | { error: string }>(
         '/api/jev',
-        { method: 'POST', body: JSON.stringify({ action: 'figure-route', ...input }) },
+        { method: 'POST', body: JSON.stringify({ action: 'figure-route', ...input }), signal },
         {},
         20_000
       );
       if ('error' in result) throw new MemberApiError(result.error, 202);
+      if (
+        input.kind === 'data-template' &&
+        (result.kind !== 'data-template' ||
+          !(input.assessment
+            ? isDataFigureAssessment(result.decision)
+            : isDataFigureRecommendations(result.decision)))
+      ) {
+        throw new MemberApiError('invalid_jev_figure_response', 503);
+      }
       return result;
     },
     runCapability: (input: {

@@ -1,0 +1,129 @@
+{
+  "verifiedOn": "2026-11-01",
+  "status": "passed",
+  "mode": "mock mapping / actual Pyodide renderer",
+  "rendered": [
+    {
+      "template": "grouped-bar",
+      "style": "standard",
+      "width": 4204,
+      "height": 2362,
+      "dpi": 599.9988,
+      "dataset": "203a4bd07d747b02588f526be8c961a3aba0cf71d19ec6dc07f335a1890cdd7a",
+      "spec": "253cc52c82145288b09c636714942bda2b686e39b29926137157d9067c81bd74"
+    },
+    {
+      "template": "scatter",
+      "style": "lancet",
+      "width": 4204,
+      "height": 2362,
+      "dpi": 599.9988,
+      "dataset": "32284fb40472c64cb450043f92ba2440f2180fd200e98118096b24f40d10e442",
+      "spec": "9207929edcca8720aff402e15f9503c75cc9bdc92d8aa3dff7d6daee48218269"
+    },
+    {
+      "template": "heatmap",
+      "style": "nature",
+      "width": 4204,
+      "height": 2362,
+      "dpi": 599.9988,
+      "dataset": "96bea1bcf88c465023f1c98164acb1f70447bab0f0fd932a6795b6c7c0166103",
+      "spec": "c05abe44c54af4acdf95ad2b7e6f2c50ea64a248a544c03e80d0578f0fc7765f"
+    },
+    {
+      "template": "trend",
+      "style": "cell",
+      "width": 4204,
+      "height": 2362,
+      "dpi": 599.9988,
+      "dataset": "dbde93fd327efe6dc4d3df2767c93fbb073134de26a4a1db5db2728f326f5565",
+      "spec": "4e604430a608a704c975e62553e5bd269e23c992e4e37074c922449c985b0681"
+    },
+    {
+      "template": "dot-interval",
+      "style": "nejm",
+      "width": 4204,
+      "height": 2362,
+      "dpi": 599.9988,
+      "dataset": "ef5af87132ad5c409adca96c675dcde8fec21bb0104d501c0a115ff48b32193d",
+      "spec": "65b4a2970058306a96d31a3fe73073d24e48f962e5dffec188abf120768b7b70"
+    },
+    {
+      "template": "forest",
+      "style": "standard",
+      "width": 4204,
+      "height": 2362,
+      "dpi": 599.9988,
+      "dataset": "871513f39cf7c3c36d1af22b10d5b0ec765964ea4f565157b77f6f350fb1d382",
+      "spec": "5124476861bfcbe51c34038c00cc44d344eed1c2e1ef96f1360701d7bc6d0bd5"
+    },
+    {
+      "template": "ranked-lollipop",
+      "style": "lancet",
+      "width": 4204,
+      "height": 2362,
+      "dpi": 599.9988,
+      "dataset": "6207467d0ff628b02b160917b9fc1c12956d5810ce5b80a7d1d557f7980bb2f6",
+      "spec": "61908ea05173b980499d127a09793bd20a641b2ae24647d96088cc4aedc31fd2"
+    },
+    {
+      "template": "composition",
+      "style": "nature",
+      "width": 4204,
+      "height": 2362,
+      "dpi": 599.9988,
+      "dataset": "a4c8bf3d25c732c1eaef493c29e50e3abe32f5008e466b7747a137779c3979f9",
+      "spec": "89090e6beaa7590c1cdf54e03f73f4321347091dfee8a66423e241a246be0b85"
+    },
+    {
+      "template": "volcano",
+      "style": "cell",
+      "width": 4204,
+      "height": 2362,
+      "dpi": 599.9988,
+      "dataset": "096445a72043b461618962fc20580e08fa6a80a8e2b43a74338254fcdd6921e6",
+      "spec": "5468ee30310e67f83c9ac7f267c0a46d62c495f8fcac58584b223593d78f40ec"
+    },
+    {
+      "template": "distribution",
+      "style": "nejm",
+      "width": 4204,
+      "height": 2362,
+      "dpi": 599.9988,
+      "dataset": "e3c5c5d66927d13cddcc9348e30c95b88ec10002a2a056f9314d3d4d98b05aad",
+      "spec": "092c331a8b00b98c7721b19e8d1de5e737e10684f50fa6b2e164229fc37f3bb1"
+    },
+    {
+      "template": "radar",
+      "style": "standard",
+      "width": 4204,
+      "height": 2362,
+      "dpi": 599.9988,
+      "dataset": "2a7ca40975653c2c14ba76092b6b257871bcb1981b56f5dc9b54ca81f3b6b495",
+      "spec": "61d7e27d29d9403dd2fc44d5425935d59eb2d02e4dc6ff51ee36742e6cd8a76a"
+    }
+  ],
+  "invalidAndMissing": true,
+  "cancelAndStale": true,
+  "metadataOnly": true,
+  "layouts": [
+    {
+      "viewport": 320,
+      "content": 320
+    },
+    {
+      "viewport": 768,
+      "content": 768
+    },
+    {
+      "viewport": 1024,
+      "content": 1024
+    },
+    {
+      "viewport": 1440,
+      "content": 1440
+    }
+  ],
+  "externalRequests": [],
+  "consoleErrors": []
+}

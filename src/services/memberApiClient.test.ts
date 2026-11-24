@@ -2,6 +2,216 @@ import { describe, expect, it, vi } from 'vitest';
 import { createMemberApiClient, MemberApiError } from './memberApiClient';
 
 describe('member API client', () => {
+  it('preserves a figure settlement conflict without a cross-origin retry', async () => {
+    const fetcher = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ error: 'data_figure_receipt_conflict' }), {
+          status: 409,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      );
+    const client = createMemberApiClient({
+      baseUrl: 'https://same-origin.example.test',
+      fallbackBaseUrls: ['https://fallback.example.test'],
+      getAccessToken: async () => 'synthetic-jwt',
+      fetcher,
+    });
+    await expect(
+      client.dataFigureVersion({
+        operation: 'complete',
+        versionId: 'version',
+        specHash: 'b'.repeat(64),
+        receiptHash: 'c'.repeat(64),
+      })
+    ).rejects.toMatchObject({ code: 'data_figure_receipt_conflict', status: 409 });
+    expect(fetcher).toHaveBeenCalledOnce();
+  });
+  it('sends figure planning and lifecycle writes through one origin without leaking the idempotency key into metadata', async () => {
+    const fetcher = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ kind: 'pending', versionId: 'version' }), {
+          status: 202,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      )
+      .mockRejectedValueOnce(new TypeError('network'));
+    const client = createMemberApiClient({
+      baseUrl: 'https://same-origin.example.test',
+      fallbackBaseUrls: ['https://fallback.example.test'],
+      getAccessToken: async () => 'synthetic-jwt',
+      fetcher,
+    });
+    const input = {
+      templateId: 'distribution' as const,
+      styleId: 'nature' as const,
+      goal: 'Show values',
+      fields: [{ id: 'col_1', alias: 'value', type: 'continuous' as const, unit: 'score' }],
+    };
+    await expect(
+      client.planDataFigure({
+        idempotencyKey: 'one-task',
+        datasetHash: 'a'.repeat(64),
+        model: 'deepseek-v4.1-flash',
+        input,
+      })
+    ).resolves.toMatchObject({ kind: 'pending' });
+    expect(JSON.parse(String(fetcher.mock.calls[0][1].body))).toEqual({
+      action: 'data-figure',
+      operation: 'plan',
+      metadataConfirmed: true,
+      datasetHash: 'a'.repeat(64),
+      model: 'deepseek-v4.1-flash',
+      input,
+    });
+    expect(fetcher.mock.calls[0][1].headers).toMatchObject({ 'Idempotency-Key': 'one-task' });
+    await expect(
+      client.dataFigureVersion({
+        operation: 'complete',
+        versionId: 'version',
+        specHash: 'b'.repeat(64),
+        receiptHash: 'c'.repeat(64),
+      })
+    ).rejects.toMatchObject({ code: 'member_api_unreachable' });
+    expect(fetcher).toHaveBeenCalledTimes(2);
+    expect(
+      fetcher.mock.calls.every((call) => call[0] === 'https://same-origin.example.test/api/jev')
+    ).toBe(true);
+  });
+  it('keeps the deadline active while reading a stalled JSON body, and permits a later explicit write', async () => {
+    vi.useFakeTimers();
+    try {
+      const fetcher = vi
+        .fn()
+        .mockImplementationOnce((_url, init: RequestInit) =>
+          Promise.resolve(
+            new Response(
+              new ReadableStream({
+                start(controller) {
+                  init.signal?.addEventListener(
+                    'abort',
+                    () => controller.error(new DOMException('Aborted', 'AbortError')),
+                    { once: true }
+                  );
+                },
+              }),
+              { headers: { 'Content-Type': 'application/json' } }
+            )
+          )
+        )
+        .mockResolvedValueOnce(
+          new Response(JSON.stringify({ url: 'https://checkout.example.test' }), {
+            headers: { 'Content-Type': 'application/json' },
+          })
+        );
+      const client = createMemberApiClient({
+        baseUrl: 'https://same-origin.example.test',
+        getAccessToken: async () => 'synthetic-jwt',
+        fetcher,
+        requestTimeoutMs: 5,
+      });
+      const first = client.createCheckout(10);
+      let settled = false;
+      const observation = first.catch((e) => {
+        settled = true;
+        return e;
+      });
+      await vi.advanceTimersByTimeAsync(10);
+      expect(settled).toBe(true);
+      expect(await observation).toMatchObject({ code: 'member_api_unreachable' });
+      await expect(client.createCheckout(10)).resolves.toEqual({
+        url: 'https://checkout.example.test',
+      });
+      expect(fetcher).toHaveBeenCalledTimes(2);
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+  it('requires v3 assessment when requested, rejects a v2 downgrade and resets after transport failure', async () => {
+    const old = {
+      candidates: [{ templateId: 'distribution', suitability: 0.95 }],
+      policyVersion: 'jev-figure-routing-v1',
+      contractVersion: 'jev-data-figure-routing-v2',
+      provider: 'typesafe',
+      model: 'jev-1.13.0',
+    };
+    const decision = {
+      ...old,
+      contractVersion: 'jev-data-figure-assessment-v3',
+      assessment: { lengthAdequacy: 0.9, contentReadiness: 0.88 },
+    };
+    const reply = (d: unknown) =>
+      new Response(
+        JSON.stringify({ kind: 'data-template', decision: d, cached: false, remaining: 29 }),
+        { headers: { 'Content-Type': 'application/json' } }
+      );
+    const fetcher = vi
+      .fn()
+      .mockResolvedValueOnce(reply(old))
+      .mockRejectedValueOnce(new TypeError('network'))
+      .mockResolvedValueOnce(reply(decision));
+    const client = createMemberApiClient({
+      baseUrl: 'https://same-origin.example.test',
+      getAccessToken: async () => 'synthetic-jwt',
+      fetcher,
+    });
+    const input = {
+      kind: 'data-template' as const,
+      assessment: true as const,
+      input: { fields: [{ alias: 'col_1', type: 'continuous' as const }], goal: 'Show values' },
+    };
+    await expect(client.figureRoute(input)).rejects.toMatchObject({
+      code: 'invalid_jev_figure_response',
+    });
+    await expect(client.figureRoute(input)).rejects.toMatchObject({
+      code: 'member_api_unreachable',
+    });
+    await expect(client.figureRoute(input)).resolves.toMatchObject({ decision });
+    expect(fetcher).toHaveBeenCalledTimes(3);
+    expect(JSON.parse(String(fetcher.mock.calls[2][1].body))).toMatchObject({ assessment: true });
+  });
+  it('validates data advice at the transport boundary and propagates cancellation without replay', async () => {
+    const fetcher = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          kind: 'data-template',
+          decision: { selected: 'scatter', policyVersion: 'jev-figure-routing-v1' },
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      )
+    );
+    const client = createMemberApiClient({
+      baseUrl: 'https://api.example.test',
+      getAccessToken: async () => 'synthetic-jwt',
+      fetcher,
+    });
+    const input = {
+      kind: 'data-template' as const,
+      input: { fields: [{ alias: 'col_1', type: 'continuous' as const }], goal: 'Show values' },
+    };
+    await expect(client.figureRoute(input)).rejects.toMatchObject({
+      code: 'invalid_jev_figure_response',
+      status: 503,
+    });
+    const controller = new AbortController();
+    fetcher.mockImplementationOnce(
+      (_url, init) =>
+        new Promise((_resolve, reject) => {
+          init.signal.addEventListener(
+            'abort',
+            () => reject(new DOMException('Aborted', 'AbortError')),
+            { once: true }
+          );
+          controller.abort();
+        })
+    );
+    await expect(client.figureRoute(input, controller.signal)).rejects.toMatchObject({
+      name: 'AbortError',
+    });
+    expect(fetcher).toHaveBeenCalledTimes(2);
+  });
   it('uses the existing authenticated Jev function for figure advice without a second image request', async () => {
     const fetcher = vi.fn().mockResolvedValue(
       new Response(
