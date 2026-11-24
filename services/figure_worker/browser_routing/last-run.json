@@ -1,11 +1,13 @@
 {
-  "verifiedOn": "2026-10-30",
+  "verifiedOn": "2026-11-24",
+  "sourceCommit": "e195e0d977a1625f00ebd036809e8fe19235f5fc",
   "status": "passed",
   "evidence": "synthetic transport only; not Jev quality",
   "egress": [
     {
       "action": "figure-route",
       "kind": "data-template",
+      "assessment": true,
       "input": {
         "fields": [
           {
@@ -21,6 +23,10 @@
       }
     }
   ],
+  "assessment": {
+    "lengthAdequacy": 0.9,
+    "contentReadiness": 0.78
+  },
   "states": [
     "none",
     "malformed",
@@ -56,5 +62,7 @@
   ],
   "focus": "Choose trend · 91.00",
   "pageErrors": [],
+  "consoleIssues": [],
+  "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/158.0.0.0 Safari/537.36",
   "externalRequests": []
 }

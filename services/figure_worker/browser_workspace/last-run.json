@@ -1,4 +1,6 @@
 {
+  "verifiedOn": "2026-11-24",
+  "sourceCommit": "e195e0d977a1625f00ebd036809e8fe19235f5fc",
   "status": "passed",
   "templates": [
     {
@@ -101,7 +103,9 @@
   "recovery": true,
   "freeOriginalStillUnauthorized": true,
   "unexpectedRequests": [],
-  "consoleErrors": [],
+  "consoleIssues": [],
+  "pageErrors": [],
+  "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/158.0.0.0 Safari/537.36",
   "layout": {
     "viewport": 390,
     "content": 390

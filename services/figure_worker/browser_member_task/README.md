@@ -8,6 +8,8 @@
 4. 恢复原任务后应completed；操作仅plan→complete→status，模拟供应商/渲染/结算计数各1，零余额不能再启动。
 5. Playwright MCP可加载本目录interaction-check.js重现状态、图件和320/768/1024/1440px检查。
 
+2026-11-24 审核复测见 [last-run.json](./last-run.json)：除完成后丢响应，还测试取消、合成渲染失败释放预留，以及持续 503 时无法取得任务编号的本地放弃出口。图像尺寸/DPI、实际渲染产物的哈希以及模拟账务结果均记录在快照中；未接真实会员或供应商。
+
 2026-11-21实测：Chrome157，实际Pyodide314.0.7，固定grouped-bar合成CSV；4204×2362、599.9988DPI。确认前render/debit为0，丢响应后各1，恢复后仍各1；四档宽度无溢出，观察到page error、console warning/error、外站请求均0。评分/Jev预检由其他组件用例覆盖，此harness的元数据是固定预先确认的，不能冒充真实上游判断/真实会员完整端到端验收。
 
 本入口不在生产构建输入；无真实会话、密钥或患者数据。生产入口仍DEV门控关闭，免费原图授权文件、服务端评估绑定及跨刷新历史尚未完成，详见[状态机记录](../../../docs/specs/2026-11-21-member-figure-task-state.md)。

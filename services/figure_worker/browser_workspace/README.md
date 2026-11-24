@@ -4,6 +4,8 @@
 
 ## 复现
 
+2026-11-24 审核复测：以 [last-run.json](./last-run.json) 记录的确切代码提交完整重跑了 11 种单图及 2/3/4 面板，包括损坏 WASM 拒绝、恢复、本地取消与授权门控。下面两段保留为此前验证历史，不是当前快照的范围。
+
 2026-11-21：harness显式使用仅DEV生效的localValidation，保留手动模板执行回归；真实会员工作区默认要求Jev摘要评估，不使用该绕过选项。本轮仅额外实测单个grouped-bar，4204×2362、599.9988DPI、隐密标记正确，page error/外站请求0；以下完整11图/多面板数据为此前历史运行，不冒充本次全组合重跑。付费规划/结算及文件授权仍未接通。
 
 在根目录执行`npm ci`，然后`npm run dev -- --host 127.0.0.1 --port 4319 --strictPort --open false`。`predev`会准备固定Pyodide资源；首次构建机需联网下载锁定绘图包，随后校验本地缓存。浏览器打开`http://127.0.0.1:4319/services/figure_worker/browser_workspace/index.html`，点击合成案例、检查CSV、明确字段/单位、确认冻结方案，再渲染。

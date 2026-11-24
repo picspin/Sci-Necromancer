@@ -27,11 +27,11 @@
 
 draft严格重建可信FigureSpec并比较，拒绝额外Python/模型捏造参数、模型/版本不一致、错误哈希。界面隐式使用既有DEFAULT_MEMBER_TEXT_MODEL，后台actualModel保留且后续状态须一致。第二次用户确认后才调用本地Worker；校验数据绑定、模板/风格版本、4K宽度及>300DPI等回执元数据后再结算。
 
-特别区分两个哈希：服务端specHash是按排序JSON冻结FigureSpec的SHA-256；Python的figure_spec_sha256还包含实际数据与渲染语义，不能互换。complete发送前者，receiptHash绑定版本/前者/产物manifest，仅发送摘要，不上传CSV或图片。它仍是用户接受的不可信浏览器完成确认，不是防伪或独立绘图证明。
+特别区分两个哈希：服务端specHash是按排序JSON冻结FigureSpec的SHA-256；Python的figure_spec_sha256还包含实际数据与渲染语义，不能互换。complete发送前者；客户端的receiptHash由版本、前者及包含预览哈希的产物manifest共同派生，不上传CSV或图片。服务端校验归属、冻结规格、任务状态和幂等回执，不重新验算产物或证明浏览器实际渲染；回执是客户端自证，不是防伪证明。
 
 收到合法server completed才显示“已结算1学分”；cancel/fail/expired则按真实终态显示释放。complete丢响应先status，若已经completed直接恢复；若仍awaiting_render，重送原specHash/receiptHash，不重新调用LLM或Worker。取消竞态以服务器先到的终态为准，不能对已completed声称未扣费。渲染明确失败才fail释放；释放网络失败进入unknown，等待核对。
 
-规划请求连版本ID也未返回时，无法安全声称已取消：先中止本地等待、保留同键，提示用户恢复标识再取消。不自动重发或另开任务“修复”。账户变化/卸载清除本地状态及中止Worker，不用新账户发送旧任务操作；服务端未确认释放的预留由已有租期兜底，刷新/导航后的历史恢复仍未实现。
+规划请求连版本ID也未返回时，无法安全声称已取消：中止等待保留同键供显式恢复；持续不明时也可明确选择“仅在本地放弃任务”回到空闲，不调用服务端取消。不会自动重发或另开任务。账户变化/卸载清除本地状态及中止Worker，不用新账户发送旧任务操作；服务端未确认释放的预留由租期兜底，刷新/导航后的历史恢复仍未实现。
 
 ## 工作区接线与未完成边界
 

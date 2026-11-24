@@ -10,6 +10,8 @@ Playwright MCP 的 run-code 工具可加载本目录 `interaction-check.js`（�
 
 ## 2026-10-30 验证记录
 
+2026-11-24 审核复测：用 [last-run.json](./last-run.json) 取代此前 v2 历史快照；当前快照记录已验证提交、`assessment:true` 出站、两项 v3 合成评分及浏览器控制台结果。以下是历史记录。
+
 2026-11-21更新：当前harness改为 `assessment:true` / v3，增加长度适切性90.00、内容充分性78.00的固定合成分数，验证会员界面不展示模型名。实际Chrome157重跑interaction-check通过：原有状态/迟到结果/四档宽度和键盘检查保留，观察到page error与外站请求0。这些分数不是上游实际评测；旧last-run历史记录不冒充本次v3。完整环境、回归和部署影响见[本轮记录](../../../docs/specs/2026-11-21-member-figure-workspace.md)。
 
 - 假设：多个独立建议、精确 metadata 确认和手动选择可以接入现有工作区，同时拒绝过期结果和畸形协议，而不上传原始 CSV 或引入计费。
