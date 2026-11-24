@@ -60,6 +60,76 @@ afterEach(() => {
 });
 
 describe('data figure workspace', () => {
+  it('preserves explicit statistics when route metadata changes but invalidates the old assessment', async () => {
+    inspect.mockResolvedValue({
+      dataset_sha256: 'a'.repeat(64),
+      row_count: 2,
+      byte_count: 40,
+      columns: [
+        { id: 'col_1', name: 'Study', kind: 'text', missing_count: 0 },
+        { id: 'col_2', name: 'Estimate', kind: 'numeric', missing_count: 0 },
+      ],
+    });
+    figureRoute.mockResolvedValue({
+      kind: 'data-template',
+      decision: {
+        candidates: [{ templateId: 'forest', suitability: 0.95 }],
+        policyVersion: 'jev-figure-routing-v1',
+        contractVersion: 'jev-data-figure-assessment-v3',
+        provider: 'typesafe',
+        model: 'jev-1.13.0',
+        assessment: { lengthAdequacy: 0.9, contentReadiness: 0.88 },
+      },
+    });
+    mount();
+    await fireEvent.click(screen.getByRole('button', { name: 'Load synthetic example' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Inspect local CSV' }));
+    await screen.findByText('2 rows · 2 columns');
+    await fireEvent.update(screen.getByLabelText('Chart type'), 'forest');
+    const options = screen.getByLabelText(/Explicit statistical options/) as HTMLTextAreaElement;
+    const stats = '{"interval":{"type":"CI","ci_level":95,"effect_type":"OR"}}';
+    await fireEvent.update(options, stats);
+    const goal = screen.getByLabelText('Figure goal');
+    await fireEvent.update(goal, 'Compare effects');
+    expect(options.value).toBe(stats);
+    await fireEvent.click(
+      screen.getByLabelText('I approve sending exactly this metadata to TypeSafe')
+    );
+    await fireEvent.click(screen.getByRole('button', { name: 'Assess metadata and chart types' }));
+    await fireEvent.click(await screen.findByRole('button', { name: /Choose forest/ }));
+    expect(options.value).toBe(stats);
+    await fireEvent.update(goal, 'Compare estimated effects');
+    expect(options.value).toBe(stats);
+    expect(
+      (screen.getByRole('button', { name: /Confirm metadata and plan/ }) as HTMLButtonElement)
+        .disabled
+    ).toBe(true);
+  });
+
+  it('explains a local CSV file rejection without displaying internal error codes', async () => {
+    const mounted = mount();
+    const input = mounted.container.querySelector('input[type=file]')!;
+    Object.defineProperty(input, 'files', { value: [new File(['fake'], 'data.txt')] });
+    await fireEvent(input, new Event('change', { bubbles: true }));
+    expect((await screen.findByRole('alert')).textContent).toContain('Choose a UTF-8 .csv file');
+    expect(inspect).not.toHaveBeenCalled();
+  });
+  it.each([
+    ['figure_timeout', 'Local rendering timed out'],
+    ['figure_runtime_failed', 'The local renderer could not load'],
+  ])('keeps local data available after %s so inspection can be retried', async (code, message) => {
+    inspect.mockRejectedValueOnce(new Error(code));
+    mount();
+    await fireEvent.click(screen.getByRole('button', { name: 'Load synthetic example' }));
+    const button = screen.getByRole('button', { name: 'Inspect local CSV' }) as HTMLButtonElement;
+    await fireEvent.click(button);
+    expect((await screen.findByRole('alert')).textContent).toContain(message);
+    expect(button.disabled).toBe(false);
+    expect((screen.getByLabelText('CSV content') as HTMLTextAreaElement).value).toContain(
+      'Treatment'
+    );
+  });
+
   it('plans through the member API only after assessment, then requires confirmation and settlement', async () => {
     vi.stubGlobal('crypto', webcrypto);
     inspect.mockResolvedValue({

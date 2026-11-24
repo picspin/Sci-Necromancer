@@ -353,6 +353,13 @@ export function useMemberFigureTask(
     t.intent = 'cancel';
     await run(t, 'releasing', (current, signal) => release(t, current, signal));
   }
+  const canAbandon = computed(
+    () => state.value.phase === 'unknown' && !state.value.versionId && !busy.value
+  );
+  function abandon() {
+    // This only forgets the local task. An unknown server hold may survive until expiry.
+    if (canAbandon.value) reset();
+  }
   return {
     state: readonly(state),
     busy: readonly(busy),
@@ -361,6 +368,8 @@ export function useMemberFigureTask(
     confirm,
     recover,
     cancel,
+    canAbandon,
+    abandon,
     reset,
   };
 }

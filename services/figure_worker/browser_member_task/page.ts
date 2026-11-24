@@ -7,6 +7,7 @@ if (!import.meta.env.DEV) throw new Error('Development-only harness');
 
 createApp({
   setup() {
+    const scenario = new URLSearchParams(window.location.search).get('scenario');
     const id = '11111111-1111-4111-8111-111111111111';
     const supplierCalls = ref(0),
       debits = ref(0),
@@ -32,6 +33,11 @@ createApp({
         requests.value.push(request.operation);
         let result: unknown;
         if (request.operation === 'plan') {
+          if (scenario === 'plan-unavailable')
+            return new Response(JSON.stringify({ error: 'data_figure_planning_unavailable' }), {
+              status: 503,
+              headers: { 'Content-Type': 'application/json' },
+            });
           const cached = Boolean(plan);
           const nextKey = (init?.headers as Record<string, string>)['Idempotency-Key'];
           if (key && key !== nextKey) throw new Error('A new task key was created');
@@ -85,8 +91,8 @@ createApp({
               throw new TypeError('Synthetic response lost after commit');
             }
           }
-          if (request.operation === 'cancel' && status !== 'completed') status = 'cancelled';
-          if (request.operation === 'fail' && status !== 'completed') status = 'failed';
+          if (status === 'awaiting_render' && request.operation === 'cancel') status = 'cancelled';
+          if (status === 'awaiting_render' && request.operation === 'fail') status = 'failed';
           result = {
             version: {
               id,
@@ -116,6 +122,7 @@ createApp({
       canStart: () => debits.value === 0,
       render: async (spec, signal) => {
         ++renders.value;
+        if (scenario === 'render-failure') throw new Error('synthetic renderer failure');
         const cancel = () => session.dispose();
         signal.addEventListener('abort', cancel, { once: true });
         try {
@@ -194,6 +201,10 @@ createApp({
           },
           'Recover original task'
         ),
+        state.value.phase === 'draft' ? h('button', { onClick: task.cancel }, 'Cancel task') : null,
+        task.canAbandon.value
+          ? h('button', { onClick: task.abandon }, 'Abandon task locally')
+          : null,
         h('p', { role: 'status', 'aria-label': 'Task phase' }, state.value.phase),
         h('p', { role: 'alert' }, error.value || state.value.error || ''),
         h(
@@ -207,6 +218,8 @@ createApp({
               debits: debits.value,
               busy: task.busy.value,
               locked: task.locked.value,
+              wallet: state.value.wallet,
+              manifest: state.value.preview?.manifest,
             },
             null,
             2

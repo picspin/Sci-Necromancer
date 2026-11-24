@@ -170,6 +170,80 @@ describe('member figure task state', () => {
     );
     expect(s.render).not.toHaveBeenCalled();
   });
+  it('can abandon an unidentified plan locally without reporting a server cancellation', async () => {
+    const s = setup();
+    s.api.planDataFigure.mockRejectedValueOnce(new TypeError('network'));
+    await s.start();
+    s.task.abandon();
+    expect(s.task.state.value).toEqual({ phase: 'idle' });
+    expect(s.task.locked.value).toBe(false);
+    expect(s.api.dataFigureVersion).not.toHaveBeenCalled();
+    await s.start();
+    expect(s.task.state.value.phase).toBe('draft');
+    expect(s.api.planDataFigure.mock.calls[1][0].idempotencyKey).not.toBe(
+      s.api.planDataFigure.mock.calls[0][0].idempotencyKey
+    );
+    s.task.abandon();
+    expect(s.task.state.value.phase).toBe('draft');
+  });
+  it('exposes missing inputs without locking the task or rendering', async () => {
+    const s = setup();
+    s.api.planDataFigure.mockResolvedValueOnce({
+      kind: 'needs_input',
+      versionId: ID,
+      missing: ['fields.col_2.unit'],
+    });
+    await s.start();
+    expect(s.task.state.value).toMatchObject({
+      phase: 'needs_input',
+      missing: ['fields.col_2.unit'],
+    });
+    expect(s.task.locked.value).toBe(false);
+    expect(s.render).not.toHaveBeenCalled();
+  });
+  it('confirms a terminal plan through status without rendering or settling', async () => {
+    const s = setup();
+    s.api.planDataFigure.mockResolvedValueOnce({
+      kind: 'terminal',
+      versionId: ID,
+      status: 'expired',
+    });
+    s.api.dataFigureVersion.mockResolvedValueOnce({
+      ...s.version('expired'),
+      wallet: { bonusBalance: 1, heldBonus: 0, availableBonus: 1 },
+    });
+    await s.start();
+    expect(s.task.state.value.phase).toBe('expired');
+    expect(s.api.dataFigureVersion).toHaveBeenCalledOnce();
+    expect(s.api.dataFigureVersion).toHaveBeenCalledWith(
+      { operation: 'status', versionId: ID },
+      expect.any(AbortSignal)
+    );
+    expect(s.render).not.toHaveBeenCalled();
+  });
+  it('reconciles an already completed cached draft without rendering or charging again', async () => {
+    const s = setup();
+    const canonical = JSON.stringify(s.spec, (_key, value) =>
+      value && typeof value === 'object' && !Array.isArray(value)
+        ? Object.fromEntries(Object.entries(value).sort(([a], [b]) => a.localeCompare(b)))
+        : value
+    );
+    const hash = Buffer.from(
+      await webcrypto.subtle.digest('SHA-256', new TextEncoder().encode(canonical))
+    ).toString('hex');
+    s.api.planDataFigure.mockResolvedValueOnce({ ...s.draft, status: 'completed', cached: true });
+    s.api.dataFigureVersion.mockResolvedValueOnce(s.version('completed', hash, 'b'.repeat(64)));
+    await s.start();
+    expect(s.task.state.value.phase).toBe('completed');
+    expect(s.task.state.value.preview).toBeUndefined();
+    expect(s.api.dataFigureVersion).toHaveBeenCalledOnce();
+    expect(s.api.dataFigureVersion).toHaveBeenCalledWith(
+      { operation: 'status', versionId: ID },
+      expect.any(AbortSignal)
+    );
+    await s.task.confirm();
+    expect(s.render).not.toHaveBeenCalled();
+  });
   it.each([true, false])(
     'queries before replaying an unknown complete; committed=%s',
     async (committed) => {

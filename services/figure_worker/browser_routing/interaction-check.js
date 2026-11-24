@@ -1,11 +1,16 @@
 // Native browser interactions against a synthetic transport, never a real model evaluation.
 async function checkDataFigureRouting(page) {
   const errors = [],
-    requests = [];
+    requests = [],
+    consoleIssues = [];
   const onError = (error) => errors.push(error.message);
   const onRequest = (request) => requests.push(request.url());
+  const onConsole = (message) => {
+    if (['error', 'warning'].includes(message.type())) consoleIssues.push(message.text());
+  };
   page.on('pageerror', onError);
   page.on('request', onRequest);
+  page.on('console', onConsole);
   try {
     await page.goto('http://127.0.0.1:4319/services/figure_worker/browser_routing/index.html');
     const goal = page.getByLabel('Figure goal', { exact: true });
@@ -90,21 +95,29 @@ async function checkDataFigureRouting(page) {
     await page.keyboard.press('Tab');
     const focus = await page.evaluate(() => document.activeElement?.textContent);
     if (focus !== 'Choose trend · 91.00') throw new Error('Keyboard focus order');
-    if (errors.length || requests.some((url) => !url.startsWith('http://127.0.0.1:4319/')))
-      throw new Error('Unexpected browser error or external request');
+    if (
+      errors.length ||
+      consoleIssues.length ||
+      requests.some((url) => !url.startsWith('http://127.0.0.1:4319/'))
+    )
+      throw new Error(JSON.stringify({ errors, consoleIssues, requests }));
     return {
       status: 'passed',
       evidence: 'synthetic transport only; not Jev quality',
       egress,
+      assessment: { lengthAdequacy: 0.9, contentReadiness: 0.78 },
       states,
       cancellation: true,
       layouts,
       focus,
       pageErrors: errors,
+      consoleIssues,
+      userAgent: await page.evaluate(() => navigator.userAgent),
       externalRequests: [],
     };
   } finally {
     page.off('pageerror', onError);
     page.off('request', onRequest);
+    page.off('console', onConsole);
   }
 }

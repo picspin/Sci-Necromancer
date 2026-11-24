@@ -73,4 +73,23 @@ describe('local Worker lifetime', () => {
     );
     expect(factory).not.toHaveBeenCalled();
   });
+  it('rejects a Worker error message, disposes that Worker and permits retry', async () => {
+    const first = worker(),
+      second = worker();
+    const session = new BrowserFigureSession(
+      vi.fn().mockReturnValueOnce(first).mockReturnValueOnce(second)
+    );
+    const pending = session.inspect(new Uint8Array([1]));
+    first.onmessage?.({
+      data: { id: 1, type: 'error', code: 'figure_runtime_failed' },
+    } as MessageEvent);
+    await expect(pending).rejects.toThrow('figure_runtime_failed');
+    expect(first.terminate).toHaveBeenCalledOnce();
+    const retry = session.inspect(new Uint8Array([2]));
+    second.onmessage?.({
+      data: { id: 2, type: 'result', result: { row_count: 1 } },
+    } as MessageEvent);
+    await expect(retry).resolves.toEqual({ row_count: 1 });
+    session.dispose();
+  });
 });

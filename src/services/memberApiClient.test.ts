@@ -2,6 +2,31 @@ import { describe, expect, it, vi } from 'vitest';
 import { createMemberApiClient, MemberApiError } from './memberApiClient';
 
 describe('member API client', () => {
+  it('preserves a figure settlement conflict without a cross-origin retry', async () => {
+    const fetcher = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ error: 'data_figure_receipt_conflict' }), {
+          status: 409,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      );
+    const client = createMemberApiClient({
+      baseUrl: 'https://same-origin.example.test',
+      fallbackBaseUrls: ['https://fallback.example.test'],
+      getAccessToken: async () => 'synthetic-jwt',
+      fetcher,
+    });
+    await expect(
+      client.dataFigureVersion({
+        operation: 'complete',
+        versionId: 'version',
+        specHash: 'b'.repeat(64),
+        receiptHash: 'c'.repeat(64),
+      })
+    ).rejects.toMatchObject({ code: 'data_figure_receipt_conflict', status: 409 });
+    expect(fetcher).toHaveBeenCalledOnce();
+  });
   it('sends figure planning and lifecycle writes through one origin without leaking the idempotency key into metadata', async () => {
     const fetcher = vi
       .fn()

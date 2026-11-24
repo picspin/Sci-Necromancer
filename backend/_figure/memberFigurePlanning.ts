@@ -50,6 +50,8 @@ async function rpc(client: MemberRpcClient, name: string, args: Record<string, u
   }
   if (result.error) {
     const code = result.error.message ?? '';
+    if (name === 'finish_data_figure_plan' && code === 'invalid_data_figure_mapping')
+      throw new MemberServiceError(code, 400);
     const status =
       code === 'insufficient_bonus'
         ? 402
@@ -209,13 +211,20 @@ export async function planMemberFigure(
   }
   // A lost finish response may already have committed. Do not cancel or re-call
   // the provider: a new request can recover cached, or wait pending until expiry.
-  const result = await rpc(client, 'finish_data_figure_plan', {
-    p_id: versionId,
-    p_token: claim.token,
-    p_mapping: parsed.spec.mapping,
-    p_spec_hash: digest(parsed.spec),
-    p_actual_provider: output.provider,
-    p_actual_model: output.model,
-  });
-  return restore(result, false);
+  try {
+    const result = await rpc(client, 'finish_data_figure_plan', {
+      p_id: versionId,
+      p_token: claim.token,
+      p_mapping: parsed.spec.mapping,
+      p_spec_hash: digest(parsed.spec),
+      p_actual_provider: output.provider,
+      p_actual_model: output.model,
+    });
+    return restore(result, false);
+  } catch (error) {
+    // Only the explicit SQL validation failure proves that this finish did not write.
+    if (error instanceof MemberServiceError && error.code === 'invalid_data_figure_mapping')
+      await release().catch(() => undefined);
+    throw error;
+  }
 }

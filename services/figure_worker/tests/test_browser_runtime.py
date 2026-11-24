@@ -77,8 +77,12 @@ class BrowserRuntimeTests(unittest.TestCase):
 
     def test_source_and_injected_code_are_rejected(self):
         for payload, spec in [(PAYLOAD + b"Extra,1\n", SPEC),
-                              (PAYLOAD, dict(SPEC, python="print('not allowed')"))]:
-            with self.assertRaises(ValueError):
+                              (PAYLOAD, dict(SPEC, python="print('not allowed')")),
+                              (b"", SPEC),
+                              (PAYLOAD, []),
+                              (PAYLOAD, dict(SPEC, schema_version="other")),
+                              (PAYLOAD, dict(SPEC, dataset_sha256="a" * 64))]:
+            with self.subTest(payload=payload, spec=spec), self.assertRaises(ValueError):
                 render_preview(payload, spec)
 
     def test_original_renderer_profile_does_not_change_after_browser_run(self):

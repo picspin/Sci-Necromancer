@@ -1,4 +1,6 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it, vi } from 'vitest';
+import { FIGURE_TEMPLATE_INPUTS } from '../../lib/figure/dataFigureTemplates';
 import type { MemberRpcClient } from '../_member/memberService';
 import { planMemberFigure } from './memberFigurePlanning';
 
@@ -75,6 +77,36 @@ const provider = () =>
   }));
 
 describe('member figure planning orchestration (mock supplier)', () => {
+  it('keeps SQL mapping roles in sync with the executable template catalog', () => {
+    const sql = readFileSync('supabase/migrations/202611210001_data_figure_plan_claim.sql', 'utf8');
+    const constraint = sql.match(/kv\.key not in \(([^)]+)\)/i)?.[1];
+    const sqlRoles = Array.from((constraint ?? '').matchAll(/'([^']+)'/g), ([, role]) => role);
+    const catalogRoles = Object.values(FIGURE_TEMPLATE_INPUTS).flatMap(({ required, optional }) => [
+      ...required,
+      ...optional,
+    ]);
+    expect(new Set(sqlRoles)).toEqual(new Set(catalogRoles));
+  });
+
+  it('releases a definitively rejected finish but does not repeat the supplier call', async () => {
+    const db = database(),
+      original = db.rpc.getMockImplementation()!,
+      call = provider();
+    db.rpc.mockImplementation(async (name, args) => {
+      if (name === 'finish_data_figure_plan')
+        return { data: null, error: { message: 'invalid_data_figure_mapping' } };
+      return original(name, args);
+    });
+    await expect(planMemberFigure(db.client, command(), call)).rejects.toMatchObject({
+      code: 'invalid_data_figure_mapping',
+      status: 400,
+    });
+    await expect(planMemberFigure(db.client, command(), call)).resolves.toMatchObject({
+      kind: 'terminal',
+      status: 'failed',
+    });
+    expect(call).toHaveBeenCalledOnce();
+  });
   it('treats reordered confirmed JSON parameter keys as the same request', async () => {
     const db = database();
     const first = {

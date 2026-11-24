@@ -176,13 +176,21 @@
             {{ copy.recover }}
           </button>
           <button
-            v-if="task.locked.value"
+            v-if="task.canAbandon.value"
+            type="button"
+            class="secondary"
+            @click="task.abandon"
+          >
+            {{ copy.abandon }}
+          </button>
+          <button
+            v-else-if="task.locked.value"
             type="button"
             class="secondary"
             :disabled="task.state.value.phase === 'releasing'"
             @click="task.cancel"
           >
-            {{ copy.cancelMember }}
+            {{ task.state.value.versionId ? copy.cancelMember : copy.stopWaiting }}
           </button>
         </template>
       </div>
@@ -196,11 +204,12 @@
           {{ copy.taskStates[task.state.value.phase] }}
         </p>
         <p v-if="task.state.value.phase === 'unknown'" class="fine-print">{{ copy.unknown }}</p>
+        <p v-if="task.canAbandon.value" class="fine-print" role="status">{{ copy.abandonHint }}</p>
         <p v-if="error || task.state.value.error" role="alert" class="error">
-          {{ copy.error }} {{ error || task.state.value.error }}
+          {{ copy.error }} {{ errorMessage(error || task.state.value.error || '') }}
         </p>
         <p v-if="task.state.value.missing?.length" role="status">
-          {{ task.state.value.missing.join(', ') }}
+          {{ task.state.value.missing.map(missingLabel).join(zh ? '；' : '; ') }}
         </p>
         <figure v-if="outputPreview">
           <img :src="`data:image/png;base64,${outputPreview.preview}`" :alt="copy.previewAlt" />
@@ -285,10 +294,6 @@ function invalidateRoutingPlan() {
   if (canStart.value) preview.value = null;
   assessedTemplate.value = null;
   assessedMetadata.value = null;
-  importedPlan.value = '';
-  mapping.value = {};
-  units.value = {};
-  optionsText.value = '';
 }
 function selectRoutingTemplate(selection: {
   template: FigureTemplate;
@@ -343,8 +348,11 @@ const copy = computed(() =>
         egress: '会员规划实际发送的摘要',
         recover: '恢复原任务 · 不新建请求',
         cancelMember: '取消当前任务',
-        unknown:
-          '结果尚不确定，请恢复原任务核对。不会自动换键重开；已有预览不代表结算成功。任务编号未返回时须先恢复再确认取消。',
+        stopWaiting: '停止等待，保留恢复选项',
+        abandon: '仅在本地放弃任务',
+        abandonHint:
+          '还没有任务编号。仅本地放弃不会取消服务端任务；如果已有预留，会在租约到期后释放。',
+        unknown: '结果尚不确定，请尝试恢复原任务核对。不会自动换键重开；已有预览不代表结算成功。',
         taskStates: {
           planning: '正在规划 · 已锁定本次请求',
           pending: '原任务处理中 · 可稍后恢复',
@@ -422,8 +430,12 @@ const copy = computed(() =>
         egress: 'Exact member planning metadata',
         recover: 'Recover original task · no new request',
         cancelMember: 'Cancel current task',
+        stopWaiting: 'Stop waiting and keep recovery available',
+        abandon: 'Abandon task locally',
+        abandonHint:
+          'No task ID was returned. Abandoning locally does not cancel the server task; any active reservation will expire.',
         unknown:
-          'The result is uncertain. Recover the original task to check; do not start with a new key. A preview is not settlement confirmation. If the task ID was not returned, recover it before confirming cancellation.',
+          'The result is uncertain. Try recovering the original task. No new task starts automatically, and a preview is not settlement confirmation.',
         taskStates: {
           planning: 'Planning · request locked',
           pending: 'Original task pending · recover later',
@@ -463,6 +475,93 @@ const copy = computed(() =>
           'The current font does not support some labels. Use supported Latin characters; missing glyphs are not silently rendered.',
       }
 );
+function errorMessage(code: string) {
+  const messages: Record<string, readonly [string, string]> = {
+    invalid_csv_file: [
+      '请选择可读取的 UTF-8 .csv 文件。',
+      'Choose a UTF-8 .csv file that can be read.',
+    ],
+    invalid_csv_size: ['CSV 不能超过 10 MiB，请缩小文件再试。', 'Use a CSV no larger than 10 MiB.'],
+    figure_timeout: [
+      '本地绘图超时，请用较小的数据集重试。',
+      'Local rendering timed out. Try a smaller dataset.',
+    ],
+    figure_runtime_failed: [
+      '本地绘图运行时加载失败，请刷新后重试。',
+      'The local renderer could not load. Reload and try again.',
+    ],
+    invalid_figure_spec_fields: [
+      '绘图方案含不支持的字段，请核对 JSON。',
+      'The figure plan contains unsupported fields. Check its JSON.',
+    ],
+    data_figure_render_failed: [
+      '生成失败，请检查数据与冻结方案。',
+      'Rendering failed. Check the data and frozen plan.',
+    ],
+    insufficient_bonus: [
+      '可用学分不足，请确认余额与预留后重试。',
+      'Not enough available credits. Check your balance and reservations.',
+    ],
+    data_figures_disabled: [
+      '会员数据图服务暂未开放。',
+      'The member data figure service is not enabled.',
+    ],
+    data_figure_busy: [
+      '已有任务预留学分，请等待该预留释放。',
+      'An existing task has a reservation. Wait for it to be released.',
+    ],
+    data_figure_rate_limited: ['请求过多，请稍后重试。', 'Too many requests. Try again later.'],
+    data_figure_unavailable: [
+      '会员绘图暂时不可用，请稍后重试。',
+      'Member figures are temporarily unavailable. Try again later.',
+    ],
+    data_figure_planning_unavailable: [
+      '规划暂不可用，请稍后恢复原任务。',
+      'Planning is unavailable. Try recovering the original task later.',
+    ],
+    data_figure_request_unavailable: [
+      '请求未确认，请检查网络并恢复原任务。',
+      'The request was not confirmed. Check your connection and recover the original task.',
+    ],
+    member_api_unreachable: [
+      '会员服务未响应，请检查网络并恢复原任务。',
+      'The member service did not respond. Check your connection and recover the original task.',
+    ],
+    invalid_data_figure_request: [
+      '请检查已确认的字段和统计参数。',
+      'Check the confirmed fields and statistical options.',
+    ],
+    invalid_data_figure_mapping: [
+      '字段映射未通过校验，请核对字段类型和统计选项。',
+      'The mapping was rejected. Check field types and statistical options.',
+    ],
+    invalid_data_figure_response: [
+      '无法核实任务响应，请稍后恢复。',
+      'The response could not be verified. Try recovering the task later.',
+    ],
+    data_figure_recover_identifier_before_cancel: [
+      '已停止等待，尚不能确认服务端取消。',
+      'Stopped waiting. Server cancellation is not confirmed.',
+    ],
+  };
+  if (code.includes('glyph')) return copy.value.unsupported;
+  return Object.hasOwn(messages, code)
+    ? messages[code][zh.value ? 0 : 1]
+    : zh.value
+      ? '请检查 CSV、字段及统计选项，或稍后重试。'
+      : 'Check the CSV, fields and statistical options, or try again later.';
+}
+function missingLabel(path: string) {
+  const [section, name, key] = path.split('.');
+  if (section === 'fields') {
+    if (key === 'unit') return zh.value ? `${name} 的单位` : `Unit for ${name}`;
+    return zh.value ? `${name} 的字段类型` : `Field type for ${name}`;
+  }
+  if (section === 'mapping')
+    return zh.value ? `为 ${name} 选择一列` : `Choose a column for ${name.replaceAll('_', ' ')}`;
+  const option = (key ?? name).replaceAll('_', ' ');
+  return zh.value ? `在统计选项中补全 ${option}` : `Supply ${option} in the statistical options`;
+}
 const session = new BrowserFigureSession();
 const csvText = ref('');
 let payload: Uint8Array | null = null;
@@ -664,8 +763,12 @@ async function loadFile(event: Event) {
   busy.value = true;
   stage.value = 'inspecting';
   try {
-    if (!/\.csv$/i.test(file.name) || file.size > 10 * 1024 * 1024)
-      throw new Error('invalid_csv_size');
+    if (!/\.csv$/i.test(file.name)) throw new Error('invalid_csv_file');
+    if (file.size > 10 * 1024 * 1024) {
+      csvText.value = '';
+      error.value = 'invalid_csv_size';
+      return;
+    }
     const bytes = await file.arrayBuffer();
     if (run === operation && props.canRender) {
       csvText.value = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(bytes);
@@ -727,8 +830,7 @@ async function renderPreview() {
     if (run === operation) preview.value = result;
   } catch (e) {
     if (run === operation) {
-      const code = e instanceof Error ? e.message : 'figure_runtime_failed';
-      error.value = code.includes('glyph') ? copy.value.unsupported : code;
+      error.value = e instanceof Error ? e.message : 'figure_runtime_failed';
     }
   } finally {
     if (run === operation) busy.value = false;

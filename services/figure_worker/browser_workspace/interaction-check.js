@@ -1,12 +1,15 @@
 // Run with the Playwright MCP run-code tool against the loopback Vite harness.
 async function checkDataFigureWorkspace(page) {
   const requests = [],
-    errors = [];
+    consoleIssues = [],
+    pageErrors = [];
   const onRequest = (request) => requests.push(request.url());
+  const onError = (error) => pageErrors.push(error.message);
   const onConsole = (message) => {
-    if (message.type() === 'error') errors.push(message.text());
+    if (['error', 'warning'].includes(message.type())) consoleIssues.push(message.text());
   };
   page.on('request', onRequest);
+  page.on('pageerror', onError);
   page.on('console', onConsole);
   try {
     await page.goto('http://127.0.0.1:4319/services/figure_worker/browser_workspace/index.html');
@@ -22,8 +25,11 @@ async function checkDataFigureWorkspace(page) {
         route.fulfill({ status: 200, body: 'intentionally corrupted synthetic test asset' })
       );
     await page.getByRole('button', { name: 'Inspect local CSV', exact: true }).click();
-    await page.getByRole('alert').filter({ hasText: 'figure_runtime_failed' }).waitFor();
-    await page.context().unroute(brokenCore);
+    try {
+      await page.getByRole('alert').filter({ hasText: 'local renderer could not load' }).waitFor();
+    } finally {
+      await page.context().unroute(brokenCore);
+    }
     await page.getByRole('button', { name: 'Inspect local CSV', exact: true }).click();
     await page.getByText('2 rows · 2 columns', { exact: true }).waitFor();
     await page.getByRole('combobox', { name: 'category', exact: true }).selectOption('col_1');
@@ -74,7 +80,7 @@ async function checkDataFigureWorkspace(page) {
     await page
       .getByRole('button', { name: 'Render local validation preview', exact: true })
       .click();
-    await page.getByRole('alert').filter({ hasText: 'invalid_figure_spec_fields' }).waitFor();
+    await page.getByRole('alert').filter({ hasText: 'contains unsupported fields' }).waitFor();
     await page.getByRole('textbox', { name: 'Complete FigureSpec JSON', exact: true }).fill('');
     await page
       .getByRole('checkbox', { name: 'I confirm the fields, units and frozen plan', exact: true })
@@ -275,7 +281,8 @@ async function checkDataFigureWorkspace(page) {
     );
     if (unexpected.length || requests.some((url) => url.includes('/api/')))
       throw new Error('Unexpected external/API request');
-    if (errors.length) throw new Error('Browser console errors');
+    if (consoleIssues.length || pageErrors.length)
+      throw new Error(JSON.stringify({ consoleIssues, pageErrors }));
     return {
       status: 'passed',
       templates,
@@ -287,13 +294,16 @@ async function checkDataFigureWorkspace(page) {
       recovery: true,
       freeOriginalStillUnauthorized: true,
       unexpectedRequests: unexpected,
-      consoleErrors: errors,
+      consoleIssues,
+      pageErrors,
+      userAgent: await page.evaluate(() => navigator.userAgent),
       layout,
       first: record,
       recovered,
     };
   } finally {
     page.off('request', onRequest);
+    page.off('pageerror', onError);
     page.off('console', onConsole);
   }
 }
